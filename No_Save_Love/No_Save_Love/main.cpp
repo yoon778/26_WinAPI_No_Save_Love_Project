@@ -107,6 +107,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom); 
         SelectObject(mDC, (HBITMAP)hBitmap);
 
+        // 배경 흰색으로 지우기
+        FillRect(mDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
         
         // mDC로 그리기 하기!!!
         g_gameManager.Render(mDC);

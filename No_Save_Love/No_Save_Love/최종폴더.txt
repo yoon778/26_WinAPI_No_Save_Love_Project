@@ -5,7 +5,7 @@ Project
 ├─ Core
 │   ├─ GameManager.h        어떤 장면을 실행할지 결정함
 │   ├─ GameManager.cpp
-│   ├─ IScene.h           
+│   ├─ IScene.h             장면에 필요한 필수 모음집  
 │   ├─ SceneManager.h       장면 전환 실행
 │   ├─ SceneManager.cpp
 │   ├─ InputManager.h       키보드 마우스 입력 정리
