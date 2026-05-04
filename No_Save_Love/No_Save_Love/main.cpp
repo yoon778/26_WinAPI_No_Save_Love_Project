@@ -1,21 +1,16 @@
-#include <windows.h>
+﻿#include <windows.h>
 #include <tchar.h>
 #include <random>
 using namespace std;
-
 // 기본 창 설정
 int location_x = 100; // 창 위치
 int location_y = 80;
 int size_w = 1920; //창 크기
 int size_h = 1080;
 
-random_device rd;
-mt19937 gen(rd());
-uniform_int_distribution<int> dist_x(0, 600);
-
 HINSTANCE g_hinst;
 LPCTSTR lpszClass = L"My Window Class";
-LPCTSTR lpszWindowName = L"windows program 2_10";
+LPCTSTR lpszWindowName = L"NO_SAVE_LOVE";
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM Wparam, LPARAM IPARAM);
 
@@ -53,54 +48,68 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdPa
     return Message.wParam;
 }
 
+//헤더 정리=========================================================
+//윤서
+#include "GameManager.h"  // 어떤 장면을 실행할지 결정함
+
+
+
+//새누
+
+
+
+
+// 선언 정리=========================================================
+//윤서
+GameManager g_gameManager;
+
+
+
+
+//새누
+
+
+
+//===================================================================
+
+
+
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { 
     HDC hDC, mDC;
     HBITMAP hBitmap;
     RECT rt;
-
-
     switch (uMsg) {
     case WM_CREATE: { 
+        g_gameManager.Initialize(hWnd);
 
-        SetTimer(hWnd, 0, 100, NULL);
-        InvalidateRect(hWnd, NULL, TRUE);  
-        break;
-    }
-    case WM_KEYDOWN: 
-    {
-        InvalidateRect(hWnd, NULL, TRUE);  
-        break;
+
+        return 0;
     }
 
     case WM_LBUTTONDOWN: 
     {
-        int mx = LOWORD(lParam);
-        int my = HIWORD(lParam);
-        InvalidateRect(hWnd, NULL, TRUE);  
-        break;
+        int mouseX = LOWORD(lParam);
+        int mouseY = HIWORD(lParam);
+
+        g_gameManager.OnMouseClick(mouseX, mouseY);
+        return 0;
     }
-    case WM_LBUTTONUP: 
-    {
-        InvalidateRect(hWnd, NULL, TRUE);  
-        break;
-    }
-    case WM_TIMER: {
-        
-        break;
-    }
+
+
 
     case WM_PAINT: 
     {
         PAINTSTRUCT ps;
         GetClientRect(hWnd, &rt);
-        HDC hDC = BeginPaint(hWnd, &ps);
+        hDC = BeginPaint(hWnd, &ps);
         mDC = CreateCompatibleDC(hDC);
         hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom); 
         SelectObject(mDC, (HBITMAP)hBitmap);
 
-
-
-
+        
+        // mDC로 그리기 하기!!!
+        g_gameManager.Render(mDC);
 
 
 
@@ -112,12 +121,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         DeleteDC(mDC); 
         DeleteObject(hBitmap);
         EndPaint(hWnd, &ps);
-        break;
+        return 0;
     }
 
     case WM_DESTROY:
-        PostQuitMessage(0); // 종료
-        break;
+
+        g_gameManager.Shutdown();
+
+
+        PostQuitMessage(0); 
+        return 0;
     }
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
