@@ -1,0 +1,45 @@
+Project
+│
+├─ main.cpp
+│
+├─ Core
+│   ├─ GameManager.h
+│   ├─ GameManager.cpp
+│   ├─ IScene.h
+│   ├─ SceneManager.h
+│   ├─ SceneManager.cpp
+│   ├─ InputManager.h
+│   ├─ InputManager.cpp
+│   ├─ RenderManager.h
+│   ├─ RenderManager.cpp
+│   ├─ TimerManager.h
+│   ├─ TimerManager.cpp
+│   ├─ ResourceManager.h
+│   └─ ResourceManager.cpp
+│
+├─ Scenes
+│   ├─ StoryScene.h
+│   ├─ StoryScene.cpp
+│   ├─ ChoiceScene.h
+│   ├─ ChoiceScene.cpp
+│   ├─ TitleScene.h
+│   ├─ TitleScene.cpp
+│   ├─ MiniGameScene.h
+│   ├─ MiniGameScene.cpp
+│   ├─ ResultScene.h
+│   ├─ ResultScene.cpp
+│   ├─ EndingScene.h
+│   └─ EndingScene.cpp
+│
+├─ Systems
+│   ├─ DialogueSystem.h
+│   ├─ DialogueSystem.cpp
+│   ├─ ChoiceSystem.h
+│   ├─ ChoiceSystem.cpp
+│   ├─ AffectionSystem.h
+│   └─ AffectionSystem.cpp
+│
+└─ Assets
+    ├─ Backgrounds
+    ├─ Characters
+    └─ UI
