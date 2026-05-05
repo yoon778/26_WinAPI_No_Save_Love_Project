@@ -3,278 +3,226 @@
 bool GameManager::Initialize(HWND hWnd)
 {
     m_hWnd = hWnd;
-
-    // 임시 대사 데이터
-    DialogueLine_info make_dialogue;
-    make_dialogue.speaker = L"한세아";
-    make_dialogue.text = L"안녕!";
-    dialogues.push_back(make_dialogue);
-    make_dialogue.speaker = L"윤서";
-    make_dialogue.text = L"아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아아앙아아!";
-    dialogues.push_back(make_dialogue);
-
-
-    m_currentDialogueIndex = 0;
-
+    now_game_mode = game_mode_info::Dialogue;
+    characters = {
+        CharacterInfo{ L"한세아", 0 },
+        CharacterInfo{ L"유하린", 0 },
+        CharacterInfo{ L"서이린", 0 }
+    };
+    storyScene.Initialize();
     return true;
 }
 
 void GameManager::Shutdown()
 {
-    
-    dialogues.clear();
+    storyScene.Shutdown();
+
     m_hWnd = nullptr;
 }
 
 void GameManager::OnMouseClick(int x, int y)
 {
-    switch (now_game_mode) {
-        case game_mode_info::Dialogue: {
-            if (m_currentDialogueIndex < static_cast<int>(dialogues.size()) - 1)
+    switch (now_game_mode)
+    {
+        case game_mode_info::Dialogue:
+        {
+            storyScene.OnMouseClick(x, y);
+
+            // 대사 끝나면 선택으로 이동
+            if (storyScene.IsFinished())
             {
-                m_currentDialogueIndex++;
-            }
-            else {
                 now_game_mode = game_mode_info::Choice;
             }
-            break;
-        }
-        case game_mode_info::Choice: {
 
-            POINT mousePoint = { x, y };
-            if (PtInRect(&choiceHitBox[0], mousePoint)) // 한세아 선택
-            {
-                selectedCharacter = 0;
-            }
-            else if (PtInRect(&choiceHitBox[1], mousePoint)) // 유하린
-            {
-                selectedCharacter = 1;
-            }
-            else if (PtInRect(&choiceHitBox[2], mousePoint)) // 서이린
-            {
-                selectedCharacter = 2;
-                
-            }
-            now_game_mode = game_mode_info::Result;
             break;
         }
-        
+
+        case game_mode_info::Choice:
+        {
+            // 선택지 모드에서는 GameManager가 선택지를 처리한다.
+            HandleChoiceClick(x, y);
+            break;
+        }
+
+        case game_mode_info::Result:
+        {
+            // 결과 모드 클릭 처리
+            HandleResultClick();
+            break;
+        }
     }
-    
-    
 
     InvalidateRect(m_hWnd, nullptr, TRUE);
 }
 
+void GameManager::HandleChoiceClick(int x, int y)
+{
+    POINT mousePoint = { x, y };
+    for (int i = 0; i < HEROINE_COUNT; i++)
+    {
+        if (PtInRect(&choiceHitBox[i], mousePoint))
+        {
+            selectedCharacter = i;
+            characters[selectedCharacter].affection += choiceAffectionValue;
+
+            if (characters[selectedCharacter].affection > 100)
+            {
+                characters[selectedCharacter].affection = 100;
+            }
+
+            now_game_mode = game_mode_info::Result;
+
+            break;
+        }
+    }
+}
+
+void GameManager::HandleResultClick()
+{
+    // 다음 스토리로 이동
+}
+
 void GameManager::Render(HDC hDC)
 {
-    if (dialogues.empty())
+    switch (now_game_mode)
+    {
+    case game_mode_info::Dialogue:
+    {
+        storyScene.Render(hDC);
+        break;
+    }
+
+    case game_mode_info::Choice:
+    {
+        RenderChoice(hDC);
+        break;
+    }
+
+    case game_mode_info::Result:
+    {
+        RenderResult(hDC);
+        break;
+    }
+    }
+}
+
+void GameManager::RenderChoice(HDC hDC)
+{
+    HBRUSH whiteBrush = CreateSolidBrush(RGB(245, 245, 245));
+    HPEN bluePen = CreatePen(PS_SOLID, 5, RGB(70, 110, 230));
+
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, whiteBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, bluePen));
+
+    // 선택지 박스를 그린다.
+    Polygon(hDC, choiceBox[0], 4);
+    Polygon(hDC, choiceBox[1], 4);
+    Polygon(hDC, choiceBox[2], 4);
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+
+    DeleteObject(whiteBrush);
+    DeleteObject(bluePen);
+
+    // 선택지 텍스트를 출력한다.
+    TextOutW(hDC, 760, 245, L"한세아", lstrlenW(L"한세아"));
+    TextOutW(hDC, 760, 445, L"유하린", lstrlenW(L"유하린"));
+    TextOutW(hDC, 760, 690, L"서이린", lstrlenW(L"서이린"));
+}
+
+void GameManager::RenderResult(HDC hDC)
+{
+    // 선택된 캐릭터가 없거나 범위를 벗어나면 출력하지 않는다.
+    if (selectedCharacter < 0 || selectedCharacter >= HEROINE_COUNT)
     {
         return;
     }
-    switch (now_game_mode) {
-        case game_mode_info::Dialogue: {
-            SpeakerStyle font_style = {
-            RGB(230, 220, 255),
-            RGB(245, 245, 245),
-            RGB(210, 190, 255),
-            RGB(80, 70, 120)
-            };
 
-            if (dialogues[m_currentDialogueIndex].speaker == L"한세아")
-            {
-                font_style = hansea_font_style;
-            }
-            else if (dialogues[m_currentDialogueIndex].speaker == L"유하린")
-            {
-                font_style = yuharin_font_style;
-            }
-            else if (dialogues[m_currentDialogueIndex].speaker == L"서이린")
-            {
-                font_style = seoirin_font_style;
-            }
+    std::wstring resultText =
+        characters[selectedCharacter].name + L"를 선택했습니다.";
 
-            const std::wstring& current_speaker = dialogues[m_currentDialogueIndex].speaker;
-            const std::wstring& current_text = dialogues[m_currentDialogueIndex].text;
+    std::wstring affectionUpText =
+        characters[selectedCharacter].name +
+        L" 호감도 +" +
+        std::to_wstring(choiceAffectionValue);
 
-            // 폰트 생성
-            HFONT dialogueFont = CreateFontW(42,0, 0, 0, 600,FALSE,FALSE,FALSE, HANGEUL_CHARSET, OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_NATURAL_QUALITY,DEFAULT_PITCH | FF_DONTCARE,L"맑은 고딕");
+    std::wstring currentAffectionText =
+        L"현재 호감도: " +
+        std::to_wstring(characters[selectedCharacter].affection);
 
-            HFONT oldFont = (HFONT)SelectObject(hDC, dialogueFont);
+    // 결과 출력용 폰트를 만든다.
+    HFONT resultFont = CreateFontW(
+        42,
+        0,
+        0,
+        0,
+        600,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
 
-            // 글자 배경 투명
-            SetBkMode(hDC, TRANSPARENT);
+    // 만든 폰트를 적용하고 기존 폰트를 저장한다.
+    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, resultFont));
 
-            // 대화창 배경용 브러시
-            HBRUSH boxBrush = CreateSolidBrush(RGB(20, 20, 25));
-            HBRUSH oldBrush = (HBRUSH)SelectObject(hDC, boxBrush);
+    // 글자 배경을 투명하게 한다.
+    SetBkMode(hDC, TRANSPARENT);
 
-            // 대화창 테두리용 펜
-            HPEN boxPen = CreatePen(PS_SOLID, 2, font_style.outline);
-            HPEN oldPen = (HPEN)SelectObject(hDC, boxPen);
+    HPEN boxPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, boxPen));
 
-            // 대화창
-            RoundRect(
-                hDC,
-                dialogue_box.left,
-                dialogue_box.top,
-                dialogue_box.right,
-                dialogue_box.bottom,
-                20,
-                20
-            );
+    // 결과창을 그린다.
+    RoundRect(
+        hDC,
+        dialogueBox.left,
+        dialogueBox.top,
+        dialogueBox.right,
+        dialogueBox.bottom,
+        20,
+        20
+    );
 
-            // 위쪽 포인트 라인
-            HPEN linePen = CreatePen(PS_SOLID, 3, font_style.accent);
-            SelectObject(hDC, linePen);
+    RECT resultRect1 = { 520, 860, 1600, 910 };
+    RECT resultRect2 = { 520, 915, 1600, 965 };
+    RECT resultRect3 = { 520, 970, 1600, 1020 };
 
-            MoveToEx(hDC, 0, lineY, nullptr);
-            LineTo(hDC, 1920, lineY);
+    SetTextColor(hDC, RGB(0, 0, 0));
 
-            // 이름 출력
-            SetTextColor(hDC, font_style.name_color);
-            DrawTextW(
-                hDC,
-                current_speaker.c_str(),
-                -1,
-                &name_box,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE
-            );
+    // 선택 결과를 출력한다.
+    DrawTextW(
+        hDC,
+        resultText.c_str(),
+        -1,
+        &resultRect1,
+        DT_LEFT | DT_TOP | DT_SINGLELINE
+    );
 
-            // 대사 출력
-            SetTextColor(hDC, font_style.text_color);
-            DrawTextW(
-                hDC,
-                current_text.c_str(),
-                -1,
-                &text_rect,
-                DT_LEFT | DT_TOP | DT_WORDBREAK
-            );
+    // 호감도 증가량을 출력한다.
+    DrawTextW(
+        hDC,
+        affectionUpText.c_str(),
+        -1,
+        &resultRect2,
+        DT_LEFT | DT_TOP | DT_SINGLELINE
+    );
 
-            // GDI 객체 정리
-            SelectObject(hDC, oldPen);
-            SelectObject(hDC, oldBrush);
-            SelectObject(hDC, oldFont);
-
-            DeleteObject(linePen);
-            DeleteObject(boxPen);
-            DeleteObject(boxBrush);
-            DeleteObject(dialogueFont);
-            break;
-        }
-        case game_mode_info::Choice: {
-            HBRUSH whiteBrush = CreateSolidBrush(RGB(245, 245, 245));
-            HPEN bluePen = CreatePen(PS_SOLID, 5, RGB(70, 110, 230));
-
-            HBRUSH oldBrush = (HBRUSH)SelectObject(hDC, whiteBrush);
-            HPEN oldPen = (HPEN)SelectObject(hDC, bluePen);
-
-            Polygon(hDC, shoiceBox[0], 4);
-            Polygon(hDC, shoiceBox[1], 4);
-            Polygon(hDC, shoiceBox[2], 4);
-
-            SelectObject(hDC, oldBrush);
-            SelectObject(hDC, oldPen);
-
-            DeleteObject(whiteBrush);
-            DeleteObject(bluePen);
-
-            TextOut(hDC, 760, 245, L"한세아", lstrlen(L"한세아"));
-            TextOut(hDC, 760, 445, L"유하린", lstrlen(L"유하린"));
-            TextOut(hDC, 760, 690, L"서이린", lstrlen(L"서이린"));
-            break;
-        }
-        case game_mode_info::Result: {
-
-            switch (selectedCharacter) {
-                case 0: {
-                    HFONT dialogueFont = CreateFontW(42, 0, 0, 0, 600, FALSE, FALSE, FALSE, HANGEUL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"맑은 고딕");
-                    HFONT oldFont = (HFONT)SelectObject(hDC, dialogueFont);
-                    HPEN boxPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
-                    HPEN oldPen = (HPEN)SelectObject(hDC, boxPen);
-
-                    // 대화창
-                    RoundRect(
-                        hDC,
-                        dialogue_box.left,
-                        dialogue_box.top,
-                        dialogue_box.right,
-                        dialogue_box.bottom,
-                        20,
-                        20
-                    );
-                    SetTextColor(hDC, RGB(0, 0, 0));
-                    DrawTextW(
-                        hDC,
-                        L"한세아를 선택했습니다",
-                        -1,
-                        &text_rect,
-                        DT_LEFT | DT_TOP | DT_WORDBREAK
-                    );
-                    DeleteObject(boxPen);
-                    DeleteObject(dialogueFont);
-                    break;
-                }
-                case 1: {
-                    HFONT dialogueFont = CreateFontW(42, 0, 0, 0, 600, FALSE, FALSE, FALSE, HANGEUL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"맑은 고딕");
-                    HFONT oldFont = (HFONT)SelectObject(hDC, dialogueFont);
-                    HPEN boxPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
-                    HPEN oldPen = (HPEN)SelectObject(hDC, boxPen);
-
-                    // 대화창
-                    RoundRect(
-                        hDC,
-                        dialogue_box.left,
-                        dialogue_box.top,
-                        dialogue_box.right,
-                        dialogue_box.bottom,
-                        20,
-                        20
-                    );
-                    SetTextColor(hDC, RGB(0, 0, 0));
-                    DrawTextW(
-                        hDC,
-                        L"유하린을 선택했습니다",
-                        -1,
-                        &text_rect,
-                        DT_LEFT | DT_TOP | DT_WORDBREAK
-                    );
-                    DeleteObject(boxPen);
-                    DeleteObject(dialogueFont);
-                    break;
-                }
-                case 2: {
-                    HFONT dialogueFont = CreateFontW(42, 0, 0, 0, 600, FALSE, FALSE, FALSE, HANGEUL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"맑은 고딕");
-                    HFONT oldFont = (HFONT)SelectObject(hDC, dialogueFont);
-                    HPEN boxPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
-                    HPEN oldPen = (HPEN)SelectObject(hDC, boxPen);
-
-                    // 대화창
-                    RoundRect(
-                        hDC,
-                        dialogue_box.left,
-                        dialogue_box.top,
-                        dialogue_box.right,
-                        dialogue_box.bottom,
-                        20,
-                        20
-                    );
-                    SetTextColor(hDC, RGB(0, 0, 0));
-                    DrawTextW(
-                        hDC,
-                        L"서이린를 선택했습니다",
-                        -1,
-                        &text_rect,
-                        DT_LEFT | DT_TOP | DT_WORDBREAK
-                    );
-                    DeleteObject(boxPen);
-                    DeleteObject(dialogueFont);
-                    break;
-                }
-            }
-            break;
-        }
-    }
-    
+    // 현재 호감도를 출력한다.
+    DrawTextW(
+        hDC,
+        currentAffectionText.c_str(),
+        -1,
+        &resultRect3,
+        DT_LEFT | DT_TOP | DT_SINGLELINE
+    );
+    SelectObject(hDC, oldPen);
+    SelectObject(hDC, oldFont);
+    DeleteObject(boxPen);
+    DeleteObject(resultFont);
 }
-

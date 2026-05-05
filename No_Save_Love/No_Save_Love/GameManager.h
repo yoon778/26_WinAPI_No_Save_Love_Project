@@ -2,108 +2,102 @@
 
 #include <windows.h>
 #include <string>
-#include <vector>
+#include <array>
+
+#include "Scenes/StoryScene.h"
 
 class GameManager
 {
 public:
-    // 게임 시작
     bool Initialize(HWND hWnd);
-
-    // 게임 종료
     void Shutdown();
-
-    // 마우스 클릭이 발생했을 때
     void OnMouseClick(int x, int y);
-
-    // 화면을 그릴 때
     void Render(HDC hdc);
-
-   
 private:
-    // 현재 게임이 실행되는 윈도우 핸들
     HWND m_hWnd = nullptr;
 
-    std::wstring heroineNames[3] = {
-    L"한세아",
-    L"유하린",
-    L"서이린"
-    };
-//gamemode ====================================================================
     enum game_mode_info
     {
         Dialogue,
         Choice,
         Result
     };
+
     game_mode_info now_game_mode = game_mode_info::Dialogue;
 
-//render ====================================================================
-// diagoule_mode
-    // 대사 목록
-    struct DialogueLine_info {
-        std::wstring speaker;
-        std::wstring text;
-    };
-    std::vector<DialogueLine_info> dialogues;
+private:
+    // 대사 화면 담당 객체다.
+    StoryScene storyScene;
 
-    //speaker 마다의 폰트 색상
-    struct SpeakerStyle
+private:
+    // 선택지 처리 함수
+    void HandleChoiceClick(int x, int y);
+
+    // 결과 처리 함수
+    void HandleResultClick();
+
+    // 선택지 화면 출력
+    void RenderChoice(HDC hDC);
+
+    // 결과 화면 출력
+    void RenderResult(HDC hDC);
+
+private:
+    static const int HEROINE_COUNT = 3;
+
+    // 히로인 이름 목록이다.
+    std::wstring heroineNames[HEROINE_COUNT] = {
+        L"한세아",
+        L"유하린",
+        L"서이린"
+    };
+
+    struct CharacterInfo
     {
-        COLORREF name_color; // 이름
-        COLORREF text_color; // 대화
-        COLORREF accent;    // 강조
-        COLORREF outline;   // 테두리
+        std::wstring name; // 캐릭터 이름
+        int affection;     // 현재 호감도
     };
-    SpeakerStyle hansea_font_style = { RGB(238, 242, 248), RGB(120, 155, 210) ,RGB(185, 205, 240),RGB(70, 95, 140) };
-    SpeakerStyle yuharin_font_style = { RGB(245, 242, 235), RGB(170, 70, 75) ,RGB(210, 120, 130),RGB(120, 80, 85) };
-    SpeakerStyle seoirin_font_style = { RGB(250, 250, 252), RGB(85, 120, 200) ,RGB(140, 180, 240),RGB(60, 90, 160) };
+
+    std::array<CharacterInfo, HEROINE_COUNT> characters;
+    int choiceAffectionValue = 10;
     
-    // 현재 출력 중인 대사 번호
-    int m_currentDialogueIndex = 0;
-
-    // 대화창 영역
-    RECT dialogue_box = { 100, 830, 1820, 1030 };
-
-    // 이름창 영역
-    RECT name_box = { 280, 885, 430, 950 };
-
-    // 대사 텍스트 영역
-    RECT text_rect = { 520, 885, 1600, 965 };
-    
-    // 대화창 위에 색있는 줄 하나
-    int lineY = 825;
-
-//choice_mode
+    // 선택지 클릭 판정 영역이다.
     RECT choiceHitBox[3] =
     {
-        { 610, 220, 1290, 345 }, // 한세아
-        { 610, 420, 1290, 545 }, // 유하린
-        { 610, 620, 1290, 745 }  // 서이린
+        { 610, 220, 1290, 345 },
+        { 610, 420, 1290, 545 },
+        { 610, 620, 1290, 745 }
     };
 
-    POINT shoiceBox[3][4] =
+    // 선택지 표시용 사다리꼴 좌표다.
+    POINT choiceBox[3][4] =
     {
-        {// 한세아
-            { 670, 220 },  // 왼쪽 위
-            { 1290, 220 }, // 오른쪽 위
-            { 1235, 345 }, // 오른쪽 아래
-            { 610, 345 }   // 왼쪽 아래
+        {
+            { 670, 220 },
+            { 1290, 220 },
+            { 1235, 345 },
+            { 610, 345 }
         },
-        {// 유하린
-            { 670, 420 },  // 왼쪽 위
-            { 1290, 420 }, // 오른쪽 위
-            { 1235, 545 }, // 오른쪽 아래
-            { 610, 545 }   // 왼쪽 아래
+        {
+            { 670, 420 },
+            { 1290, 420 },
+            { 1235, 545 },
+            { 610, 545 }
         },
-        { // 서이린
-            { 670, 620 },  // 왼쪽 위
-            { 1290, 620 }, // 오른쪽 위
-            { 1235, 745 }, // 오른쪽 아래
-            { 610, 745 }   // 왼쪽 아래
+        {
+            { 670, 620 },
+            { 1290, 620 },
+            { 1235, 745 },
+            { 610, 745 }
         }
     };
-//result
+
+    // 선택된 캐릭터 번호다.
     int selectedCharacter = -1;
 
+    // 결과 화면 출력용 대화창 영역이다.
+    RECT dialogueBox = { 100, 830, 1820, 1030 };
+
+    // 결과 문구 출력 영역이다.
+    RECT textRect = { 520, 885, 1600, 965 };
 };

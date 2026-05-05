@@ -129,9 +129,12 @@
   <ItemGroup>
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Scenes\StoryScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h" />
+    <ClInclude Include="IScene.h" />
+    <ClInclude Include="Scenes\StoryScene.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="최종폴더.txt">
