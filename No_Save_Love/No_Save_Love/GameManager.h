@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <array>
 
 class GameManager
 {
@@ -19,6 +20,8 @@ public:
     // 화면을 그릴 때
     void Render(HDC hdc);
 
+    // 클릭 실행 함수
+   
    
 private:
     // 현재 게임이 실행되는 윈도우 핸들
@@ -29,6 +32,22 @@ private:
     L"유하린",
     L"서이린"
     };
+
+    //히로인 호감도
+    struct CharacterInfo
+    {
+        std::wstring name; // 캐릭터 이름
+        int affection;     // 현재 호감도
+    };
+    std::array<CharacterInfo, 3> characters;
+    // 호감도 상승 수치
+    int choiceAffectionValue = 10;
+
+//click ====================================================================
+    void HandleDialogueClick();
+    void HandleChoiceClick(int x, int y);
+    void HandleResultClick();
+
 //gamemode ====================================================================
     enum game_mode_info
     {
@@ -39,7 +58,12 @@ private:
     game_mode_info now_game_mode = game_mode_info::Dialogue;
 
 //render ====================================================================
+    void RenderDialogue(HDC hDC);
+    void RenderChoice(HDC hDC);
+    void RenderResult(HDC hDC);
+
 // diagoule_mode
+
     // 대사 목록
     struct DialogueLine_info {
         std::wstring speaker;
@@ -55,10 +79,13 @@ private:
         COLORREF accent;    // 강조
         COLORREF outline;   // 테두리
     };
+
     SpeakerStyle hansea_font_style = { RGB(238, 242, 248), RGB(120, 155, 210) ,RGB(185, 205, 240),RGB(70, 95, 140) };
     SpeakerStyle yuharin_font_style = { RGB(245, 242, 235), RGB(170, 70, 75) ,RGB(210, 120, 130),RGB(120, 80, 85) };
     SpeakerStyle seoirin_font_style = { RGB(250, 250, 252), RGB(85, 120, 200) ,RGB(140, 180, 240),RGB(60, 90, 160) };
     
+    GameManager::SpeakerStyle GetSpeakerStyle(const std::wstring& speaker) const;
+
     // 현재 출력 중인 대사 번호
     int m_currentDialogueIndex = 0;
 
@@ -71,6 +98,10 @@ private:
     // 대사 텍스트 영역
     RECT text_rect = { 520, 885, 1600, 965 };
     
+    RECT resultRect1 = { 520, 860, 1600, 910 };
+    RECT resultRect2 = { 520, 915, 1600, 965 };
+    RECT resultRect3 = { 520, 970, 1600, 1020 };
+
     // 대화창 위에 색있는 줄 하나
     int lineY = 825;
 
@@ -82,7 +113,7 @@ private:
         { 610, 620, 1290, 745 }  // 서이린
     };
 
-    POINT shoiceBox[3][4] =
+    POINT choiceBox[3][4] =
     {
         {// 한세아
             { 670, 220 },  // 왼쪽 위
