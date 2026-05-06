@@ -5,6 +5,12 @@
 
 class PCroomgame {
 private:
+	const int NOODLE = 1;
+	const int SOUP = 2;
+	const int WATER = 4;
+	const int EGG = 8;
+	const int CHEESE = 16;
+	const int DUMPLING = 32;
 
 	int score;		// pc방 게임 점수
 	int timer;		// pc방 게임시간
@@ -29,11 +35,5 @@ public:
 	void Update();		// 게임이 진행되면 자동으로 바뀌는 것을 처리하는 함수(ex: timer)
 	bool Finishedgame();
 	int getscore();
-	const int NOODLE = 1;
-	const int SOUP = 2;
-	const int WATER = 4;
-	const int EGG = 8;
-	const int CHEESE = 16;
-	const int DUMPLING = 32;
 
 };
