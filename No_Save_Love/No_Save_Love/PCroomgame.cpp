@@ -81,9 +81,9 @@ void PCroomgame::Init() {
 	
 
 	// 재료 버튼 위치
-	ingredientArea[0] = { 160, 200, 393, 317 }; // 면
-	ingredientArea[1] = { 393, 200, 626, 317 }; // 스프
-	ingredientArea[2] = { 626, 200, 860, 317 }; // 물
+	ingredientArea[0] = { 160, 200, 393, 317 }; // 물
+	ingredientArea[1] = { 393, 200, 626, 317 }; // 면
+	ingredientArea[2] = { 626, 200, 860, 317 }; // 스푸
 
 	ingredientArea[3] = { 160, 317, 393, 435 }; // 계란
 	ingredientArea[4] = { 393, 317, 626, 435 }; // 치즈
@@ -103,15 +103,15 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 	if (InsideRect(ingredientArea[0], x, y)) {
-		curramen.noodle = true;
+		curramen.water = true;
 		return;
 	}
 	if (InsideRect(ingredientArea[1], x, y)) {
-		curramen.soup = true;
+		curramen.noodle = true;
 		return;
 	}
 	if (InsideRect(ingredientArea[2], x, y)) {
-		curramen.water = true;
+		curramen.soup = true;
 		return;
 	}
 	if (InsideRect(ingredientArea[3], x, y)) {
@@ -154,15 +154,15 @@ void PCroomgame::PAINT(HDC hDC) {
 	// 재료 버튼 그리기
 	Rectangle(hDC, ingredientArea[0].left, ingredientArea[0].top,
 		ingredientArea[0].right, ingredientArea[0].bottom);
-	DrawTextW(hDC, ingredientArea[0].left + 80, ingredientArea[0].top + 45, L"면");
+	DrawTextW(hDC, ingredientArea[0].left + 80, ingredientArea[0].top + 45, L"물");
 
 	Rectangle(hDC, ingredientArea[1].left, ingredientArea[1].top,
 		ingredientArea[1].right, ingredientArea[1].bottom);
-	DrawTextW(hDC, ingredientArea[1].left + 80, ingredientArea[1].top + 45, L"스프");
+	DrawTextW(hDC, ingredientArea[1].left + 80, ingredientArea[1].top + 45, L"면");
 
 	Rectangle(hDC, ingredientArea[2].left, ingredientArea[2].top,
 		ingredientArea[2].right, ingredientArea[2].bottom);
-	DrawTextW(hDC, ingredientArea[2].left + 80, ingredientArea[2].top + 45, L"물");
+	DrawTextW(hDC, ingredientArea[2].left + 80, ingredientArea[2].top + 45, L"스프");
 
 	Rectangle(hDC, ingredientArea[3].left, ingredientArea[3].top,
 		ingredientArea[3].right, ingredientArea[3].bottom);

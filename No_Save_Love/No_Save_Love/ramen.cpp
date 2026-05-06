@@ -18,7 +18,7 @@ void ramen::makebasicramen() {
 	clear();
 	noodle = true;
 	water = true;
-	egg = true;
+	soup = true;
 }
 
 void ramen::makerandramen() {
