@@ -3,6 +3,7 @@
 #include <string>
 #include <atlImage.h>
 #include "ramen.h"
+#include <atlimage.h>
 
 class PCroomgame {
 private:
@@ -11,7 +12,7 @@ private:
 	int timer;		// pc방 게임시간
 	bool finished;	// pc방 게임의 종료 상태 / 게임이 진행중이면 false, 끝났다면  true
 	CImage background;
-	
+
 	RECT ingredientArea[6];		// 라면 재료 위치
 	RECT seatArea[6];			// 1~6번 좌석 위치
 	POINT seatCenter[6];		// 좌석 중앙 좌표
@@ -20,12 +21,16 @@ private:
 	ramen curramen;				// 현재 플레이어가 만들고 있는 라면
 
 
-	bool INsideRect(RECT rect, int x, int y);
-	
+	bool InsideRect(RECT rect, int x, int y);
+
+	void DrawTextW(HDC hDC, int x, int y, std::wstring text);
+	std::wstring RamenToString(ramen r);
 
 public:
+	PCroomgame();
+
 	void Init();	// pc방 게임이 시작되면 실행하는 함수 
-	void MOUSE(int x, int y);		
+	void MOUSE(int x, int y);
 	void PAINT(HDC hDC);
 	void Update();		// 게임이 진행되면 자동으로 바뀌는 것을 처리하는 함수(ex: timer)
 	bool Finishedgame();
