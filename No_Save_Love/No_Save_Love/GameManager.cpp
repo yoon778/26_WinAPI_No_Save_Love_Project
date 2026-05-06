@@ -1,6 +1,6 @@
 ﻿#include "GameManager.h"
 
-bool GameManager::Initialize(HWND hWnd)
+void GameManager::Initialize(HWND hWnd)
 {
     m_hWnd = hWnd;
     now_game_mode = game_mode_info::Dialogue;
@@ -10,7 +10,8 @@ bool GameManager::Initialize(HWND hWnd)
         CharacterInfo{ L"서이린", 0 }
     };
     storyScene.Initialize();
-    return true;
+    choiceScene.Initialize();
+    return ;
 }
 
 void GameManager::Shutdown()
@@ -31,6 +32,10 @@ void GameManager::OnMouseClick(int x, int y)
             // 대사 끝나면 선택으로 이동
             if (storyScene.IsFinished())
             {
+                // 선택지 화면에 들어가기 전에 이전 선택 상태를 초기화한다.
+                choiceScene.Reset();
+
+                // 선택지 모드로 이동한다.
                 now_game_mode = game_mode_info::Choice;
             }
 
@@ -39,8 +44,18 @@ void GameManager::OnMouseClick(int x, int y)
 
         case game_mode_info::Choice:
         {
-            // 선택지 모드에서는 GameManager가 선택지를 처리한다.
-            HandleChoiceClick(x, y);
+            // 선택지 클릭 판정은 ChoiceScene에게 맡긴다.
+            choiceScene.HandleChoiceClick(x, y);
+
+            // 실제로 선택지를 클릭했을 때만 결과 처리로 넘어간다.
+            if (choiceScene.HasSelected())
+            {
+                int selectedIndex = choiceScene.GetSelectedIndex();
+
+                // 선택한 캐릭터의 호감도를 증가시킨다.
+                AddAffection(characters, selectedIndex);
+            }
+
             break;
         }
 
@@ -55,26 +70,15 @@ void GameManager::OnMouseClick(int x, int y)
     InvalidateRect(m_hWnd, nullptr, TRUE);
 }
 
-void GameManager::HandleChoiceClick(int x, int y)
-{
-    POINT mousePoint = { x, y };
-    for (int i = 0; i < HEROINE_COUNT; i++)
+void GameManager::AddAffection(std::array<CharacterInfo, HEROINE_COUNT>& characters, int selectedcharacter) {
+    characters[selectedcharacter].affection += choiceAffectionValue;
+
+    if (characters[selectedcharacter].affection > 100)
     {
-        if (PtInRect(&choiceHitBox[i], mousePoint))
-        {
-            selectedCharacter = i;
-            characters[selectedCharacter].affection += choiceAffectionValue;
-
-            if (characters[selectedCharacter].affection > 100)
-            {
-                characters[selectedCharacter].affection = 100;
-            }
-
-            now_game_mode = game_mode_info::Result;
-
-            break;
-        }
+        characters[selectedcharacter].affection = 100;
     }
+
+    now_game_mode = game_mode_info::Result;
 }
 
 void GameManager::HandleResultClick()
@@ -94,7 +98,7 @@ void GameManager::Render(HDC hDC)
 
     case game_mode_info::Choice:
     {
-        RenderChoice(hDC);
+        choiceScene.RenderChoice(hDC);
         break;
     }
 
@@ -106,50 +110,28 @@ void GameManager::Render(HDC hDC)
     }
 }
 
-void GameManager::RenderChoice(HDC hDC)
-{
-    HBRUSH whiteBrush = CreateSolidBrush(RGB(245, 245, 245));
-    HPEN bluePen = CreatePen(PS_SOLID, 5, RGB(70, 110, 230));
-
-    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, whiteBrush));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, bluePen));
-
-    // 선택지 박스를 그린다.
-    Polygon(hDC, choiceBox[0], 4);
-    Polygon(hDC, choiceBox[1], 4);
-    Polygon(hDC, choiceBox[2], 4);
-
-    SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldPen);
-
-    DeleteObject(whiteBrush);
-    DeleteObject(bluePen);
-
-    // 선택지 텍스트를 출력한다.
-    TextOutW(hDC, 760, 245, L"한세아", lstrlenW(L"한세아"));
-    TextOutW(hDC, 760, 445, L"유하린", lstrlenW(L"유하린"));
-    TextOutW(hDC, 760, 690, L"서이린", lstrlenW(L"서이린"));
-}
 
 void GameManager::RenderResult(HDC hDC)
 {
-    // 선택된 캐릭터가 없거나 범위를 벗어나면 출력하지 않는다.
-    if (selectedCharacter < 0 || selectedCharacter >= HEROINE_COUNT)
+    // 선택된 캐릭터가 없으면 출력하지 않는다.
+    if (!choiceScene.HasSelected())
     {
         return;
     }
 
+    int selectedIndex = choiceScene.GetSelectedIndex();
+
     std::wstring resultText =
-        characters[selectedCharacter].name + L"를 선택했습니다.";
+        characters[selectedIndex].name + L"를 선택했습니다.";
 
     std::wstring affectionUpText =
-        characters[selectedCharacter].name +
+        characters[selectedIndex].name +
         L" 호감도 +" +
         std::to_wstring(choiceAffectionValue);
 
     std::wstring currentAffectionText =
         L"현재 호감도: " +
-        std::to_wstring(characters[selectedCharacter].affection);
+        std::to_wstring(characters[selectedIndex].affection);
 
     // 결과 출력용 폰트를 만든다.
     HFONT resultFont = CreateFontW(
