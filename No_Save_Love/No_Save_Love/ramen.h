@@ -2,6 +2,7 @@
 class ramen
 {
 public:
+	ramen();
 	bool water;
 	bool noodle;
 	bool soup;

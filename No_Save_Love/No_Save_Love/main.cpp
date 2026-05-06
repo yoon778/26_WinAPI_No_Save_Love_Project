@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <random>
+#include "PCroomgame.h"
 using namespace std;
 
 // 기본 창 설정
@@ -8,6 +9,9 @@ int location_x = 100; // 창 위치
 int location_y = 80;
 int size_w = 1920; //창 크기
 int size_h = 1080;
+
+// pc방 미니게임
+PCroomgame pcGame;
 
 random_device rd;
 mt19937 gen(rd());
@@ -61,7 +65,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
     switch (uMsg) {
     case WM_CREATE: { 
-
+        pcGame.Init();
         SetTimer(hWnd, 0, 100, NULL);
         InvalidateRect(hWnd, NULL, TRUE);  
         break;
@@ -76,6 +80,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     {
         int mx = LOWORD(lParam);
         int my = HIWORD(lParam);
+
+        // 마우스 좌표 pc방 게임에 전달
+        pcGame.MOUSE(mx, my);
+
         InvalidateRect(hWnd, NULL, TRUE);  
         break;
     }
@@ -85,7 +93,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         break;
     }
     case WM_TIMER: {
-        
+        InvalidateRect(hWnd, NULL, FALSE);
         break;
     }
 
@@ -98,7 +106,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom); 
         SelectObject(mDC, (HBITMAP)hBitmap);
 
-
+        pcGame.PAINT(mDC);
 
 
 
