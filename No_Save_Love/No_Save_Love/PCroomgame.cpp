@@ -1,5 +1,5 @@
 #include "PCroomgame.h"
-
+#include "ramen.h"
 
 PCroomgame::PCroomgame() {
 	score = 0;
@@ -17,18 +17,13 @@ bool INsideRect(RECT rect, int x, int y) {			// 마우스로 클릭한 좌표 �
 	return false;
 }
 
-int PCroomgame::makerandomracipe() {
-	int order = NOODLE + SOUP + WATER;
-	
 
-}
 
 void PCroomgame::Init() {
 	score = 0;
 	timer = 60;
 	finished = false;
 
-	currentRecipe = 0;
 
 	RECT seatArea[6] = {		// 마우스 클릭 판정을 위한 좌석 좌표
 	{ 1155, 150, 1420, 395 }, // 1번 좌석
@@ -51,7 +46,7 @@ void PCroomgame::Init() {
 	};
 
 	RECT ingredientArea[6] = {		// 라면 재료 마우스 클릭 판정을 위한 좌표
-	{ 160, 200, 393, 317 }, // 1행 1열 - 라면 
+	{ 160, 200, 393, 317 }, // 1행 1열 - 면 
 	{ 393, 200, 626, 317 }, // 1행 2열 - 스프
 	{ 626, 200, 860, 317 }, // 1행 3열 - 물
 
@@ -59,6 +54,11 @@ void PCroomgame::Init() {
 	{ 393, 317, 626, 435 }, // 2행 2열 - 치즈 
 	{ 626, 317, 860, 435 }  // 2행 3열 - 만두
 	};
+
+	curramen.clear();
+	for (int i = 0; i < 6; i++) {
+		seatorder[i].makerandramen();
+	}
 
 	background.Load(L"pcroom_1920x1080.png");
 }
@@ -68,59 +68,35 @@ void PCroomgame::MOUSE(int x, int y) {
 	{
 		return;
 	}
-
-	if (INsideRect(ingredientArea[0],x,y))
-	{
-		currentRecipe |= NOODLE;
-		// 면 버튼을 클릭한 것
-		return;
+	if (INsideRect(ingredientArea[0], x, y)) {
+		curramen.noodle = true;
 	}
-	if (INsideRect(ingredientArea[1], x, y))
-	{
-		currentRecipe |= SOUP;
-		// 스프 버튼을 클릭한 것
-		return;
+	if (INsideRect(ingredientArea[1], x, y)) {
+		curramen.soup = true;
 	}
-	if (INsideRect(ingredientArea[2], x, y))
-	{
-		currentRecipe |= WATER;
-		// 물 버튼을 클릭한 것
-		return;
+	if (INsideRect(ingredientArea[2], x, y)) {
+		curramen.water = true;
 	}
-	if (INsideRect(ingredientArea[3], x, y))
-	{
-		currentRecipe |= EGG;
-		// 계란 버튼을 클릭한 것
-		return;
+	if (INsideRect(ingredientArea[3], x, y)) {
+		curramen.egg = true;
 	}
-	if (INsideRect(ingredientArea[4], x, y))
-	{
-		currentRecipe |= CHEESE;
-		// 치즈 버튼을 클릭한 것
-		return;
+	if (INsideRect(ingredientArea[4], x, y)) {
+		curramen.cheese = true;
 	}
-	if (INsideRect(ingredientArea[5], x, y))
-	{
-		currentRecipe |= DUMPLING;
-		// 만두 버튼을 클릭한 것
-		return;
+	if (INsideRect(ingredientArea[5], x, y)) {
+		curramen.dumpling = true;
 	}
 
+}
 
-	for (int i = 0; i < 6; ++i) {
-		if (INsideRect(seatArea[i], x, y)) {		// 좌석 클릭시
-			if (currentRecipe == seatorder[i]) {	// 주문한 메뉴와 만든 레시피가 같을 경우
-				score += 100;
-			}
-			else {
-				score -= 10;
-			}
-
-			currentRecipe = 0;						// 만든 레시피 초기화
-			return;
-		}
+bool PCroomgame::INsideRect(RECT rect, int x, int y) {
+	if (x >= rect.left && x <= rect.right &&
+		y >= rect.top && y <= rect.bottom)
+	{
+		return true;
 	}
 
+	return false;
 }
 
 void PCroomgame::PAINT(HDC hDC) {
