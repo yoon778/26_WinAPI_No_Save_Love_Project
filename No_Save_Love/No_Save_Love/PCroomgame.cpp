@@ -20,34 +20,53 @@ bool PCroomgame::InsideRect(RECT rect, int x, int y) {			// 마우스로 클릭�
 std::wstring PCroomgame::RamenToString(ramen r)
 {
 	std::wstring result = L"";
-	if (r.noodle == true)
-	{
-		result += L"면 ";
-	}
-	if (r.soup == true)
-	{
-		result += L"스프 ";
-	}
-	if (r.water == true)
-	{
-		result += L"물 ";
-	}
+
+	// 1. 토핑 먼저 출력
 	if (r.egg == true)
 	{
 		result += L"계란 ";
 	}
+
 	if (r.cheese == true)
 	{
 		result += L"치즈 ";
 	}
+
 	if (r.dumpling == true)
 	{
 		result += L"만두 ";
 	}
+
+	// 2. 면 + 스프 + 물이 모두 있으면 마지막에 "라면" 출력
+	if (r.noodle == true && r.soup == true && r.water == true)
+	{
+		result += L"라면 ";
+	}
+	else
+	{
+		// 아직 기본 라면이 완성되지 않은 경우에는 재료 그대로 출력
+		if (r.noodle == true)
+		{
+			result += L"면 ";
+		}
+
+		if (r.soup == true)
+		{
+			result += L"스프 ";
+		}
+
+		if (r.water == true)
+		{
+			result += L"물 ";
+		}
+	}
+
+	// 3. 아무것도 없으면 없음 출력
 	if (result == L"")
 	{
 		result = L"없음";
 	}
+
 	return result;
 }
 
