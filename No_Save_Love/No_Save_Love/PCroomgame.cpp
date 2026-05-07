@@ -106,14 +106,13 @@ void PCroomgame::Init() {
 	seatArea[4] = { 1548, 405, 1810, 665 };		// 5번 자리
 	seatArea[5] = { 1548, 675, 1810, 930 };		// 6번 자리
 
-	// 자리 중앙 위치
-	seatCenter[0] = { 1287, 272 }; // 1번
-	seatCenter[1] = { 1287, 535 }; // 2번
-	seatCenter[2] = { 1287, 802 }; // 3번
+	deliveryPos[0] = { 1445, 272 }; // 1번 좌석 앞 통로
+	deliveryPos[1] = { 1445, 535 }; // 2번 좌석 앞 통로
+	deliveryPos[2] = { 1445, 802 }; // 3번 좌석 앞 통로
 
-	seatCenter[3] = { 1679, 272 }; // 4번
-	seatCenter[4] = { 1679, 535 }; // 5번
-	seatCenter[5] = { 1679, 802 };  // 6번
+	deliveryPos[3] = { 1523, 272 }; // 4번 좌석 앞 통로
+	deliveryPos[4] = { 1523, 535 }; // 5번 좌석 앞 통로
+	deliveryPos[5] = { 1523, 802 }; // 6번 좌석 앞 통로
 	
 
 	// 재료 버튼 위치
@@ -170,8 +169,9 @@ void PCroomgame::MOUSE(int x, int y) {
 	{
 		if (InsideRect(seatArea[i], x, y))
 		{
-			targetPos = seatCenter[i];
+			targetPos = deliveryPos[i];
 			ismoving = true;
+			isretrun = false;
 			seatindex = i;
 
 			return;

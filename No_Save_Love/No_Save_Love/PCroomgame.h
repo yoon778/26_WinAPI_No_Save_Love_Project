@@ -16,7 +16,7 @@ private:
 
 	RECT ingredientArea[6];		// 라면 재료 위치
 	RECT seatArea[6];			// 1~6번 좌석 위치
-	POINT seatCenter[6];		// 좌석 중앙 좌표
+	POINT deliveryPos[6];		// 좌석 중앙 좌표
 
 	ramen seatorder[6];			// 손님이 주문하는 라면
 	ramen curramen;				// 현재 플레이어가 만들고 있는 라면
