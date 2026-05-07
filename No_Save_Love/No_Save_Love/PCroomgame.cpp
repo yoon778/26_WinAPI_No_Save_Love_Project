@@ -6,7 +6,7 @@ PCroomgame::PCroomgame() {
 	srand((unsigned int)time(NULL));
 
 	score = 0;
-	timer = 10.0;
+	timer = 180.0;
 	finished = false;
 
 	playerPos = { 1495, 1000 };
@@ -90,7 +90,7 @@ void PCroomgame::DrawTextW(HDC hDC, int x, int y, std::wstring text)	// 글 쓰�
 
 void PCroomgame::Init() {
 	score = 0;
-	timer = 10.0;
+	timer = 180.0;
 	finished = false;
 
 	playerPos = { 1495, 1000 };
