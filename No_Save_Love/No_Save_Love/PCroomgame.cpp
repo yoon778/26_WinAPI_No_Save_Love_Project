@@ -1,7 +1,10 @@
 ﻿#include "PCroomgame.h"
 #include "ramen.h"
+#include <ctime>
 
 PCroomgame::PCroomgame() {
+	srand((unsigned int)time(NULL));
+
 	score = 0;
 	timer = 60;
 	finished = false;
@@ -323,6 +326,8 @@ void PCroomgame::Update() {
 			return;
 		}
 	}
+
+
 }
 
 void PCroomgame::DeliverToSeat(int seatIndex)		// 배달한 좌석 검사
