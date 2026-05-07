@@ -7,13 +7,15 @@
 
 class PCroomgame {
 private:
-
+	std::wstring resultMessage; // 성공/실패 메시지
+	int resultTimer;            // 메시지를 보여줄 시간
 
 	int score;		// pc방 게임 점수
 	int timer;		// pc방 게임시간
 	bool finished;	// pc방 게임의 종료 상태 / 게임이 진행중이면 false, 끝났다면  true
 	CImage background;
 
+	RECT resetArea;	// 재료 초기화 버튼 위치
 	RECT ingredientArea[6];		// 라면 재료 위치
 	RECT seatArea[6];			// 1~6번 좌석 위치
 	POINT deliveryPos[6];		// 좌석 중앙 좌표
@@ -35,6 +37,7 @@ private:
 	std::wstring RamenToString(ramen r);
 
 	void DeliverToSeat(int seatIndex);
+	void StartDelivery(int index);
 
 public:
 	PCroomgame();
@@ -42,6 +45,7 @@ public:
 	void Init();	// pc방 게임이 시작되면 실행하는 함수 
 	void MOUSE(int x, int y);
 	void PAINT(HDC hDC);
+	void KEYDOWN(WPARAM wParam);
 	void Update();		// 게임이 진행되면 자동으로 바뀌는 것을 처리하는 함수(ex: timer)
 	bool Finishedgame();
 	int getscore();

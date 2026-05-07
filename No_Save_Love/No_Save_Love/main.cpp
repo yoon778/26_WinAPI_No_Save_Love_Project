@@ -72,6 +72,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_KEYDOWN: 
     {
+        pcGame.KEYDOWN(wParam);
         InvalidateRect(hWnd, NULL, TRUE);  
         break;
     }

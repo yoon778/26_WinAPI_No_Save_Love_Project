@@ -15,6 +15,9 @@ PCroomgame::PCroomgame() {
 	seatindex = -1;
 	isretrun = false;
 	homePos = { 1495, 1000 };
+
+	resultMessage = L"";
+	resultTimer = 0;
 }
 
 bool PCroomgame::InsideRect(RECT rect, int x, int y) {			// 마우스로 클릭한 좌표 안에 들어가는지 검사하는 함수
@@ -97,6 +100,9 @@ void PCroomgame::Init() {
 	isretrun = false;
 	homePos = { 1495, 1000 };
 
+	resultMessage = L"";
+	resultTimer = 0;
+
 	// 캐릭터 배달할 위치 좌표
 	seatArea[0] = { 1155, 150, 1420, 395 };		// 1번자리
 	seatArea[1] = { 1155, 405, 1420, 665 };		// 2번 자리
@@ -114,9 +120,11 @@ void PCroomgame::Init() {
 	deliveryPos[4] = { 1523, 535 }; // 5번 좌석 앞 통로
 	deliveryPos[5] = { 1523, 802 }; // 6번 좌석 앞 통로
 	
+	// 재료 초기화 버튼 위치
+	resetArea = { 160, 200, 393, 317 };
 
 	// 재료 버튼 위치
-	ingredientArea[0] = { 160, 200, 393, 317 }; // 물
+	ingredientArea[0] = { 70, 540, 325, 670 };  // 물
 	ingredientArea[1] = { 393, 200, 626, 317 }; // 면
 	ingredientArea[2] = { 626, 200, 860, 317 }; // 스푸
 
@@ -135,6 +143,13 @@ void PCroomgame::Init() {
 void PCroomgame::MOUSE(int x, int y) {
 	if (finished == true)		// 게임이 종료된 상태면 클릭 x
 	{
+		return;
+	}
+
+	// 초기화 버튼 클릭
+	if (InsideRect(resetArea, x, y))
+	{
+		curramen.clear();
 		return;
 	}
 
@@ -169,17 +184,23 @@ void PCroomgame::MOUSE(int x, int y) {
 	{
 		if (InsideRect(seatArea[i], x, y))
 		{
-			targetPos = deliveryPos[i];
-			ismoving = true;
-			isretrun = false;
-			seatindex = i;
-
+			StartDelivery(i);
 			return;
 		}
 	}
 }
 
 void PCroomgame::Update() {
+	if (resultTimer > 0)
+	{
+		resultTimer--;
+
+		if (resultTimer == 0)
+		{
+			resultMessage = L"";
+		}
+	}
+
 	if (finished == true)
 	{
 		return;
@@ -340,11 +361,14 @@ void PCroomgame::DeliverToSeat(int seatIndex)		// 배달한 좌석 검사
 	if (curramen.ramenSame(seatorder[seatIndex]))
 	{
 		score += 100;
+		resultMessage = L"주문 성공! +100";
 	}
 	else
 	{
 		score -= 50;
+		resultMessage = L"주문 실패! -50";
 	}
+	resultTimer = 15; // WM_TIMER가 0.1초라면 약 1.5초 표시
 
 	curramen.clear();
 	seatorder[seatIndex].makerandramen();
@@ -353,10 +377,15 @@ void PCroomgame::DeliverToSeat(int seatIndex)		// 배달한 좌석 검사
 void PCroomgame::PAINT(HDC hDC) {
 	background.Draw(hDC, 0, 0, 1920, 1080);		// 배경 그리기
 
+	// 초기화 버튼 그리기
+	Rectangle(hDC, resetArea.left, resetArea.top,
+		resetArea.right, resetArea.bottom);
+	DrawTextW(hDC, resetArea.left + 70, resetArea.top + 45, L"초기화");
+
 	// 재료 버튼 그리기
 	Rectangle(hDC, ingredientArea[0].left, ingredientArea[0].top,
 		ingredientArea[0].right, ingredientArea[0].bottom);
-	DrawTextW(hDC, ingredientArea[0].left + 80, ingredientArea[0].top + 45, L"물");
+	DrawTextW(hDC, ingredientArea[0].left + 100, ingredientArea[0].top + 50, L"물");
 
 	Rectangle(hDC, ingredientArea[1].left, ingredientArea[1].top,
 		ingredientArea[1].right, ingredientArea[1].bottom);
@@ -390,6 +419,12 @@ void PCroomgame::PAINT(HDC hDC) {
 	std::wstring currentText = L"현재 라면: " + RamenToString(curramen);
 	DrawTextW(hDC, 50, 120, currentText);
 
+	// 성공/실패 메시지 출력
+	if (resultMessage != L"")
+	{
+		DrawTextW(hDC, 50, 160, resultMessage);
+	}
+
 	// 좌석별 주문 출력
 	for (int i = 0; i < 6; i++)
 	{
@@ -419,4 +454,31 @@ void PCroomgame::PAINT(HDC hDC) {
 int PCroomgame::getscore() {
 
 	return score;
+}
+void PCroomgame::StartDelivery(int index)
+{
+	if (index < 0 || index >= 6)
+	{
+		return;
+	}
+
+	targetPos = deliveryPos[index];   // 또는 deliveryPos[index]를 쓰고 있다면 deliveryPos[index]
+	ismoving = true;
+	isretrun = false;
+	seatindex = index;
+}
+
+void PCroomgame::KEYDOWN(WPARAM wParam) {
+	if (finished == true)
+	{
+		return;
+	}
+
+	if (wParam >= '1' && wParam <= '6')
+	{
+		int index = (int)(wParam - '1');
+		StartDelivery(index);
+		return;
+	}
+
 }
