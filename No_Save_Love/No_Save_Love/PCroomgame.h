@@ -21,9 +21,11 @@ private:
 	ramen curramen;				// 현재 플레이어가 만들고 있는 라면
 
 	int moveSpeed = 15;
-	POINT playerPos;
-	POINT targetPos;
-	BOOL ismoving;
+	POINT playerPos;			// 현재 캐릭터 위치
+	POINT targetPos;			// 목표 위치
+	POINT homePos;				// 초기 위치
+	BOOL ismoving;				// 이동 여부
+	BOOL isretrun;				// 배달 후 돌아는 여부
 	int seatindex;
 
 	bool InsideRect(RECT rect, int x, int y);

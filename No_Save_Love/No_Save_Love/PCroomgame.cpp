@@ -10,6 +10,8 @@ PCroomgame::PCroomgame() {
 	targetPos = playerPos;
 	ismoving = false;
 	seatindex = -1;
+	isretrun = false;
+	homePos = { 1495, 1000 };
 }
 
 bool PCroomgame::InsideRect(RECT rect, int x, int y) {			// 마우스로 클릭한 좌표 안에 들어가는지 검사하는 함수
@@ -89,6 +91,8 @@ void PCroomgame::Init() {
 	targetPos = playerPos;
 	ismoving = false;
 	seatindex = -1;
+	isretrun = false;
+	homePos = { 1495, 1000 };
 
 	// 캐릭터 배달할 위치 좌표
 	seatArea[0] = { 1155, 150, 1420, 395 };		// 1번자리
@@ -183,62 +187,145 @@ void PCroomgame::Update() {
 		return;
 	}
 
-	// y 방향 이동
-	if (playerPos.y < targetPos.y)
+	// =========================
+	// 1. 좌석으로 가는 중
+	// y 먼저 이동, y가 같으면 x 이동
+	// =========================
+	if (isretrun == false)
 	{
-		playerPos.y += moveSpeed;
-
-		if (playerPos.y > targetPos.y)
-		{
-			playerPos.y = targetPos.y;
-		}
-	}
-	else if (playerPos.y > targetPos.y)
-	{
-		playerPos.y -= moveSpeed;
-
+		// y 방향 먼저 이동
 		if (playerPos.y < targetPos.y)
 		{
-			playerPos.y = targetPos.y;
+			playerPos.y += moveSpeed;
+
+			if (playerPos.y > targetPos.y)
+			{
+				playerPos.y = targetPos.y;
+			}
+
+			return;
 		}
-	}
-
-	// x 방향 이동
-	if (playerPos.x < targetPos.x)
-	{
-		playerPos.x += moveSpeed;
-
-		if (playerPos.x > targetPos.x)
+		else if (playerPos.y > targetPos.y)
 		{
-			playerPos.x = targetPos.x;
-		}
-	}
-	else if (playerPos.x > targetPos.x)
-	{
-		playerPos.x -= moveSpeed;
+			playerPos.y -= moveSpeed;
 
+			if (playerPos.y < targetPos.y)
+			{
+				playerPos.y = targetPos.y;
+			}
+
+			return;
+		}
+
+		// y가 같아진 후 x 이동
 		if (playerPos.x < targetPos.x)
 		{
-			playerPos.x = targetPos.x;
+			playerPos.x += moveSpeed;
+
+			if (playerPos.x > targetPos.x)
+			{
+				playerPos.x = targetPos.x;
+			}
+
+			return;
+		}
+		else if (playerPos.x > targetPos.x)
+		{
+			playerPos.x -= moveSpeed;
+
+			if (playerPos.x < targetPos.x)
+			{
+				playerPos.x = targetPos.x;
+			}
+
+			return;
+		}
+
+		// 좌석 도착
+		if (playerPos.x == targetPos.x && playerPos.y == targetPos.y)
+		{
+			if (seatindex != -1)
+			{
+				DeliverToSeat(seatindex);
+				seatindex = -1;
+			}
+
+			// 이제 집으로 돌아가기 시작
+			targetPos = homePos;
+			isretrun = true;
+			ismoving = true;
+
+			return;
 		}
 	}
 
-	// 목표 지점에 도착했는지 확인
-	if (playerPos.x == targetPos.x && playerPos.y == targetPos.y)
+	// =========================
+	// 2. 초기 위치로 돌아오는 중
+	// x 먼저 이동, x가 같으면 y 이동
+	// =========================
+	else if (isretrun == true)
 	{
-		ismoving = false;
-
-		if (seatindex != -1)
+		// x 방향 먼저 이동
+		if (playerPos.x < targetPos.x)
 		{
-			DeliverToSeat(seatindex);
-			seatindex = -1;
+			playerPos.x += moveSpeed;
+
+			if (playerPos.x > targetPos.x)
+			{
+				playerPos.x = targetPos.x;
+			}
+
+			return;
+		}
+		else if (playerPos.x > targetPos.x)
+		{
+			playerPos.x -= moveSpeed;
+
+			if (playerPos.x < targetPos.x)
+			{
+				playerPos.x = targetPos.x;
+			}
+
+			return;
 		}
 
-		// 배달 후 주방으로 돌아오게 하고 싶으면 나중에 여기서 추가
+		// x가 같아진 후 y 이동
+		if (playerPos.y < targetPos.y)
+		{
+			playerPos.y += moveSpeed;
+
+			if (playerPos.y > targetPos.y)
+			{
+				playerPos.y = targetPos.y;
+			}
+
+			return;
+		}
+		else if (playerPos.y > targetPos.y)
+		{
+			playerPos.y -= moveSpeed;
+
+			if (playerPos.y < targetPos.y)
+			{
+				playerPos.y = targetPos.y;
+			}
+
+			return;
+		}
+
+		// 초기 위치 도착
+		if (playerPos.x == targetPos.x && playerPos.y == targetPos.y)
+		{
+			ismoving = false;
+			isretrun = false;
+			targetPos = playerPos;
+
+			return;
+		}
 	}
 }
 
-void PCroomgame::DeliverToSeat(int seatIndex)
+void PCroomgame::DeliverToSeat(int seatIndex)		// 배달한 좌석 검사
 {
 	if (seatIndex < 0 || seatIndex >= 6)
 	{
