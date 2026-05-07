@@ -8,6 +8,7 @@
 class PCroomgame {
 private:
 
+
 	int score;		// pc방 게임 점수
 	int timer;		// pc방 게임시간
 	bool finished;	// pc방 게임의 종료 상태 / 게임이 진행중이면 false, 끝났다면  true
@@ -20,7 +21,7 @@ private:
 	ramen seatorder[6];			// 손님이 주문하는 라면
 	ramen curramen;				// 현재 플레이어가 만들고 있는 라면
 
-	int moveSpeed = 15;
+	int moveSpeed = 30;
 	POINT playerPos;			// 현재 캐릭터 위치
 	POINT targetPos;			// 목표 위치
 	POINT homePos;				// 초기 위치
