@@ -93,6 +93,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         break;
     }
     case WM_TIMER: {
+        pcGame.Update();
         InvalidateRect(hWnd, NULL, FALSE);
         break;
     }

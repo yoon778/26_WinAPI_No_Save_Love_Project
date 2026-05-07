@@ -20,11 +20,18 @@ private:
 	ramen seatorder[6];			// 손님이 주문하는 라면
 	ramen curramen;				// 현재 플레이어가 만들고 있는 라면
 
+	int moveSpeed = 15;
+	POINT playerPos;
+	POINT targetPos;
+	BOOL ismoving;
+	int seatindex;
 
 	bool InsideRect(RECT rect, int x, int y);
 
 	void DrawTextW(HDC hDC, int x, int y, std::wstring text);
 	std::wstring RamenToString(ramen r);
+
+	void DeliverToSeat(int seatIndex);
 
 public:
 	PCroomgame();

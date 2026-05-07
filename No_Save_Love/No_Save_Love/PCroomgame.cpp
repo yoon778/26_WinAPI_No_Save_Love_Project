@@ -1,10 +1,15 @@
-#include "PCroomgame.h"
+﻿#include "PCroomgame.h"
 #include "ramen.h"
 
 PCroomgame::PCroomgame() {
 	score = 0;
 	timer = 60;
 	finished = false;
+
+	playerPos = { 1495, 1000 };
+	targetPos = playerPos;
+	ismoving = false;
+	seatindex = -1;
 }
 
 bool PCroomgame::InsideRect(RECT rect, int x, int y) {			// 마우스로 클릭한 좌표 안에 들어가는지 검사하는 함수
@@ -80,6 +85,11 @@ void PCroomgame::Init() {
 	timer = 60;
 	finished = false;
 
+	playerPos = { 1495, 1000 };
+	targetPos = playerPos;
+	ismoving = false;
+	seatindex = -1;
+
 	// 캐릭터 배달할 위치 좌표
 	seatArea[0] = { 1155, 150, 1420, 395 };		// 1번자리
 	seatArea[1] = { 1155, 405, 1420, 665 };		// 2번 자리
@@ -91,12 +101,12 @@ void PCroomgame::Init() {
 
 	// 자리 중앙 위치
 	seatCenter[0] = { 1287, 272 }; // 1번
-	seatCenter[0] = { 1287, 535 }; // 2번
-	seatCenter[0] = { 1287, 802 }; // 3번
+	seatCenter[1] = { 1287, 535 }; // 2번
+	seatCenter[2] = { 1287, 802 }; // 3번
 
-	seatCenter[0] = { 1679, 272 }; // 4번
-	seatCenter[0] = { 1679, 535 }; // 5번
-	seatCenter[0] = { 1679, 802 };  // 6번
+	seatCenter[3] = { 1679, 272 }; // 4번
+	seatCenter[4] = { 1679, 535 }; // 5번
+	seatCenter[5] = { 1679, 802 };  // 6번
 	
 
 	// 재료 버튼 위치
@@ -121,6 +131,8 @@ void PCroomgame::MOUSE(int x, int y) {
 	{
 		return;
 	}
+
+	// 재료 버튼 클릭시 현재 라면에 추가
 	if (InsideRect(ingredientArea[0], x, y)) {
 		curramen.water = true;
 		return;
@@ -146,25 +158,104 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
+	// 좌석 클릭시
 	for (int i = 0; i < 6; i++)
 	{
 		if (InsideRect(seatArea[i], x, y))
 		{
-			if (curramen.ramenSame(seatorder[i]))
-			{
-				score += 100;
-			}
-			else
-			{
-				score -= 50;
-			}
-
-			curramen.clear();
-			seatorder[i].makerandramen();
+			targetPos = seatCenter[i];
+			ismoving = true;
+			seatindex = i;
 
 			return;
 		}
 	}
+}
+
+void PCroomgame::Update() {
+	if (finished == true)
+	{
+		return;
+	}
+
+	if (ismoving == false)
+	{
+		return;
+	}
+
+	// y 방향 이동
+	if (playerPos.y < targetPos.y)
+	{
+		playerPos.y += moveSpeed;
+
+		if (playerPos.y > targetPos.y)
+		{
+			playerPos.y = targetPos.y;
+		}
+	}
+	else if (playerPos.y > targetPos.y)
+	{
+		playerPos.y -= moveSpeed;
+
+		if (playerPos.y < targetPos.y)
+		{
+			playerPos.y = targetPos.y;
+		}
+	}
+
+	// x 방향 이동
+	if (playerPos.x < targetPos.x)
+	{
+		playerPos.x += moveSpeed;
+
+		if (playerPos.x > targetPos.x)
+		{
+			playerPos.x = targetPos.x;
+		}
+	}
+	else if (playerPos.x > targetPos.x)
+	{
+		playerPos.x -= moveSpeed;
+
+		if (playerPos.x < targetPos.x)
+		{
+			playerPos.x = targetPos.x;
+		}
+	}
+
+	// 목표 지점에 도착했는지 확인
+	if (playerPos.x == targetPos.x && playerPos.y == targetPos.y)
+	{
+		ismoving = false;
+
+		if (seatindex != -1)
+		{
+			DeliverToSeat(seatindex);
+			seatindex = -1;
+		}
+
+		// 배달 후 주방으로 돌아오게 하고 싶으면 나중에 여기서 추가
+	}
+}
+
+void PCroomgame::DeliverToSeat(int seatIndex)
+{
+	if (seatIndex < 0 || seatIndex >= 6)
+	{
+		return;
+	}
+
+	if (curramen.ramenSame(seatorder[seatIndex]))
+	{
+		score += 100;
+	}
+	else
+	{
+		score -= 50;
+	}
+
+	curramen.clear();
+	seatorder[seatIndex].makerandramen();
 }
 
 void PCroomgame::PAINT(HDC hDC) {
@@ -227,6 +318,10 @@ void PCroomgame::PAINT(HDC hDC) {
 		DrawTextW(hDC, 800, 500, L"게임 종료!");
 		DrawTextW(hDC, 800, 540, L"최종 점수: " + std::to_wstring(score));
 	}
+
+	// 플레이어 그리기
+	Ellipse(hDC, playerPos.x - 25, playerPos.y - 25, playerPos.x + 25, playerPos.y + 25);
+	DrawTextW(hDC, playerPos.x - 20, playerPos.y - 10, L"윤서");
 }
 
 int PCroomgame::getscore() {
