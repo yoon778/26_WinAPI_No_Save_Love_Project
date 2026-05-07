@@ -6,14 +6,14 @@ PCroomgame::PCroomgame() {
 	srand((unsigned int)time(NULL));
 
 	score = 0;
-	timer = 60;
+	timer = 10.0;
 	finished = false;
 
 	playerPos = { 1495, 1000 };
 	targetPos = playerPos;
 	ismoving = false;
 	seatindex = -1;
-	isretrun = false;
+	isreturn = false;
 	homePos = { 1495, 1000 };
 
 	resultMessage = L"";
@@ -90,14 +90,14 @@ void PCroomgame::DrawTextW(HDC hDC, int x, int y, std::wstring text)	// 글 쓰�
 
 void PCroomgame::Init() {
 	score = 0;
-	timer = 60;
+	timer = 10.0;
 	finished = false;
 
 	playerPos = { 1495, 1000 };
 	targetPos = playerPos;
 	ismoving = false;
 	seatindex = -1;
-	isretrun = false;
+	isreturn = false;
 	homePos = { 1495, 1000 };
 
 	resultMessage = L"";
@@ -191,6 +191,22 @@ void PCroomgame::MOUSE(int x, int y) {
 }
 
 void PCroomgame::Update() {
+	if (finished == true)
+	{
+		return;
+	}
+
+	timer -= 0.1;
+
+	if (timer <= 0.0)
+	{
+		timer = 0.0;
+		finished = true;
+		ismoving = false;
+		isreturn = false;
+		return;
+	}
+
 	if (resultTimer > 0)
 	{
 		resultTimer--;
@@ -201,10 +217,6 @@ void PCroomgame::Update() {
 		}
 	}
 
-	if (finished == true)
-	{
-		return;
-	}
 
 	if (ismoving == false)
 	{
@@ -215,7 +227,7 @@ void PCroomgame::Update() {
 	// 1. 좌석으로 가는 중
 	// y 먼저 이동, y가 같으면 x 이동
 	// =========================
-	if (isretrun == false)
+	if (isreturn == false)
 	{
 		// y 방향 먼저 이동
 		if (playerPos.y < targetPos.y)
@@ -276,7 +288,7 @@ void PCroomgame::Update() {
 
 			// 이제 집으로 돌아가기 시작
 			targetPos = homePos;
-			isretrun = true;
+			isreturn = true;
 			ismoving = true;
 
 			return;
@@ -287,7 +299,7 @@ void PCroomgame::Update() {
 	// 2. 초기 위치로 돌아오는 중
 	// x 먼저 이동, x가 같으면 y 이동
 	// =========================
-	else if (isretrun == true)
+	else if (isreturn == true)
 	{
 		// x 방향 먼저 이동
 		if (playerPos.x < targetPos.x)
@@ -341,7 +353,7 @@ void PCroomgame::Update() {
 		if (playerPos.x == targetPos.x && playerPos.y == targetPos.y)
 		{
 			ismoving = false;
-			isretrun = false;
+			isreturn = false;
 			targetPos = playerPos;
 
 			return;
@@ -412,8 +424,9 @@ void PCroomgame::PAINT(HDC hDC) {
 	DrawTextW(hDC, 50, 50, scoreText);
 
 	// 남은 시간 출력
-	std::wstring timerText = L"남은 시간: " + std::to_wstring(timer);
-	DrawTextW(hDC, 50, 80, timerText);
+	wchar_t timerBuffer[100];								// 소수점 너무 길게 보이지 않기 위해 사용
+	swprintf_s(timerBuffer, L"남은 시간: %.1f", timer);		// 소수점 너무 길게 보이지 않기 위해 사용
+	DrawTextW(hDC, 50, 80, timerBuffer);
 
 	// 현재 만든 라면 출력
 	std::wstring currentText = L"현재 라면: " + RamenToString(curramen);
@@ -464,7 +477,7 @@ void PCroomgame::StartDelivery(int index)
 
 	targetPos = deliveryPos[index];   // 또는 deliveryPos[index]를 쓰고 있다면 deliveryPos[index]
 	ismoving = true;
-	isretrun = false;
+	isreturn = false;
 	seatindex = index;
 }
 

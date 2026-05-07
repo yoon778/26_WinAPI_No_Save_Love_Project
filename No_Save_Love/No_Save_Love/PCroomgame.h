@@ -11,7 +11,7 @@ private:
 	int resultTimer;            // 메시지를 보여줄 시간
 
 	int score;		// pc방 게임 점수
-	int timer;		// pc방 게임시간
+	double timer;		// pc방 게임시간
 	bool finished;	// pc방 게임의 종료 상태 / 게임이 진행중이면 false, 끝났다면  true
 	CImage background;
 
@@ -28,7 +28,7 @@ private:
 	POINT targetPos;			// 목표 위치
 	POINT homePos;				// 초기 위치
 	BOOL ismoving;				// 이동 여부
-	BOOL isretrun;				// 배달 후 돌아는 여부
+	BOOL isreturn;				// 배달 후 돌아는 여부
 	int seatindex;
 
 	bool InsideRect(RECT rect, int x, int y);
