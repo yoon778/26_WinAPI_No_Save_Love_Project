@@ -468,6 +468,11 @@ int PCroomgame::getscore() {
 
 	return score;
 }
+
+bool PCroomgame::isfinished() {
+	return finished;
+}
+
 void PCroomgame::StartDelivery(int index)
 {
 	if (index < 0 || index >= 6)
