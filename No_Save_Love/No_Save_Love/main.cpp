@@ -5,8 +5,8 @@
 using namespace std;
 
 // 기본 창 설정
-int location_x = 100; // 창 위치
-int location_y = 80;
+int location_x = 0; // 창 위치
+int location_y = 0;
 int size_w = 1920; //창 크기
 int size_h = 1080;
 
