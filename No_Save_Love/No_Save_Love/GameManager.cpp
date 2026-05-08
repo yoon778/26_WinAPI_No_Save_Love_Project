@@ -3,19 +3,29 @@
 void GameManager::Initialize(HWND hWnd)
 {
     m_hWnd = hWnd;
+
+    // 게임은 대사 모드에서 시작한다.
     now_game_mode = game_mode_info::Dialogue;
+
+    // 히로인 선택 횟수 초기화
     characters = {
         CharacterInfo{ L"한세아", 0 },
         CharacterInfo{ L"유하린", 0 },
         CharacterInfo{ L"서이린", 0 }
     };
+
+    // 플레이어 스탯 초기화
+    player = { 0, 0, 0, 0 };
+
+    // 각 Scene 초기화
     storyScene.Initialize();
     choiceScene.Initialize();
-    return ;
+    resultScene.Reset();
 }
 
 void GameManager::Shutdown()
 {
+    // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
 
     m_hWnd = nullptr;
@@ -25,65 +35,98 @@ void GameManager::OnMouseClick(int x, int y)
 {
     switch (now_game_mode)
     {
-        case game_mode_info::Dialogue:
+    case game_mode_info::Dialogue:
+    {
+        // 대사 클릭 처리는 StoryScene에게 맡긴다.
+        storyScene.OnMouseClick(x, y);
+
+        // 대사가 끝났다면, 지금은 미니게임을 끝냈다고 가정하고 Result로 이동한다.
+        if (storyScene.IsFinished())
         {
-            storyScene.OnMouseClick(x, y);
-
-            // 대사 끝나면 선택으로 이동
-            if (storyScene.IsFinished())
-            {
-                // 선택지 화면에 들어가기 전에 이전 선택 상태를 초기화한다.
-                choiceScene.Reset();
-
-                // 선택지 모드로 이동한다.
-                now_game_mode = game_mode_info::Choice;
-            }
-
-            break;
+            // 임시 테스트:
+            // 미니게임 0번에서 85점을 받았다고 가정한다.
+            EnterResult(currentMiniGameIndex, testMiniGameScore);
         }
 
-        case game_mode_info::Choice:
+        break;
+    }
+
+    case game_mode_info::Result:
+    {
+        // ResultScene에게 클릭 처리를 맡긴다.
+        resultScene.OnMouseClick(x, y);
+
+        // Result 화면이 끝났다면 Choice 화면으로 이동한다.
+        if (resultScene.IsFinished())
         {
-            // 선택지 클릭 판정은 ChoiceScene에게 맡긴다.
-            choiceScene.HandleChoiceClick(x, y);
-
-            // 실제로 선택지를 클릭했을 때만 결과 처리로 넘어간다.
-            if (choiceScene.HasSelected())
-            {
-                int selectedIndex = choiceScene.GetSelectedIndex();
-
-                // 선택한 캐릭터의 호감도를 증가시킨다.
-                AddAffection(characters, selectedIndex);
-            }
-
-            break;
+            choiceScene.Reset();
+            now_game_mode = game_mode_info::Choice;
         }
 
-        case game_mode_info::Result:
+        break;
+    }
+
+    case game_mode_info::Choice:
+    {
+        // 선택지 클릭 판정은 ChoiceScene에게 맡긴다.
+        choiceScene.HandleChoiceClick(x, y);
+
+        // 실제로 선택지를 클릭했을 때만 선택 횟수를 증가시킨다.
+        if (choiceScene.HasSelected())
         {
-            // 결과 모드 클릭 처리
-            HandleResultClick();
-            break;
+            int selectedIndex = choiceScene.GetSelectedIndex();
+
+            // 선택한 히로인 횟수 증가
+            AddChoiceCount(characters, selectedIndex);
+
         }
+
+        break;
+    }
     }
 
     InvalidateRect(m_hWnd, nullptr, TRUE);
 }
 
-void GameManager::AddAffection(std::array<CharacterInfo, HEROINE_COUNT>& characters, int selectedcharacter) {
-    characters[selectedcharacter].affection += choiceAffectionValue;
+void GameManager::EnterResult(int whichGame, int score)
+{
+    resultScene.Reset();
 
-    if (characters[selectedcharacter].affection > 100)
-    {
-        characters[selectedcharacter].affection = 100;
-    }
+    resultScene.SetResult(whichGame, score);
+
+    Player_state plusState = resultScene.GetPlusState();
+
+    ApplyStatGain(plusState);
+
+    resultScene.SetCurrentPlayerState(player);
 
     now_game_mode = game_mode_info::Result;
 }
 
+void GameManager::ApplyStatGain(const Player_state& plusState)
+{
+    // ResultScene이 계산한 상승량을 실제 player 스탯에 더한다.
+    player.money = ClampStat(player.money + plusState.money);
+    player.speech = ClampStat(player.speech + plusState.speech);
+    player.charm = ClampStat(player.charm + plusState.charm);
+    player.appearance = ClampStat(player.appearance + plusState.appearance);
+}
+
+void GameManager::AddChoiceCount(std::array<CharacterInfo, HEROINE_COUNT>& characters, int selectedCharacter)
+{
+    // 잘못된 인덱스가 들어오면 아무것도 하지 않는다.
+    if (selectedCharacter < 0 || selectedCharacter >= HEROINE_COUNT)
+    {
+        return;
+    }
+
+    characters[selectedCharacter].choice_time += 1;
+}
+
 void GameManager::HandleResultClick()
 {
-    // 다음 스토리로 이동
+    // 지금 구조에서는 Result 클릭 처리를 OnMouseClick의 Result case에서 직접 처리한다.
+    // 나중에 필요하면 이 함수로 분리하면 된다.
 }
 
 void GameManager::Render(HDC hDC)
@@ -96,115 +139,16 @@ void GameManager::Render(HDC hDC)
         break;
     }
 
+    case game_mode_info::Result:
+    {
+        resultScene.RenderResult(hDC);
+        break;
+    }
+
     case game_mode_info::Choice:
     {
         choiceScene.RenderChoice(hDC);
         break;
     }
-
-    case game_mode_info::Result:
-    {
-        RenderResult(hDC);
-        break;
     }
-    }
-}
-
-
-void GameManager::RenderResult(HDC hDC)
-{
-    // 선택된 캐릭터가 없으면 출력하지 않는다.
-    if (!choiceScene.HasSelected())
-    {
-        return;
-    }
-
-    int selectedIndex = choiceScene.GetSelectedIndex();
-
-    std::wstring resultText =
-        characters[selectedIndex].name + L"를 선택했습니다.";
-
-    std::wstring affectionUpText =
-        characters[selectedIndex].name +
-        L" 호감도 +" +
-        std::to_wstring(choiceAffectionValue);
-
-    std::wstring currentAffectionText =
-        L"현재 호감도: " +
-        std::to_wstring(characters[selectedIndex].affection);
-
-    // 결과 출력용 폰트를 만든다.
-    HFONT resultFont = CreateFontW(
-        42,
-        0,
-        0,
-        0,
-        600,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
-
-    // 만든 폰트를 적용하고 기존 폰트를 저장한다.
-    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, resultFont));
-
-    // 글자 배경을 투명하게 한다.
-    SetBkMode(hDC, TRANSPARENT);
-
-    HPEN boxPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, boxPen));
-
-    // 결과창을 그린다.
-    RoundRect(
-        hDC,
-        dialogueBox.left,
-        dialogueBox.top,
-        dialogueBox.right,
-        dialogueBox.bottom,
-        20,
-        20
-    );
-
-    RECT resultRect1 = { 520, 860, 1600, 910 };
-    RECT resultRect2 = { 520, 915, 1600, 965 };
-    RECT resultRect3 = { 520, 970, 1600, 1020 };
-
-    SetTextColor(hDC, RGB(0, 0, 0));
-
-    // 선택 결과를 출력한다.
-    DrawTextW(
-        hDC,
-        resultText.c_str(),
-        -1,
-        &resultRect1,
-        DT_LEFT | DT_TOP | DT_SINGLELINE
-    );
-
-    // 호감도 증가량을 출력한다.
-    DrawTextW(
-        hDC,
-        affectionUpText.c_str(),
-        -1,
-        &resultRect2,
-        DT_LEFT | DT_TOP | DT_SINGLELINE
-    );
-
-    // 현재 호감도를 출력한다.
-    DrawTextW(
-        hDC,
-        currentAffectionText.c_str(),
-        -1,
-        &resultRect3,
-        DT_LEFT | DT_TOP | DT_SINGLELINE
-    );
-    SelectObject(hDC, oldPen);
-    SelectObject(hDC, oldFont);
-    DeleteObject(boxPen);
-    DeleteObject(resultFont);
 }

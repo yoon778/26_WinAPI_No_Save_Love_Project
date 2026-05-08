@@ -27,6 +27,12 @@
     <ClCompile Include="GameManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="Scenes\ChoiceScene.cpp">
+      <Filter>소스 파일\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="Scenes\ResultScene.cpp">
+      <Filter>소스 파일\Scenes</Filter>
+    </ClCompile>
     <ClCompile Include="Scenes\StoryScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
     </ClCompile>
@@ -37,6 +43,12 @@
     </ClInclude>
     <ClInclude Include="IScene.h">
       <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Scenes\ChoiceScene.h">
+      <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Scenes\ResultScene.h">
+      <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="Scenes\StoryScene.h">
       <Filter>헤더 파일\Scenes</Filter>
