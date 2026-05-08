@@ -318,6 +318,7 @@ void ResultScene::RenderResult(HDC hDC)
     RECT moneyRect = { 160, 850, 1760, 895 };
     RECT speechRect = { 160, 900, 1760, 945 };
     RECT charmRect = { 160, 950, 1760, 995 };
+    RECT appearanceRect = { 160, 1000, 1000, 1030 };
     RECT nextRect = { 1120, 980, 1760, 1020 };
 
     // 텍스트 출력
@@ -326,7 +327,7 @@ void ResultScene::RenderResult(HDC hDC)
     DrawTextW(hDC, moneyText.c_str(), -1, &moneyRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hDC, speechText.c_str(), -1, &speechRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hDC, charmText.c_str(), -1, &charmRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-    DrawTextW(hDC, appearanceText.c_str(), -1, &m_resultBox, DT_LEFT | DT_BOTTOM | DT_SINGLELINE);
+    DrawTextW(hDC,appearanceText.c_str(),-1,&appearanceRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hDC, nextText.c_str(), -1, &nextRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 
 

@@ -132,6 +132,7 @@
     <ClCompile Include="Scenes\ChoiceScene.cpp" />
     <ClCompile Include="Scenes\ResultScene.cpp" />
     <ClCompile Include="Scenes\StoryScene.cpp" />
+    <ClCompile Include="StoryData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h" />
@@ -139,6 +140,7 @@
     <ClInclude Include="Scenes\ChoiceScene.h" />
     <ClInclude Include="Scenes\ResultScene.h" />
     <ClInclude Include="Scenes\StoryScene.h" />
+    <ClInclude Include="StoryData.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="최종폴더.txt">

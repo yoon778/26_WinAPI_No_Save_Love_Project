@@ -2,42 +2,58 @@
 
 void StoryScene::Initialize()
 {
+    // 처음에는 비워둔다.
+    // 실제 대사는 GameManager가 SetDialogues로 넣어준다.
     dialogues.clear();
-
-    DialogueLineInfo line;
-    line.speaker = L"한세아";
-    line.text = L"안녕!";
-    dialogues.push_back(line);
-
-    line.speaker = L"윤서";
-    line.text = L"아아아아아아아아아아아아아아아아아아아아아아앙아아!";
-    dialogues.push_back(line);
-
     currentDialogueIndex = 0;
-
     finished = false;
 }
 
 void StoryScene::Shutdown()
 {
+    // 대사 목록을 비운다.
     dialogues.clear();
+
+    // 상태값 초기화
     currentDialogueIndex = 0;
+    finished = false;
+}
+
+void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
+{
+    // 기존 대사를 지우고 새 대사 묶음을 받는다.
+    dialogues = newDialogues;
+
+    // 새 대사 묶음은 항상 처음부터 시작한다.
+    currentDialogueIndex = 0;
+
+    // 새 대사를 시작했으므로 아직 끝난 상태가 아니다.
     finished = false;
 }
 
 void StoryScene::OnMouseClick(int x, int y)
 {
+    // 대사가 없으면 바로 끝난 것으로 처리한다.
+    if (dialogues.empty())
+    {
+        finished = true;
+        return;
+    }
+
+    // 이미 끝났으면 더 이상 처리하지 않는다.
     if (finished)
     {
         return;
     }
 
+    // 다음 대사가 남아 있으면 다음 대사로 이동한다.
     if (currentDialogueIndex < static_cast<int>(dialogues.size()) - 1)
     {
         currentDialogueIndex++;
     }
     else
     {
+        // 마지막 대사에서 클릭하면 끝난 상태로 만든다.
         finished = true;
     }
 }
@@ -49,7 +65,7 @@ bool StoryScene::IsFinished() const
 
 StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker) const
 {
-    // 기본 스타일이다.
+    // 기본 스타일
     SpeakerStyle style = {
         RGB(230, 220, 255),
         RGB(245, 245, 245),
@@ -57,7 +73,6 @@ StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker
         RGB(80, 70, 120)
     };
 
-    // 화자 이름에 따라 스타일을 바꾼다.
     if (speaker == L"한세아")
     {
         return hanseaStyle;
@@ -76,20 +91,17 @@ StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker
 
 void StoryScene::Render(HDC hDC)
 {
-    // 대사가 없으면 그릴 것이 없다.
+    // 출력할 대사가 없으면 그리지 않는다.
     if (dialogues.empty())
     {
         return;
     }
 
-    // 현재 대사 정보를 가져온다.
     const std::wstring& currentSpeaker = dialogues[currentDialogueIndex].speaker;
     const std::wstring& currentText = dialogues[currentDialogueIndex].text;
 
-    // 현재 화자에 맞는 스타일을 가져온다.
     SpeakerStyle style = GetSpeakerStyle(currentSpeaker);
 
-    // 폰트를 만든다.
     HFONT dialogueFont = CreateFontW(
         42,
         0,
@@ -106,9 +118,9 @@ void StoryScene::Render(HDC hDC)
         DEFAULT_PITCH | FF_DONTCARE,
         L"맑은 고딕"
     );
+
     HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, dialogueFont));
 
-    // 글자 배경 투명 적용
     SetBkMode(hDC, TRANSPARENT);
 
     HBRUSH boxBrush = CreateSolidBrush(RGB(20, 20, 25));
@@ -117,7 +129,7 @@ void StoryScene::Render(HDC hDC)
     HPEN boxPen = CreatePen(PS_SOLID, 2, style.outline);
     HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, boxPen));
 
-    // 대화창을 그린다.
+    // 대화창 출력
     RoundRect(
         hDC,
         dialogueBox.left,
@@ -128,10 +140,10 @@ void StoryScene::Render(HDC hDC)
         20
     );
 
-    
+    // 포인트 라인 출력
     HPEN linePen = CreatePen(PS_SOLID, 3, style.accent);
     SelectObject(hDC, linePen);
-    // 대화창 위 연한 색깔 선 그린다
+
     MoveToEx(hDC, 0, lineY, nullptr);
     LineTo(hDC, 1920, lineY);
 
@@ -155,10 +167,12 @@ void StoryScene::Render(HDC hDC)
         DT_LEFT | DT_TOP | DT_WORDBREAK
     );
 
-   
+    // GDI 객체 복구
     SelectObject(hDC, oldPen);
     SelectObject(hDC, oldBrush);
     SelectObject(hDC, oldFont);
+
+    // 직접 만든 GDI 객체 삭제
     DeleteObject(linePen);
     DeleteObject(boxPen);
     DeleteObject(boxBrush);
