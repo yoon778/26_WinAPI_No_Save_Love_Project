@@ -130,12 +130,14 @@
     <ClCompile Include="ChoiceScene.cpp" />
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ResultScene.cpp" />
     <ClCompile Include="StoryScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ChoiceScene.h" />
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="IScene.h" />
+    <ClInclude Include="ResultScene.h" />
     <ClInclude Include="StoryScene.h" />
   </ItemGroup>
   <ItemGroup>

@@ -4,8 +4,8 @@
 #include <string>
 #include <array>
 
-#include "StoryScene.h"
-#include "ChoiceScene.h"
+#include "Scenes/StoryScene.h"
+#include "Scenes/ChoiceScene.h"
 
 class GameManager
 {
