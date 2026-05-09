@@ -4,29 +4,129 @@ void GameManager::Initialize(HWND hWnd)
 {
     m_hWnd = hWnd;
 
-    // 히로인 선택 횟수를 초기화한다.
-    characters = {
-        CharacterInfo{ L"한세아", 0 },
-        CharacterInfo{ L"유하린", 0 },
-        CharacterInfo{ L"서이린", 0 }
-    };
+    now_game_mode = game_mode_info::Dialogue;
 
-    // 플레이어 스탯을 초기화한다.
-    player = { 0, 0, 0, 0 };
-
-    // 스토리 데이터를 먼저 준비한다.
+    // 스토리 데이터를 초기화한다.
     storyData.Initialize();
 
-    // 각 Scene을 초기화한다.
+    // 다른 Scene들도 초기화한다.
     storyScene.Initialize();
     choiceScene.Initialize();
     resultScene.Reset();
 
-    // 인트로 대사를 StoryData에서 받아 StoryScene에 넣는다.
-    storyScene.SetDialogues(storyData.GetIntroStory());
+    // 임시 인트로 대사를 넣는다.
+    std::vector<DialogueLineInfo> introDialogues =
+    {
+        { L"윤서", L"이상한 노트를 발견한 뒤로, 내 봄은 조금씩 반복되고 있었다." },
+        { L"윤서", L"그리고 그 반복의 중심에는 세 명의 소녀가 있었다." },
+        { L"시스템", L"미니게임 성적에 따라 스탯이 상승합니다." },
+        { L"시스템", L"스탯과 선택 기록에 따라 마지막 엔딩이 달라집니다." }
+    };
 
-    // 처음 시작 모드는 대사 모드다.
-    now_game_mode = game_mode_info::Dialogue;
+    storyScene.SetDialogues(introDialogues);
+}
+
+void GameManager::InitializeStoryScripts()
+{
+    // =========================
+    // 1회차 선택 이후 스토리
+    // =========================
+
+    storyScripts[0][0] =
+    {
+        { L"한세아", L"네가 도와준 덕분에 일이 조금 정리됐어." },
+        { L"윤서", L"그냥... 내가 할 수 있는 걸 한 것뿐이야." },
+        { L"한세아", L"그런 말을 아무렇지 않게 하는 게 더 이상하네." }
+    };
+
+    storyScripts[0][1] =
+    {
+        { L"유하린", L"오, 윤서! 방금 선택 나였지?" },
+        { L"윤서", L"그걸 그렇게 바로 물어봐?" },
+        { L"유하린", L"당연하지. 이런 건 확인이 중요하거든." }
+    };
+
+    storyScripts[0][2] =
+    {
+        { L"서이린", L"나를 선택했구나." },
+        { L"윤서", L"응. 뭔가 네가 신경 쓰여서." },
+        { L"서이린", L"그 말... 기억해둘게." }
+    };
+
+    // =========================
+    // 2회차 선택 이후 스토리
+    // =========================
+
+    storyScripts[1][0] =
+    {
+        { L"한세아", L"또 나를 도와주는 거야?" },
+        { L"윤서", L"싫으면 안 할게." },
+        { L"한세아", L"싫다고는 안 했어." }
+    };
+
+    storyScripts[1][1] =
+    {
+        { L"유하린", L"윤서, 너 은근히 나랑 잘 맞는 거 알아?" },
+        { L"윤서", L"갑자기 그런 말을 하면 반응하기 어렵잖아." },
+        { L"유하린", L"그 반응 보려고 한 건데?" }
+    };
+
+    storyScripts[1][2] =
+    {
+        { L"서이린", L"오늘도 왔네." },
+        { L"윤서", L"오면 안 되는 거였어?" },
+        { L"서이린", L"아니. 기다렸어." }
+    };
+
+    // =========================
+    // 3회차 선택 이후 스토리
+    // =========================
+
+    storyScripts[2][0] =
+    {
+        { L"한세아", L"나는 항상 실수하면 안 된다고 생각했어." },
+        { L"윤서", L"그래도 사람은 실수할 수 있잖아." },
+        { L"한세아", L"그 말을 듣고 싶었던 걸지도 몰라." }
+    };
+
+    storyScripts[2][1] =
+    {
+        { L"유하린", L"나는 웃고 있으면 괜찮아 보이잖아." },
+        { L"윤서", L"괜찮아 보이는 거랑 진짜 괜찮은 건 다르지." },
+        { L"유하린", L"...오늘은 장난으로 못 넘기겠네." }
+    };
+
+    storyScripts[2][2] =
+    {
+        { L"서이린", L"윤서야, 넌 반복이 무섭지 않아?" },
+        { L"윤서", L"무섭지. 그런데 혼자 있는 게 더 무서워." },
+        { L"서이린", L"그럼 내 옆에 있어." }
+    };
+
+    // =========================
+    // 4회차 선택 이후 스토리
+    // =========================
+
+    storyScripts[3][0] =
+    {
+        { L"한세아", L"이번 봄이 끝나면, 나는 조금 달라질 수 있을까?" },
+        { L"윤서", L"혼자서 다 버티지 않아도 된다면 가능하지 않을까." },
+        { L"한세아", L"그럼... 조금만 더 옆에 있어줘." }
+    };
+
+    storyScripts[3][1] =
+    {
+        { L"유하린", L"나 사실 겁났어. 진지해지면 망가질까 봐." },
+        { L"윤서", L"그래도 말해줘서 고마워." },
+        { L"유하린", L"이번엔 웃으면서 도망치지 않을게." }
+    };
+
+    storyScripts[3][2] =
+    {
+        { L"서이린", L"반복이 끝나도, 넌 나를 기억할까?" },
+        { L"윤서", L"잊지 않을게." },
+        { L"서이린", L"그럼 됐어. 나는 그 말이면 충분해." }
+    };
 }
 void GameManager::Shutdown()
 {
@@ -57,8 +157,8 @@ void GameManager::OnMouseClick(int x, int y)
             }
             else
             {
-                //최종 선택으로
-                EnterFinalChoice();
+                // 나중에 EndingScene으로 이동시킬 부분이다.
+                now_game_mode = game_mode_info::Ending;
             }
         }
 
@@ -84,55 +184,24 @@ void GameManager::OnMouseClick(int x, int y)
 
     case game_mode_info::Choice:
     {
-        // 선택지 클릭 판정을 ChoiceScene에게 맡긴다.
         choiceScene.HandleChoiceClick(x, y);
 
-        // 아직 선택 결과를 반영하지 않았고, 실제 선택이 발생했을 때만 처리한다.
         if (!m_choiceApplied && choiceScene.HasSelected())
         {
             int selectedIndex = choiceScene.GetSelectedIndex();
 
-            // 선택한 히로인의 선택 횟수를 증가시킨다.
+            // 선택 횟수 증가
             AddChoiceCount(characters, selectedIndex);
 
-            // 분기 스토리 진입에 성공했을 때만 선택 반영 완료 처리한다.
-            if (EnterBranchStory(selectedIndex))
-            {
-                m_choiceApplied = true;
-            }
+            // 같은 선택이 여러 번 반영되지 않도록 잠근다.
+            m_choiceApplied = true;
+
+            // 선택한 히로인에 맞는 다음 스토리로 이동한다.
+            EnterBranchStory(selectedIndex);
         }
 
         break;
     }
-    case game_mode_info::FinalChoice:
-    {
-        // FinalChoiceScene에게 클릭 처리를 맡긴다.
-        finalChoiceScene.OnMouseClick(x, y);
-
-        // 최종 히로인 확인 화면이 끝났다면,
-        // 바로 THE END 화면으로 가지 않고 엔딩 대사로 들어간다.
-        if (finalChoiceScene.IsFinished())
-        {
-            EnterEndingStory();
-        }
-
-        break;
-    }
-
-    case game_mode_info::EndingDialogue:
-    {
-        // 엔딩 대사도 StoryScene으로 출력하므로 클릭 처리는 StoryScene에게 맡긴다.
-        storyScene.OnMouseClick(x, y);
-
-        // 엔딩 대사가 모두 끝나면 THE END 화면으로 이동한다.
-        if (storyScene.IsFinished())
-        {
-            now_game_mode = game_mode_info::Ending;
-        }
-
-        break;
-    }
-
 
     case game_mode_info::Ending:
     {
@@ -202,182 +271,34 @@ void GameManager::Render(HDC hDC)
         choiceScene.RenderChoice(hDC);
         break;
     }
-    case game_mode_info::FinalChoice:
-    {
-        // 최종 히로인 확인 화면을 출력한다.
-        finalChoiceScene.Render(hDC);
-        break;
-    }
-    case game_mode_info::EndingDialogue:
-    {
-        // 엔딩 대사도 StoryScene을 재사용해서 출력한다.
-        storyScene.Render(hDC);
-        break;
-    }
-
-    case game_mode_info::Ending:
-    {
-        SetBkMode(hDC, TRANSPARENT);
-        SetTextColor(hDC, RGB(30, 30, 30));
-
-        RECT endingRect = { 0, 0, 1920, 1080 };
-
-        DrawTextW(
-            hDC,
-            L"THE END\n\n최종 결과 화면입니다.\n\n[처음으로 돌아가기]\n[종료하기]",
-            -1,
-            &endingRect,
-            DT_CENTER | DT_VCENTER | DT_WORDBREAK
-        );
-
-        break;
-    }
     }
 }
 
-bool GameManager::EnterBranchStory(int selectedHeroineIndex)
+void GameManager::EnterBranchStory(int selectedHeroineIndex)
 {
-    // 히로인 번호가 잘못되면 실패 처리한다.
+    // 잘못된 히로인 번호면 아무것도 하지 않는다.
     if (selectedHeroineIndex < 0 || selectedHeroineIndex >= HEROINE_COUNT)
     {
-        return false;
+        return;
     }
 
-    // 4회차를 모두 끝냈다면 엔딩으로 이동한다.
+    // 4번의 선택 이후에는 엔딩으로 넘어간다.
     if (currentStoryRound >= STORY_ROUND_COUNT)
     {
         now_game_mode = game_mode_info::Ending;
-        return true;
+        return;
     }
 
-    // 현재 회차와 선택 히로인에 맞는 대사 묶음을 가져온다.
+    // StoryData에서 현재 회차와 선택 히로인에 맞는 대사 묶음을 가져온다.
     const std::vector<DialogueLineInfo>& nextDialogues =
         storyData.GetBranchStory(currentStoryRound, selectedHeroineIndex);
 
-    // 대사가 비어 있으면 실패 처리한다.
-    if (nextDialogues.empty())
-    {
-        return false;
-    }
-
-    // StoryScene에 새 대사 묶음을 넣는다.
+    // 가져온 대사 묶음을 StoryScene에 넣는다.
     storyScene.SetDialogues(nextDialogues);
 
-    // 다음 회차로 이동한다.
+    // 이번 회차 스토리를 사용했으므로 다음 회차로 넘긴다.
     currentStoryRound++;
 
-    // 대사 모드로 전환한다.
+    // 다시 대사 화면으로 이동한다.
     now_game_mode = game_mode_info::Dialogue;
-
-    return true;
-}
-
-void GameManager::EnterFinalChoice()
-{
-    // 현재 가장 높은 선택 횟수를 저장한다.
-    int maxChoiceCount = characters[0].choice_time;
-
-    // 가장 많이 선택된 히로인 번호를 저장한다.
-    finalHeroineIndex = 0;
-
-    // 현재 가장 높은 선택 횟수를 저장한다.
-    maxChoiceCount = characters[0].choice_time;
-
-    // 1번 유하린, 2번 서이린과 비교한다.
-    for (int i = 1; i < HEROINE_COUNT; i++)
-    {
-        // 현재 히로인의 선택 횟수가 더 많으면 최종 히로인을 갱신한다.
-        if (characters[i].choice_time > maxChoiceCount)
-        {
-            maxChoiceCount = characters[i].choice_time;
-            finalHeroineIndex = i;
-        }
-    }
-
-    // 최종 히로인 정보를 FinalChoiceScene에게 넘긴다.
-    finalChoiceScene.SetFinalHeroine(
-        finalHeroineIndex,
-        characters[finalHeroineIndex].name
-    );
-
-    // FinalChoiceScene을 처음 상태로 준비한다.
-    finalChoiceScene.Reset();
-
-    // 최종 선택 확인 화면으로 이동한다.
-    now_game_mode = game_mode_info::FinalChoice;
-}
-
-void GameManager::EnterEndingStory()
-{
-
-    // 스탯을 보고 해피 / 배드 / 히든 엔딩을 계산한다.
-    int endingType = CalculateEndingType(finalHeroineIndex);
-
-    // StoryData에서 해당 히로인, 해당 엔딩 종류의 대사를 가져온다.
-    const std::vector<DialogueLineInfo>& endingDialogues =
-        storyData.GetEndingStory(endingType, finalHeroineIndex);
-
-    // 엔딩 대사를 StoryScene에 넣는다.
-    storyScene.SetDialogues(endingDialogues);
-
-    // 이제 StoryScene으로 엔딩 대사를 출력한다.
-    now_game_mode = game_mode_info::EndingDialogue;
-}
-
-int GameManager::CalculateEndingType(int heroineIndex) const
-{
-    // 0 = Happy
-    // 1 = Bad
-    // 2 = Hidden
-
-    // 모든 스탯이 20 이하이면 히든 엔딩
-    if (player.money <= 20 &&
-        player.speech <= 20 &&
-        player.charm <= 20 &&
-        player.appearance <= 20)
-    {
-        return 2;
-    }
-
-    switch (heroineIndex)
-    {
-    case 0:
-    {
-        // 한세아: 재력 + 대화스킬 중심
-        if (player.money + player.speech >= 120)
-        {
-            return 0;
-        }
-
-        return 1;
-    }
-
-    case 1:
-    {
-        // 유하린: 대화스킬 + 매력 중심
-        if (player.speech + player.charm >= 120)
-        {
-            return 0;
-        }
-
-        return 1;
-    }
-
-    case 2:
-    {
-        // 서이린: 매력 + 외모 중심
-        if (player.charm + player.appearance >= 120)
-        {
-            return 0;
-        }
-
-        return 1;
-    }
-
-    default:
-    {
-        // 잘못된 히로인 번호면 배드 엔딩으로 처리한다.
-        return 1;
-    }
-    }
 }
