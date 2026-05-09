@@ -19,6 +19,12 @@
     <Filter Include="헤더 파일\Scenes">
       <UniqueIdentifier>{b2a24fa6-fbc7-4372-bf40-8673fa24595d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\data">
+      <UniqueIdentifier>{61823b16-93a4-440c-93a0-e53be1286348}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\data">
+      <UniqueIdentifier>{13af5e2b-4c2f-4f8f-a20f-b85798c7b452}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -36,12 +42,18 @@
     <ClCompile Include="Scenes\StoryScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="StoryData.cpp">
+      <Filter>소스 파일\data</Filter>
+    </ClCompile>
+    <ClCompile Include="Scenes\EndingScene.cpp">
+      <Filter>소스 파일\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="Scenes\FinalChoiceScene.cpp">
+      <Filter>소스 파일\Scenes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="IScene.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Scenes\ChoiceScene.h">
@@ -51,6 +63,15 @@
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="Scenes\StoryScene.h">
+      <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="StoryData.h">
+      <Filter>헤더 파일\data</Filter>
+    </ClInclude>
+    <ClInclude Include="Scenes\EndingScene.h">
+      <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Scenes\FinalChoiceScene.h">
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
   </ItemGroup>

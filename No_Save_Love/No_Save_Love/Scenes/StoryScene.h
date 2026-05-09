@@ -88,5 +88,5 @@ private:
     RECT textRect = { 520, 885, 1600, 965 };
 
     // 대화창 위쪽 포인트 라인 위치
-    int lineY = 825;
+    int lineY = 800;
 };
