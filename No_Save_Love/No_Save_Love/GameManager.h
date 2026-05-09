@@ -8,6 +8,9 @@
 #include "Scenes/StoryScene.h"
 #include "Scenes/ChoiceScene.h"
 #include "Scenes/ResultScene.h"
+#include "Scenes/FinalChoiceScene.h"
+#include "Scenes/EndingScene.h"
+
 #include "StoryData.h"
 
 class GameManager
@@ -24,8 +27,11 @@ private:
     enum game_mode_info
     {
         Dialogue,
+        MiniGame,
         Result,
         Choice,
+        FinalChoice,
+        EndingDialogue,
         Ending
     };
 
@@ -36,6 +42,8 @@ private:
     ResultScene resultScene;
     ChoiceScene choiceScene;
     StoryData storyData;
+    FinalChoiceScene finalChoiceScene;
+
 private:
     static const int HEROINE_COUNT = 3;
     static const int STORY_ROUND_COUNT = 4;
@@ -52,8 +60,6 @@ private:
     Player_state player;
 
 private:
-    // 4번의 선택 × 3명의 히로인 = 12개의 스토리 묶음
-    std::vector<DialogueLineInfo> storyScripts[STORY_ROUND_COUNT][HEROINE_COUNT];
 
     // 현재 몇 번째 선택 이후 스토리인지
     int currentStoryRound = 0;
@@ -67,12 +73,17 @@ private:
     // Choice 선택 결과가 중복 반영되는 것을 막기 위한 플래그
     bool m_choiceApplied = false;
 
+    // 엔딩 종류를 계산한다.
+    // 0 = Happy, 1 = Bad, 2 = Hidden
+    int CalculateEndingType(int heroineIndex) const;
+
+    // 가장 많이 선택된 히로인 번호를 저장한다.
+    int finalHeroineIndex = 0;
+     
 private:
-    // 12개의 스토리 데이터를 준비한다.
-    void InitializeStoryScripts();
 
     // 선택된 히로인에 맞는 다음 StoryScene으로 들어간다.
-    void EnterBranchStory(int selectedHeroineIndex);
+    bool EnterBranchStory(int selectedHeroineIndex);
 
     // 미니게임 결과 화면으로 들어간다.
     void EnterResult(int whichGame, int score);
@@ -82,4 +93,10 @@ private:
 
     // 히로인 선택 횟수를 증가시킨다.
     void AddChoiceCount(std::array<CharacterInfo, HEROINE_COUNT>& characters, int selectedCharacter);
+
+    // 최종 히로인 계산한뒤 finalChoice에게 건네주면서 finalChoice실행
+    void EnterFinalChoice();
+
+    // 최종 히로인과 스탯을 바탕으로 엔딩 대사를 StoryScene에 넣는다.
+    void EnterEndingStory();
 };

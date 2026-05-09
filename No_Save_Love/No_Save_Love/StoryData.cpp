@@ -2,6 +2,14 @@
 
 void StoryData::Initialize()
 {
+    // 인트로 대사를 초기화한다.
+    introStory =
+    {
+        { L"윤서", L"이상한 노트를 발견한 뒤로, 내 봄은 조금씩 반복되고 있었다." },
+        { L"윤서", L"그리고 그 반복의 중심에는 세 명의 소녀가 있었다." },
+        { L"시스템", L"미니게임 성적에 따라 스탯이 상승합니다." },
+        { L"시스템", L"스탯과 선택 기록에 따라 마지막 엔딩이 달라집니다." }
+    };
     // =========================
     // 1회차 선택 이후 스토리
     // =========================
@@ -101,6 +109,73 @@ void StoryData::Initialize()
         { L"윤서", L"잊지 않을게." },
         { L"서이린", L"그럼 됐어. 나는 그 말이면 충분해." }
     };
+
+
+  // =========================
+  // 해피엔딩
+  // =========================
+    endingStories[0][0] =
+    {
+        { L"한세아", L" 한세아 해피엔딩" },
+        { L"윤서", L"한세아 해피엔딩" },
+        { L"한세아", L"한세아 해피엔딩" }
+    };
+    endingStories[0][1] =
+    {
+        { L"유하린", L" 유하린 해피엔딩" },
+        { L"윤서", L"유하린 해피엔딩" },
+        { L"유하린", L"유하린 해피엔딩" }
+    };
+    endingStories[0][2] =
+    {
+        { L"서이린", L" 서이린 해피엔딩" },
+        { L"윤서", L"서이린 해피엔딩" },
+        { L"서이린", L"서이린 해피엔딩" }
+    };
+
+    // =========================
+  // 배드엔딩
+  // =========================
+    endingStories[1][0] =
+    {
+        { L"한세아", L" 한세아 배드엔딩" },
+        { L"윤서", L"한세아 배드엔딩" },
+        { L"한세아", L"한세아 배드엔딩" }
+    };
+    endingStories[1][1] =
+    {
+        { L"유하린", L" 유하린 배드엔딩" },
+        { L"윤서", L"유하린 배드엔딩" },
+        { L"유하린", L"유하린 배드엔딩" }
+    };
+    endingStories[1][2] =
+    {
+        { L"서이린", L" 서이린 배드엔딩" },
+        { L"윤서", L"서이린 배드엔딩" },
+        { L"서이린", L"서이린 배드엔딩" }
+    };
+    // =========================
+// 히든엔딩
+// =========================
+    endingStories[2][0] =
+    {
+        { L"한세아", L" 한세아 히든엔딩" },
+        { L"윤서", L"한세아 히든엔딩" },
+        { L"한세아", L"한세아 히든엔딩" }
+    };
+    endingStories[2][1] =
+    {
+        { L"유하린", L" 유하린 히든엔딩" },
+        { L"윤서", L"유하린 히든엔딩" },
+        { L"유하린", L"유하린 히든엔딩" }
+    };
+    endingStories[2][2] =
+    {
+        { L"서이린", L" 서이린 히든엔딩" },
+        { L"윤서", L"서이린 히든엔딩" },
+        { L"서이린", L"서이린 히든엔딩" }
+    };
+
 }
 
 const std::vector<DialogueLineInfo>& StoryData::GetBranchStory(int roundIndex, int heroineIndex) const
@@ -120,3 +195,24 @@ const std::vector<DialogueLineInfo>& StoryData::GetBranchStory(int roundIndex, i
     // 정상 범위라면 해당 회차, 해당 히로인의 스토리를 반환한다.
     return storyScripts[roundIndex][heroineIndex];
 }
+
+const std::vector<DialogueLineInfo>& StoryData::GetIntroStory() const
+{
+    return introStory;
+}
+
+const std::vector<DialogueLineInfo>& StoryData::GetEndingStory(int endingType, int heroineIndex) const
+{
+    if (endingType < 0 || endingType >= ENDING_TYPE_COUNT)
+    {
+        return emptyStory;
+    }
+
+    if (heroineIndex < 0 || heroineIndex >= HEROINE_COUNT)
+    {
+        return emptyStory;
+    }
+
+    return endingStories[endingType][heroineIndex];
+}
+
