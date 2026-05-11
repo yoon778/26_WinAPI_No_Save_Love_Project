@@ -1,7 +1,7 @@
 ﻿#include <windows.h>
 #include <tchar.h>
 #include <random>
-using namespace std;
+
 // 기본 창 설정
 int location_x = 0; // 창 위치
 int location_y = 0;
@@ -86,7 +86,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
         return 0;
     }
+    case WM_CHAR:
+    {
+        // 현재 입력된 문자를 GameManager로 넘긴다.
+        g_gameManager.OnChar(static_cast<wchar_t>(wParam));
 
+        // 화면을 다시 그리게 한다.
+        InvalidateRect(hWnd, NULL, FALSE);
+
+        return 0;
+    }
     case WM_LBUTTONDOWN: 
     {
         int mouseX = LOWORD(lParam);

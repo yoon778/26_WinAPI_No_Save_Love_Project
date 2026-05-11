@@ -18,21 +18,20 @@ void GameManager::Initialize(HWND hWnd)
     storyData.Initialize();
 
     // 각 Scene을 초기화한다.
+    nameinputScene.Initialize();
     storyScene.Initialize();
     choiceScene.Initialize();
     resultScene.Reset();
-
-    // 인트로 대사를 StoryData에서 받아 StoryScene에 넣는다.
-    storyScene.SetDialogues(storyData.GetIntroStory());
+    titleScene.Initialize();
 
     // 처음 시작 모드는 대사 모드다.
-    now_game_mode = game_mode_info::Dialogue;
+    now_game_mode = game_mode_info::Title;
 }
 void GameManager::Shutdown()
 {
     // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
-
+    titleScene.Shutdown();
     m_hWnd = nullptr;
 }
 
@@ -40,7 +39,44 @@ void GameManager::OnMouseClick(int x, int y)
 {
     switch (now_game_mode)
     {
-    case game_mode_info::Dialogue:
+    case game_mode_info::Title: 
+    {
+        titleScene.OnMouseClick(x, y);
+
+        if (titleScene.IsStartClicked()) {
+
+            storyScene.SetDialogues(storyData.GetIntroStory());
+
+            now_game_mode = game_mode_info::NameInput;
+        }
+        break;
+    }
+    case game_mode_info::NameInput:
+    {
+        // 이름 입력 화면의 마우스 클릭 처리
+        nameinputScene.OnMouseClick(x, y);
+
+        // 확인 버튼을 눌러 이름 입력이 끝났다면
+        if (nameinputScene.IsFinished())
+        {
+            // 입력된 이름을 GameManager에 저장한다.
+            playerName = nameinputScene.GetPlayerName();
+
+            // StoryScene에게도 플레이어 이름을 알려준다.
+            // 이걸 해야 StoryScene 내부 m_playerName이 "윤서"에서 입력한 이름으로 바뀐다.
+            storyScene.SetPlayerName(playerName);
+            resultScene.SetPlayerName(playerName);
+
+            // 인트로 대사를 StoryScene에 넣는다.
+            storyScene.SetDialogues(storyData.GetIntroStory());
+
+            // 대사 화면으로 이동한다.
+            now_game_mode = game_mode_info::Story;
+        }
+
+        break;
+    }
+    case game_mode_info::Story:
     {
         storyScene.OnMouseClick(x, y);
 
@@ -141,7 +177,7 @@ void GameManager::OnMouseClick(int x, int y)
     }
     }
 
-    InvalidateRect(m_hWnd, nullptr, TRUE);
+    InvalidateRect(m_hWnd, nullptr, FALSE);
 }
 
 void GameManager::EnterResult(int whichGame, int score)
@@ -185,7 +221,16 @@ void GameManager::Render(HDC hDC)
 {
     switch (now_game_mode)
     {
-    case game_mode_info::Dialogue:
+    case game_mode_info::Title:
+    {
+        titleScene.Render(hDC);
+        break;
+    }
+    case game_mode_info::NameInput: {
+        nameinputScene.Render(hDC);
+        break;
+    }
+    case game_mode_info::Story:
     {
         storyScene.Render(hDC);
         break;
@@ -267,7 +312,7 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
     currentStoryRound++;
 
     // 대사 모드로 전환한다.
-    now_game_mode = game_mode_info::Dialogue;
+    now_game_mode = game_mode_info::Story;
 
     return true;
 }
@@ -380,4 +425,37 @@ int GameManager::CalculateEndingType(int heroineIndex) const
         return 1;
     }
     }
+
+}
+void GameManager::OnChar(wchar_t inputChar)
+{
+    switch (now_game_mode)
+    {
+    case game_mode_info::NameInput:
+    {
+        // 이름 입력 화면일 때만 문자 입력을 전달한다.
+        nameinputScene.OnChar(inputChar);
+
+        // 엔터로 입력이 끝났다면 다음 장면으로 이동한다.
+        if (nameinputScene.IsFinished())
+        {
+            playerName = nameinputScene.GetPlayerName();
+
+            storyScene.SetPlayerName(playerName);
+            resultScene.SetPlayerName(playerName);
+
+            storyScene.SetDialogues(storyData.GetIntroStory());
+
+            now_game_mode = game_mode_info::Story;
+        }
+
+        break;
+    }
+
+    default:
+    {
+        break;
+    }
+    }
+
 }

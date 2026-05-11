@@ -97,13 +97,17 @@ void StoryScene::Render(HDC hDC)
         return;
     }
 
-    const std::wstring& currentSpeaker = dialogues[currentDialogueIndex].speaker;
-    const std::wstring& currentText = dialogues[currentDialogueIndex].text;
+    const std::wstring& originalSpeaker = dialogues[currentDialogueIndex].speaker;
+    const std::wstring& originalText = dialogues[currentDialogueIndex].text;
 
-    SpeakerStyle style = GetSpeakerStyle(currentSpeaker);
+    // {PLAYER} 토큰을 실제 플레이어 이름으로 바꿔서 출력한다.
+    std::wstring displaySpeaker = ReplacePlayerNameToken(originalSpeaker);
+    std::wstring displayText = ReplacePlayerNameToken(originalText);
+
+    SpeakerStyle style = GetSpeakerStyle(originalSpeaker);
 
     HFONT dialogueFont = CreateFontW(
-        42,
+        42, 
         0,
         0,
         0,
@@ -151,7 +155,7 @@ void StoryScene::Render(HDC hDC)
     SetTextColor(hDC, style.nameColor);
     DrawTextW(
         hDC,
-        currentSpeaker.c_str(),
+        displaySpeaker.c_str(),
         -1,
         &nameBox,
         DT_CENTER | DT_VCENTER | DT_SINGLELINE
@@ -161,7 +165,7 @@ void StoryScene::Render(HDC hDC)
     SetTextColor(hDC, style.textColor);
     DrawTextW(
         hDC,
-        currentText.c_str(),
+        displayText.c_str(),
         -1,
         &textRect,
         DT_LEFT | DT_TOP | DT_WORDBREAK
@@ -177,4 +181,32 @@ void StoryScene::Render(HDC hDC)
     DeleteObject(boxPen);
     DeleteObject(boxBrush);
     DeleteObject(dialogueFont);
+}
+
+void StoryScene::SetPlayerName(const std::wstring& playerName)
+{
+    // 빈 이름이 들어오면 기본 이름 윤서를 사용한다.
+    if (playerName.empty())
+    {
+        m_playerName = L"윤서";
+        return;
+    }
+
+    // 입력받은 이름을 저장한다.
+    m_playerName = playerName;
+}
+
+std::wstring StoryScene::ReplacePlayerNameToken(const std::wstring& text) const
+{
+    std::wstring result = text;
+    const std::wstring token = L"{PLAYER}";
+
+    size_t position = result.find(token);
+    while (position != std::wstring::npos)
+    {
+        result.replace(position, token.length(), m_playerName);
+        position = result.find(token, position + m_playerName.length());
+    }
+
+    return result;
 }

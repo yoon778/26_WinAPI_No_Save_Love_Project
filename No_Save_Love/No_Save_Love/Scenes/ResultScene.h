@@ -43,6 +43,9 @@ public:
     // ResultScene에게 현재 총 스탯을 다시 알려준다.
     void SetCurrentPlayerState(const Player_state& currentState);
 
+    // GameManager가 입력된 플레이어 이름을 알려줄 때 사용한다.
+    void SetPlayerName(const std::wstring& playerName);
+
     // Result 화면에서 마우스를 클릭했을 때 호출한다.
     void OnMouseClick(int x, int y);
 
@@ -71,6 +74,7 @@ private:
 
     Player_state m_plusState{};   // 이번 Result에서 상승한 스탯
     Player_state m_currentState{}; // 상승량 반영 후 현재 총 스탯
+    std::wstring m_playerName = L"윤서"; // 입력이 비어 있을 때 사용할 기본 이름
 
     // 결과 화면 박스 영역
     RECT m_resultBox = { 100, 680, 1820, 1030 };

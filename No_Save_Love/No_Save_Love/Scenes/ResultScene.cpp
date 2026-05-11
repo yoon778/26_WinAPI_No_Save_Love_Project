@@ -31,6 +31,18 @@ void ResultScene::SetCurrentPlayerState(const Player_state& currentState)
     m_currentState = currentState;
 }
 
+void ResultScene::SetPlayerName(const std::wstring& playerName)
+{
+    // 빈 이름이면 기본 이름을 유지한다.
+    if (playerName.empty())
+    {
+        m_playerName = L"윤서";
+        return;
+    }
+
+    m_playerName = playerName;
+}
+
 void ResultScene::OnMouseClick(int x, int y)
 {
     if (m_hasResult)
@@ -219,16 +231,16 @@ std::wstring ResultScene::GetGameName(int whichGame) const
     switch (whichGame)
     {
     case 0:
-        return L"윤서의 PC방 알바";
+        return m_playerName + L"의 PC방 알바";
 
     case 1:
-        return L"윤서의 노래 연습";
+        return m_playerName + L"의 노래 연습";
 
     case 2:
         return L"유혹 피하기";
 
     case 3:
-        return L"윤서의 등교길";
+        return m_playerName + L"의 등교길";
 
     default:
         return L"알 수 없는 미니게임";

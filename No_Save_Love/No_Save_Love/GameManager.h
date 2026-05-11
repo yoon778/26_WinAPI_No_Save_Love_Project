@@ -5,11 +5,14 @@
 #include <array>
 #include <vector>
 
+#include "Scenes/TitleScene.h"
+#include "Scenes/NameInputScene.h"
 #include "Scenes/StoryScene.h"
 #include "Scenes/ChoiceScene.h"
 #include "Scenes/ResultScene.h"
 #include "Scenes/FinalChoiceScene.h"
 #include "Scenes/EndingScene.h"
+
 
 #include "StoryData.h"
 
@@ -20,13 +23,16 @@ public:
     void Shutdown();
     void OnMouseClick(int x, int y);
     void Render(HDC hdc);
+    void OnChar(wchar_t inputChar);
 
 private:
     HWND m_hWnd = nullptr;
 
     enum game_mode_info
     {
-        Dialogue,
+        Title, 
+        NameInput,
+        Story,
         MiniGame,
         Result,
         Choice,
@@ -35,9 +41,11 @@ private:
         Ending
     };
 
-    game_mode_info now_game_mode = game_mode_info::Dialogue;
+    game_mode_info now_game_mode = game_mode_info::Story;
 
 private:
+    TitleScene titleScene;
+    NameInputScene nameinputScene;
     StoryScene storyScene;
     ResultScene resultScene;
     ChoiceScene choiceScene;
@@ -79,6 +87,9 @@ private:
 
     // 가장 많이 선택된 히로인 번호를 저장한다.
     int finalHeroineIndex = 0;
+
+    // 기본 이름 값
+    std::wstring playerName = L"윤서";
      
 private:
 
@@ -99,4 +110,7 @@ private:
 
     // 최종 히로인과 스탯을 바탕으로 엔딩 대사를 StoryScene에 넣는다.
     void EnterEndingStory();
+
+    // 키보드 입력 처리
+   
 };

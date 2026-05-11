@@ -24,6 +24,10 @@ public:
     // GameManager가 새로운 대사 묶음을 넣어줄 때 사용한다.
     void SetDialogues(const std::vector<DialogueLineInfo>& newDialogues);
 
+    //플레이어 이름 저장한다.
+    void SetPlayerName(const std::wstring& playerName);
+
+
     // 마우스 클릭 시 다음 대사로 이동한다.
     void OnMouseClick(int x, int y);
 
@@ -45,6 +49,9 @@ private:
 private:
     // 화자 이름에 맞는 색상 스타일을 가져온다.
     SpeakerStyle GetSpeakerStyle(const std::wstring& speaker) const;
+
+    // {PLAYER} 토큰을 실제 플레이어 이름으로 바꾼다.
+    std::wstring ReplacePlayerNameToken(const std::wstring& text) const;
 
 private:
     // 현재 StoryScene이 출력할 대사 목록
@@ -89,4 +96,7 @@ private:
 
     // 대화창 위쪽 포인트 라인 위치
     int lineY = 800;
+
+    // 플레이어가 입력한 이름
+    std::wstring m_playerName = L"윤서"; // 기본은 윤서
 };
