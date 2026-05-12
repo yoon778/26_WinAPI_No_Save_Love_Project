@@ -14,6 +14,19 @@ private:
 	double timer;		// pc방 게임시간
 	bool finished;	// pc방 게임의 종료 상태 / 게임이 진행중이면 false, 끝났다면  true
 	CImage background;
+	CImage player;
+	CImage playerReturn;
+
+	int frameWidth;       // 한 프레임 너비
+	int frameHeight;      // 한 프레임 높이
+
+	int currentFrame;     // 현재 프레임 번호
+	int maxFrame;         // 한 행의 프레임 수
+
+	int animTick;         // 애니메이션 속도 조절용
+	int animDelay;        // 몇 번 Update마다 프레임 바꿀지
+
+	int currentDir;       // 현재 방향
 
 	RECT resetArea;	// 재료 초기화 버튼 위치
 	RECT ingredientArea[6];		// 라면 재료 위치
@@ -23,7 +36,7 @@ private:
 	ramen seatorder[6];			// 손님이 주문하는 라면
 	ramen curramen;				// 현재 플레이어가 만들고 있는 라면
 
-	int moveSpeed = 30;
+	int moveSpeed = 15;
 	POINT playerPos;			// 현재 캐릭터 위치
 	POINT targetPos;			// 목표 위치
 	POINT homePos;				// 초기 위치
@@ -38,6 +51,9 @@ private:
 
 	void DeliverToSeat(int seatIndex);
 	void StartDelivery(int index);
+
+	void UpdateAnimation();
+	void DrawPlayer(HDC hDC);
 
 public:
 	PCroomgame();

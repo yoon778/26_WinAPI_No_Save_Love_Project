@@ -2,8 +2,24 @@
 #include "ramen.h"
 #include <ctime>
 
+#define DIR_FRONT 0
+#define DIR_BACK  1
+#define DIR_RIGHT 2
+#define DIR_LEFT  3
+
 PCroomgame::PCroomgame() {
 	srand((unsigned int)time(NULL));
+
+	// 새 플레이어 이미지 기준
+	// 전체 이미지: 1086 x 1448
+	// 3열 x 4행 구조
+	frameWidth = 362;
+	frameHeight = 362;
+
+	currentFrame = 1;	// 정지 기본 프레임은 가운데 이미지
+	maxFrame = 3;		// 방향당 3프레임
+	animTick = 0;
+	animDelay = 3;
 
 	score = 0;
 	timer = 180.0;
@@ -18,9 +34,10 @@ PCroomgame::PCroomgame() {
 
 	resultMessage = L"";
 	resultTimer = 0;
+	currentDir = DIR_FRONT;
 }
 
-bool PCroomgame::InsideRect(RECT rect, int x, int y) {			// 마우스로 클릭한 좌표 안에 들어가는지 검사하는 함수
+bool PCroomgame::InsideRect(RECT rect, int x, int y) {
 	if (x >= rect.left && x <= rect.right &&
 		y >= rect.top && y <= rect.bottom)
 	{
@@ -57,7 +74,6 @@ std::wstring PCroomgame::RamenToString(ramen r)
 	}
 	else
 	{
-		// 아직 기본 라면이 완성되지 않은 경우에는 재료 그대로 출력
 		if (r.noodle == true)
 		{
 			result += L"면 ";
@@ -83,7 +99,7 @@ std::wstring PCroomgame::RamenToString(ramen r)
 	return result;
 }
 
-void PCroomgame::DrawTextW(HDC hDC, int x, int y, std::wstring text)	// 글 쓰는 함수
+void PCroomgame::DrawTextW(HDC hDC, int x, int y, std::wstring text)
 {
 	TextOutW(hDC, x, y, text.c_str(), (int)text.length());
 }
@@ -103,8 +119,12 @@ void PCroomgame::Init() {
 	resultMessage = L"";
 	resultTimer = 0;
 
+	currentFrame = 1;
+	animTick = 0;
+	currentDir = DIR_FRONT;
+
 	// 캐릭터 배달할 위치 좌표
-	seatArea[0] = { 1155, 150, 1420, 395 };		// 1번자리
+	seatArea[0] = { 1155, 150, 1420, 395 };		// 1번 자리
 	seatArea[1] = { 1155, 405, 1420, 665 };		// 2번 자리
 	seatArea[2] = { 1155, 675, 1420, 930 };		// 3번 자리		
 
@@ -119,29 +139,32 @@ void PCroomgame::Init() {
 	deliveryPos[3] = { 1523, 272 }; // 4번 좌석 앞 통로
 	deliveryPos[4] = { 1523, 535 }; // 5번 좌석 앞 통로
 	deliveryPos[5] = { 1523, 802 }; // 6번 좌석 앞 통로
-	
+
 	// 재료 초기화 버튼 위치
 	resetArea = { 160, 200, 393, 317 };
 
 	// 재료 버튼 위치
 	ingredientArea[0] = { 70, 540, 325, 670 };  // 물
 	ingredientArea[1] = { 393, 200, 626, 317 }; // 면
-	ingredientArea[2] = { 626, 200, 860, 317 }; // 스푸
+	ingredientArea[2] = { 626, 200, 860, 317 }; // 스프
 
 	ingredientArea[3] = { 160, 317, 393, 435 }; // 계란
 	ingredientArea[4] = { 393, 317, 626, 435 }; // 치즈
 	ingredientArea[5] = { 626, 317, 860, 435 }; // 만두
 
 	curramen.clear();
+
 	for (int i = 0; i < 6; i++) {
 		seatorder[i].makerandramen();
 	}
 
 	background.Load(L"pcroom_1920x1080.png");
+	player.Load(L"ramen_player.png");
+	playerReturn.Load(L"playerreturn.png");
 }
 
 void PCroomgame::MOUSE(int x, int y) {
-	if (finished == true)		// 게임이 종료된 상태면 클릭 x
+	if (finished == true)
 	{
 		return;
 	}
@@ -153,7 +176,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
-	// 재료 버튼 클릭시 현재 라면에 추가
+	// 재료 버튼 클릭 시 현재 라면에 추가
 	if (InsideRect(ingredientArea[0], x, y)) {
 		curramen.water = true;
 		return;
@@ -179,7 +202,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
-	// 좌석 클릭시
+	// 좌석 클릭 시
 	for (int i = 0; i < 6; i++)
 	{
 		if (InsideRect(seatArea[i], x, y))
@@ -190,48 +213,62 @@ void PCroomgame::MOUSE(int x, int y) {
 	}
 }
 
-void PCroomgame::Update() {
+void PCroomgame::Update()
+{
+	// =========================
+	// 1. 이미 게임이 끝났다면 아무것도 하지 않음
+	// =========================
 	if (finished == true)
 	{
 		return;
 	}
 
+	// =========================
+	// 2. 제한시간 감소
+	// SetTimer가 100ms라면 Update() 한 번마다 0.1초 감소
+	// =========================
 	timer -= 0.1;
 
 	if (timer <= 0.0)
 	{
 		timer = 0.0;
 		finished = true;
+
 		ismoving = false;
 		isreturn = false;
+
+		currentFrame = 1;
+		animTick = 0;
+
 		return;
 	}
 
-	if (resultTimer > 0)
-	{
-		resultTimer--;
-
-		if (resultTimer == 0)
-		{
-			resultMessage = L"";
-		}
-	}
-
-
+	// =========================
+	// 3. 현재 이동 중이 아니라면
+	// 캐릭터는 정지 프레임으로 유지
+	// =========================
 	if (ismoving == false)
 	{
+		currentFrame = 1;
+		animTick = 0;
 		return;
 	}
+	UpdateAnimation();
 
-	// =========================
-	// 1. 좌석으로 가는 중
-	// y 먼저 이동, y가 같으면 x 이동
-	// =========================
+	// ==================================================
+	// 4. 좌석으로 배달하러 가는 중
+	//    이동 순서: y 먼저 이동 → x 이동
+	// ==================================================
 	if (isreturn == false)
 	{
-		// y 방향 먼저 이동
+		// -------------------------
+		// 4-1. y 방향 먼저 이동
+		// -------------------------
 		if (playerPos.y < targetPos.y)
 		{
+			// 아래쪽으로 이동
+			currentDir = DIR_FRONT;
+
 			playerPos.y += moveSpeed;
 
 			if (playerPos.y > targetPos.y)
@@ -243,6 +280,10 @@ void PCroomgame::Update() {
 		}
 		else if (playerPos.y > targetPos.y)
 		{
+			// 위쪽으로 이동
+			currentDir = DIR_BACK;
+
+
 			playerPos.y -= moveSpeed;
 
 			if (playerPos.y < targetPos.y)
@@ -253,9 +294,15 @@ void PCroomgame::Update() {
 			return;
 		}
 
-		// y가 같아진 후 x 이동
+		// -------------------------
+		// 4-2. y가 같아졌다면 x 이동
+		// -------------------------
 		if (playerPos.x < targetPos.x)
 		{
+			// 오른쪽으로 이동
+			currentDir = DIR_RIGHT;
+
+
 			playerPos.x += moveSpeed;
 
 			if (playerPos.x > targetPos.x)
@@ -267,6 +314,10 @@ void PCroomgame::Update() {
 		}
 		else if (playerPos.x > targetPos.x)
 		{
+			// 왼쪽으로 이동
+			currentDir = DIR_LEFT;
+
+
 			playerPos.x -= moveSpeed;
 
 			if (playerPos.x < targetPos.x)
@@ -277,7 +328,9 @@ void PCroomgame::Update() {
 			return;
 		}
 
-		// 좌석 도착
+		// -------------------------
+		// 4-3. 좌석 앞 배달 위치에 도착
+		// -------------------------
 		if (playerPos.x == targetPos.x && playerPos.y == targetPos.y)
 		{
 			if (seatindex != -1)
@@ -286,7 +339,7 @@ void PCroomgame::Update() {
 				seatindex = -1;
 			}
 
-			// 이제 집으로 돌아가기 시작
+			// 초기 위치로 복귀 시작
 			targetPos = homePos;
 			isreturn = true;
 			ismoving = true;
@@ -295,15 +348,21 @@ void PCroomgame::Update() {
 		}
 	}
 
-	// =========================
-	// 2. 초기 위치로 돌아오는 중
-	// x 먼저 이동, x가 같으면 y 이동
-	// =========================
+	// ==================================================
+	// 5. 초기 위치로 돌아오는 중
+	//    이동 순서: x 먼저 이동 → y 이동
+	// ==================================================
 	else if (isreturn == true)
 	{
-		// x 방향 먼저 이동
+		// -------------------------
+		// 5-1. x 방향 먼저 이동
+		// -------------------------
 		if (playerPos.x < targetPos.x)
 		{
+			// 오른쪽으로 이동
+			currentDir = DIR_RIGHT;
+
+
 			playerPos.x += moveSpeed;
 
 			if (playerPos.x > targetPos.x)
@@ -315,6 +374,10 @@ void PCroomgame::Update() {
 		}
 		else if (playerPos.x > targetPos.x)
 		{
+			// 왼쪽으로 이동
+			currentDir = DIR_LEFT;
+
+
 			playerPos.x -= moveSpeed;
 
 			if (playerPos.x < targetPos.x)
@@ -325,9 +388,15 @@ void PCroomgame::Update() {
 			return;
 		}
 
-		// x가 같아진 후 y 이동
+		// -------------------------
+		// 5-2. x가 같아졌다면 y 이동
+		// -------------------------
 		if (playerPos.y < targetPos.y)
 		{
+			// 아래쪽으로 이동
+			currentDir = DIR_FRONT;
+
+
 			playerPos.y += moveSpeed;
 
 			if (playerPos.y > targetPos.y)
@@ -339,6 +408,10 @@ void PCroomgame::Update() {
 		}
 		else if (playerPos.y > targetPos.y)
 		{
+			// 위쪽으로 이동
+			currentDir = DIR_BACK;
+
+
 			playerPos.y -= moveSpeed;
 
 			if (playerPos.y < targetPos.y)
@@ -349,21 +422,42 @@ void PCroomgame::Update() {
 			return;
 		}
 
-		// 초기 위치 도착
+		// -------------------------
+		// 5-3. 초기 위치까지 복귀 완료
+		// -------------------------
 		if (playerPos.x == targetPos.x && playerPos.y == targetPos.y)
 		{
 			ismoving = false;
 			isreturn = false;
+
 			targetPos = playerPos;
+
+			currentFrame = 1;
+			animTick = 0;
 
 			return;
 		}
 	}
-
-
 }
 
-void PCroomgame::DeliverToSeat(int seatIndex)		// 배달한 좌석 검사
+void PCroomgame::UpdateAnimation()
+{
+	animTick++;
+
+	if (animTick >= animDelay)
+	{
+		currentFrame++;
+
+		if (currentFrame >= maxFrame)
+		{
+			currentFrame = 0;
+		}
+
+		animTick = 0;
+	}
+}
+
+void PCroomgame::DeliverToSeat(int seatIndex)
 {
 	if (seatIndex < 0 || seatIndex >= 6)
 	{
@@ -380,14 +474,92 @@ void PCroomgame::DeliverToSeat(int seatIndex)		// 배달한 좌석 검사
 		score -= 50;
 		resultMessage = L"주문 실패! -50";
 	}
-	resultTimer = 15; // WM_TIMER가 0.1초라면 약 1.5초 표시
+
+	resultTimer = 15;
 
 	curramen.clear();
 	seatorder[seatIndex].makerandramen();
 }
 
+void PCroomgame::DrawPlayer(HDC hDC)
+{
+	CImage* drawImage = nullptr;
+
+	// 복귀 중이면 빈손 이미지, 아니면 라면 든 이미지
+	if (isreturn == true)
+		drawImage = &playerReturn;
+	else
+		drawImage = &player;
+
+	if (drawImage == nullptr || drawImage->IsNull())
+	{
+		Ellipse(hDC,
+			playerPos.x - 25,
+			playerPos.y - 25,
+			playerPos.x + 25,
+			playerPos.y + 25);
+		return;
+	}
+
+	// --------------------------------------------------
+	// [방향][프레임]
+	// 방향 순서:
+	// 0 = 앞
+	// 1 = 뒤
+	// 2 = 오른쪽
+	// 3 = 왼쪽
+	// --------------------------------------------------
+	static const RECT playerSrc[4][3] =
+	{
+		// 앞
+		{
+			{171,  33, 333, 342},
+			{457,  33, 620, 342},
+			{743,  33, 907, 342}
+		},
+
+		// 뒤
+		{
+			{176, 379, 329, 724},
+			{460, 381, 617, 724},
+			{748, 380, 904, 724}
+		},
+
+		// 오른쪽
+		{
+			{167, 724, 340, 1086},
+			{456, 724, 630, 1086},
+			{742, 724, 914, 1086}
+		},
+
+		// 왼쪽
+		{
+			{161, 1086, 331, 1383},
+			{451, 1086, 621, 1385},
+			{738, 1086, 909, 1382}
+		}
+	};
+
+	RECT src = playerSrc[currentDir][currentFrame];
+
+	int srcW = src.right - src.left;
+	int srcH = src.bottom - src.top;
+
+	int drawH = 120;
+	int drawW = srcW * drawH / srcH;
+
+	int drawX = playerPos.x - drawW / 2;
+	int drawY = playerPos.y - drawH / 2;
+
+	drawImage->Draw(
+		hDC,
+		drawX, drawY, drawW, drawH,
+		src.left, src.top, srcW, srcH
+	);
+}
+
 void PCroomgame::PAINT(HDC hDC) {
-	background.Draw(hDC, 0, 0, 1920, 1080);		// 배경 그리기
+	background.Draw(hDC, 0, 0, 1920, 1080);
 
 	// 초기화 버튼 그리기
 	Rectangle(hDC, resetArea.left, resetArea.top,
@@ -424,8 +596,8 @@ void PCroomgame::PAINT(HDC hDC) {
 	DrawTextW(hDC, 50, 50, scoreText);
 
 	// 남은 시간 출력
-	wchar_t timerBuffer[100];								// 소수점 너무 길게 보이지 않기 위해 사용
-	swprintf_s(timerBuffer, L"남은 시간: %.1f", timer);		// 소수점 너무 길게 보이지 않기 위해 사용
+	wchar_t timerBuffer[100];
+	swprintf_s(timerBuffer, L"남은 시간: %.1f", timer);
 	DrawTextW(hDC, 50, 80, timerBuffer);
 
 	// 현재 만든 라면 출력
@@ -452,7 +624,6 @@ void PCroomgame::PAINT(HDC hDC) {
 	}
 
 	// 게임 종료 출력
-	// 7. 게임 종료 상태 출력
 	if (finished == true)
 	{
 		DrawTextW(hDC, 800, 500, L"게임 종료!");
@@ -460,12 +631,10 @@ void PCroomgame::PAINT(HDC hDC) {
 	}
 
 	// 플레이어 그리기
-	Ellipse(hDC, playerPos.x - 25, playerPos.y - 25, playerPos.x + 25, playerPos.y + 25);
-	DrawTextW(hDC, playerPos.x - 20, playerPos.y - 10, L"윤서");
+	DrawPlayer(hDC);
 }
 
 int PCroomgame::getscore() {
-
 	return score;
 }
 
@@ -480,7 +649,7 @@ void PCroomgame::StartDelivery(int index)
 		return;
 	}
 
-	targetPos = deliveryPos[index];   // 또는 deliveryPos[index]를 쓰고 있다면 deliveryPos[index]
+	targetPos = deliveryPos[index];
 	ismoving = true;
 	isreturn = false;
 	seatindex = index;
@@ -498,5 +667,4 @@ void PCroomgame::KEYDOWN(WPARAM wParam) {
 		StartDelivery(index);
 		return;
 	}
-
 }
