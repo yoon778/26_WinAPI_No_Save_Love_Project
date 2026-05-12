@@ -36,7 +36,7 @@ private:
 	ramen seatorder[6];			// 손님이 주문하는 라면
 	ramen curramen;				// 현재 플레이어가 만들고 있는 라면
 
-	int moveSpeed = 15;
+	int moveSpeed = 30;
 	POINT playerPos;			// 현재 캐릭터 위치
 	POINT targetPos;			// 목표 위치
 	POINT homePos;				// 초기 위치
@@ -55,6 +55,28 @@ private:
 	void UpdateAnimation();
 	void DrawPlayer(HDC hDC);
 
+	enum CustomerState
+	{
+		ORDER1 = 0,   // 주문
+		ORDER2 = 1,   // 먹는 중
+		ORDER3 = 2    // 화남
+	};
+
+	CImage customerImg[3];     // 0=order1, 1=order2, 2=order3
+
+	CustomerState customerState[6];
+	int customerFrame[6];
+	int customerAnimTick[6];
+	int customerStateTimer[6];
+
+	int customerAnimDelay = 4;
+
+	void UpdateCustomers();
+	void DrawCustomers(HDC hDC);
+	void DrawOneCustomer(HDC hDC, int index);
+	void SetCustomerState(int index, CustomerState state, int duration);
+
+	void DrawOrderBubble(HDC hDC, int index);
 public:
 	PCroomgame();
 

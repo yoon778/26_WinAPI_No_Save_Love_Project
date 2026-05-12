@@ -161,6 +161,18 @@ void PCroomgame::Init() {
 	background.Load(L"pcroom_1920x1080.png");
 	player.Load(L"ramen_player.png");
 	playerReturn.Load(L"playerreturn.png");
+
+	customerImg[0].Load(L"order1.png"); // 주문하는 모습
+	customerImg[1].Load(L"order2.png"); // 라면 먹는 모습
+	customerImg[2].Load(L"order3.png"); // 화내는 모습
+
+	for (int i = 0; i < 6; i++)
+	{
+		customerState[i] = ORDER1;
+		customerFrame[i] = 0;
+		customerAnimTick[i] = 0;
+		customerStateTimer[i] = 0;
+	}
 }
 
 void PCroomgame::MOUSE(int x, int y) {
@@ -240,6 +252,16 @@ void PCroomgame::Update()
 		currentFrame = 1;
 		animTick = 0;
 
+		return;
+	}
+
+	// 손님 애니메이션은 플레이어 이동과 상관없이 항상 갱신
+	UpdateCustomers();
+
+	if (ismoving == false)
+	{
+		currentFrame = 1;
+		animTick = 0;
 		return;
 	}
 
@@ -468,17 +490,21 @@ void PCroomgame::DeliverToSeat(int seatIndex)
 	{
 		score += 100;
 		resultMessage = L"주문 성공! +100";
+
+		// 손님이 라면 먹는 상태로 30틱(약 3초) 전환
+		SetCustomerState(seatIndex, ORDER2, 30);
 	}
 	else
 	{
 		score -= 50;
 		resultMessage = L"주문 실패! -50";
+
+		// 손님이 화내는 상태로 20틱(약 2초) 전환
+		SetCustomerState(seatIndex, ORDER3, 20);
 	}
 
 	resultTimer = 15;
-
 	curramen.clear();
-	seatorder[seatIndex].makerandramen();
 }
 
 void PCroomgame::DrawPlayer(HDC hDC)
@@ -558,7 +584,8 @@ void PCroomgame::DrawPlayer(HDC hDC)
 	);
 }
 
-void PCroomgame::PAINT(HDC hDC) {
+void PCroomgame::PAINT(HDC hDC)
+{
 	background.Draw(hDC, 0, 0, 1920, 1080);
 
 	// 초기화 버튼 그리기
@@ -611,17 +638,23 @@ void PCroomgame::PAINT(HDC hDC) {
 	}
 
 	// 좌석별 주문 출력
+// 손님 그리기
+	DrawCustomers(hDC);
+
+	// 주문 중인 손님 위에 말풍선 그리기
 	for (int i = 0; i < 6; i++)
 	{
-		Rectangle(hDC, seatArea[i].left, seatArea[i].top,
-			seatArea[i].right, seatArea[i].bottom);
-
-		std::wstring seatText = L"좌석 " + std::to_wstring(i + 1);
-		DrawTextW(hDC, seatArea[i].left + 20, seatArea[i].top + 20, seatText);
-
-		std::wstring orderText = L"주문: " + RamenToString(seatorder[i]);
-		DrawTextW(hDC, seatArea[i].left + 20, seatArea[i].top + 55, orderText);
+		DrawOrderBubble(hDC, i);
 	}
+
+	// 플레이어 그리기
+	DrawPlayer(hDC);
+
+	// 손님 그리기
+	DrawCustomers(hDC);
+
+	// 플레이어 그리기
+	DrawPlayer(hDC);
 
 	// 게임 종료 출력
 	if (finished == true)
@@ -629,9 +662,6 @@ void PCroomgame::PAINT(HDC hDC) {
 		DrawTextW(hDC, 800, 500, L"게임 종료!");
 		DrawTextW(hDC, 800, 540, L"최종 점수: " + std::to_wstring(score));
 	}
-
-	// 플레이어 그리기
-	DrawPlayer(hDC);
 }
 
 int PCroomgame::getscore() {
@@ -645,6 +675,12 @@ bool PCroomgame::isfinished() {
 void PCroomgame::StartDelivery(int index)
 {
 	if (index < 0 || index >= 6)
+	{
+		return;
+	}
+
+	// 식사 중이면 배달하지 않음
+	if (customerState[index] == ORDER2)
 	{
 		return;
 	}
@@ -667,4 +703,183 @@ void PCroomgame::KEYDOWN(WPARAM wParam) {
 		StartDelivery(index);
 		return;
 	}
+}
+
+void PCroomgame::SetCustomerState(int index, CustomerState state, int duration)
+{
+	if (index < 0 || index >= 6)
+		return;
+
+	customerState[index] = state;
+	customerStateTimer[index] = duration;
+
+	customerFrame[index] = 0;
+	customerAnimTick[index] = 0;
+}
+
+void PCroomgame::UpdateCustomers()
+{
+	for (int i = 0; i < 6; i++)
+	{
+		// 손님 애니메이션 프레임 갱신
+		customerAnimTick[i]++;
+
+		if (customerAnimTick[i] >= customerAnimDelay)
+		{
+			customerFrame[i]++;
+			if (customerFrame[i] >= 3)
+				customerFrame[i] = 0;
+
+			customerAnimTick[i] = 0;
+		}
+
+		// 상태 지속시간 감소
+		if (customerStateTimer[i] > 0)
+		{
+			customerStateTimer[i]--;
+
+			if (customerStateTimer[i] == 0)
+			{
+				// 먹기 애니메이션이 끝났으면 새 주문 생성
+				if (customerState[i] == ORDER2)
+				{
+					seatorder[i].makerandramen();
+				}
+
+				// 다시 주문 상태로 복귀
+				customerState[i] = ORDER1;
+				customerFrame[i] = 0;
+				customerAnimTick[i] = 0;
+			}
+		}
+	}
+}
+
+void PCroomgame::DrawOneCustomer(HDC hDC, int index)
+{
+	if (index < 0 || index >= 6)
+		return;
+
+	CImage& img = customerImg[(int)customerState[index]];
+
+	if (img.IsNull())
+		return;
+
+	int frameW = img.GetWidth() / 3;
+	int frameH = img.GetHeight();
+
+	int srcX = customerFrame[index] * frameW;
+	int srcY = 0;
+
+	int drawW = 150;
+	int drawH = 150;
+
+	int centerX = (seatArea[index].left + seatArea[index].right) / 2;
+	int drawX = centerX - drawW / 2;
+	int drawY = seatArea[index].top + 80;
+
+	img.Draw(
+		hDC,
+		drawX, drawY, drawW, drawH,
+		srcX, srcY, frameW, frameH
+	);
+}
+
+void PCroomgame::DrawCustomers(HDC hDC)
+{
+	for (int i = 0; i < 6; i++)
+	{
+		DrawOneCustomer(hDC, i);
+	}
+}
+
+void PCroomgame::DrawOrderBubble(HDC hDC, int index)
+{
+	if (index < 0 || index >= 6)
+	{
+		return;
+	}
+
+	// 주문 중인 손님에게만 말풍선 표시
+	if (customerState[index] != ORDER1)
+	{
+		return;
+	}
+
+	std::wstring orderText = RamenToString(seatorder[index]);
+
+	// 글자 크기 측정
+	SIZE textSize;
+	GetTextExtentPoint32W(
+		hDC,
+		orderText.c_str(),
+		(int)orderText.length(),
+		&textSize
+	);
+
+	int paddingX = 15;
+	int paddingY = 8;
+
+	int bubbleW = textSize.cx + paddingX * 2;
+	int bubbleH = textSize.cy + paddingY * 2;
+
+	// 말풍선 최소 크기
+	if (bubbleW < 120)
+	{
+		bubbleW = 120;
+	}
+
+	// 손님 중심 x좌표
+	int centerX = (seatArea[index].left + seatArea[index].right) / 2;
+
+	// DrawOneCustomer()의 손님 위치 기준
+	// 손님 drawY = seatArea[index].top + 80
+	int customerTopY = seatArea[index].top + 80;
+
+	// 말풍선 위치
+	int bubbleBottom = customerTopY - 15;
+	int bubbleTop = bubbleBottom - bubbleH;
+	int bubbleLeft = centerX - bubbleW / 2;
+	int bubbleRight = centerX + bubbleW / 2;
+
+	// 말풍선 색상
+	HBRUSH bubbleBrush = CreateSolidBrush(RGB(255, 255, 255));
+	HPEN bubblePen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+
+	HBRUSH oldBrush = (HBRUSH)SelectObject(hDC, bubbleBrush);
+	HPEN oldPen = (HPEN)SelectObject(hDC, bubblePen);
+
+	// 둥근 말풍선 본체
+	RoundRect(
+		hDC,
+		bubbleLeft,
+		bubbleTop,
+		bubbleRight,
+		bubbleBottom,
+		18,
+		18
+	);
+
+	// 아래쪽 꼬리
+	POINT tail[3] =
+	{
+		{ centerX - 10, bubbleBottom - 1 },
+		{ centerX + 10, bubbleBottom - 1 },
+		{ centerX, bubbleBottom + 12 }
+	};
+
+	Polygon(hDC, tail, 3);
+
+	// 주문 텍스트 중앙 배치
+	int textX = centerX - textSize.cx / 2;
+	int textY = bubbleTop + paddingY;
+
+	DrawTextW(hDC, textX, textY, orderText);
+
+	// GDI 자원 정리
+	SelectObject(hDC, oldBrush);
+	SelectObject(hDC, oldPen);
+
+	DeleteObject(bubbleBrush);
+	DeleteObject(bubblePen);
 }
