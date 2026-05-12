@@ -24,6 +24,7 @@ public:
     void OnMouseClick(int x, int y);
     void Render(HDC hdc);
     void OnChar(wchar_t inputChar);
+    void OnTimer();
 
 private:
     HWND m_hWnd = nullptr;
@@ -76,7 +77,7 @@ private:
     int currentMiniGameIndex = 0;
 
     // 임시 미니게임 점수
-    int testMiniGameScore = 85;
+    int testMiniGameScore = 30;
 
     // Choice 선택 결과가 중복 반영되는 것을 막기 위한 플래그
     bool m_choiceApplied = false;

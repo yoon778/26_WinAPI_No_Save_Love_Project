@@ -88,7 +88,7 @@ void TitleScene::Render(HDC hDC)
 
     DrawTextW(
         hDC,
-        L"윤서의 고백은 세이브 로드가 없다",
+        L"고백은 세이브 로드가 없다",
         -1,
         &titleRect,
         DT_CENTER | DT_VCENTER | DT_SINGLELINE

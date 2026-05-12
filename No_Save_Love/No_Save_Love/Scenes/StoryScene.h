@@ -37,6 +37,9 @@ public:
     // 대사 화면을 출력한다.
     void Render(HDC hDC);
 
+    // 타이핑 효과 대사 단어 하나씩 늘리기
+    void UpdateTyping();
+
 private:
     struct SpeakerStyle
     {
@@ -50,8 +53,14 @@ private:
     // 화자 이름에 맞는 색상 스타일을 가져온다.
     SpeakerStyle GetSpeakerStyle(const std::wstring& speaker) const;
 
-    // {PLAYER} 토큰을 실제 플레이어 이름으로 바꾼다.
+    // {PLAYER} 토큰을 실제 플레이어 이름으로 바꾼다
     std::wstring ReplacePlayerNameToken(const std::wstring& text) const;
+
+    // 현재 대사의 화자 이름을 {PLAYER} 치환까지 적용해서 반환한다.
+    std::wstring GetCurrentDisplaySpeaker() const;
+
+    // 현재 대사의 본문을 {PLAYER} 치환까지 적용해서 반환한다.
+    std::wstring GetCurrentDisplayText() const;
 
 private:
     // 현재 StoryScene이 출력할 대사 목록
@@ -60,8 +69,15 @@ private:
     // 현재 출력 중인 대사 번호
     int currentDialogueIndex = 0;
 
+    // 타이핑 효과 현재 출력중인 단어 번호
+    int visibleTextCount = 0;
+
+    // 타이핑이 끝났는지 확인
+    bool isTypingFinished = false;
+
     // 대사 묶음이 끝났는지 여부
     bool finished = false;
+
 
     // 캐릭터별 색상 스타일
     SpeakerStyle hanseaStyle = {

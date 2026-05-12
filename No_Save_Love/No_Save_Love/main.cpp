@@ -80,9 +80,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     HBITMAP hBitmap;
     RECT rt;
     switch (uMsg) {
-    case WM_CREATE: { 
+    case WM_CREATE: {
         g_gameManager.Initialize(hWnd);
-
+        SetTimer(hWnd, 1, 60, nullptr);
 
         return 0;
     }
@@ -96,7 +96,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
         return 0;
     }
-    case WM_LBUTTONDOWN: 
+    case WM_LBUTTONDOWN:
     {
         int mouseX = LOWORD(lParam);
         int mouseY = HIWORD(lParam);
@@ -104,21 +104,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         g_gameManager.OnMouseClick(mouseX, mouseY);
         return 0;
     }
+    case WM_TIMER: {
+
+        g_gameManager.OnTimer();
+
+        return 0;
+    }
 
 
-
-    case WM_PAINT: 
+    case WM_PAINT:
     {
         PAINTSTRUCT ps;
         GetClientRect(hWnd, &rt);
         hDC = BeginPaint(hWnd, &ps);
         mDC = CreateCompatibleDC(hDC);
-        hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom); 
+        hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom);
         SelectObject(mDC, (HBITMAP)hBitmap);
 
         // 배경 흰색으로 지우기
         FillRect(mDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
-        
+
         // mDC로 그리기 하기!!!
         g_gameManager.Render(mDC);
 
@@ -129,19 +134,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 
         BitBlt(hDC, 0, 0, rt.right, rt.bottom, mDC, 0, 0, SRCCOPY);
-        DeleteDC(mDC); 
+        DeleteDC(mDC);
         DeleteObject(hBitmap);
         EndPaint(hWnd, &ps);
         return 0;
     }
 
     case WM_DESTROY:
-
-        g_gameManager.Shutdown();
-
-
-        PostQuitMessage(0); 
+    {
+        KillTimer(hWnd, 1);
+        PostQuitMessage(0);
         return 0;
+    }
     }
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }

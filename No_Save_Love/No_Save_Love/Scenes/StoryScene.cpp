@@ -6,16 +6,18 @@ void StoryScene::Initialize()
     // 실제 대사는 GameManager가 SetDialogues로 넣어준다.
     dialogues.clear();
     currentDialogueIndex = 0;
+    visibleTextCount = 0;
+    isTypingFinished = false;
     finished = false;
 }
 
 void StoryScene::Shutdown()
 {
-    // 대사 목록을 비운다.
     dialogues.clear();
 
-    // 상태값 초기화
     currentDialogueIndex = 0;
+    visibleTextCount = 0;
+    isTypingFinished = false;
     finished = false;
 }
 
@@ -29,27 +31,43 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 
     // 새 대사를 시작했으므로 아직 끝난 상태가 아니다.
     finished = false;
+
+    // 타이핑 상태 초기화
+    visibleTextCount = 0;
+    isTypingFinished = false;
 }
 
 void StoryScene::OnMouseClick(int x, int y)
 {
-    // 대사가 없으면 바로 끝난 것으로 처리한다.
+    // 대사가 없으면 바로 끝난 것으로 처리
     if (dialogues.empty())
     {
         finished = true;
         return;
     }
-
-    // 이미 끝났으면 더 이상 처리하지 않는다.
     if (finished)
     {
         return;
     }
 
-    // 다음 대사가 남아 있으면 다음 대사로 이동한다.
+    // 현재 대사의 전체 텍스트를 가져온다
+    std::wstring displayText = GetCurrentDisplayText();
+
+    // 아직 타이핑 중이라면 전체 문장을 보여준다.
+    if (!isTypingFinished)
+    {
+        visibleTextCount = static_cast<int>(displayText.length());
+        isTypingFinished = true;
+        return;
+    }
+
+    // 타이핑이 끝난 상태에서 클릭하면 다음 대사로 이동
     if (currentDialogueIndex < static_cast<int>(dialogues.size()) - 1)
     {
         currentDialogueIndex++;
+
+        visibleTextCount = 0;
+        isTypingFinished = false;
     }
     else
     {
@@ -98,13 +116,22 @@ void StoryScene::Render(HDC hDC)
     }
 
     const std::wstring& originalSpeaker = dialogues[currentDialogueIndex].speaker;
-    const std::wstring& originalText = dialogues[currentDialogueIndex].text;
 
     // {PLAYER} 토큰을 실제 플레이어 이름으로 바꿔서 출력한다.
-    std::wstring displaySpeaker = ReplacePlayerNameToken(originalSpeaker);
-    std::wstring displayText = ReplacePlayerNameToken(originalText);
+    std::wstring displaySpeaker = GetCurrentDisplaySpeaker();
+    std::wstring displayText = GetCurrentDisplayText();
 
     SpeakerStyle style = GetSpeakerStyle(originalSpeaker);
+
+    // 현재 보여줄 글자 수가 전체 길이를 넘지 않도록 보정한다.
+    int safeVisibleCount = visibleTextCount;
+    if (safeVisibleCount > static_cast<int>(displayText.length()))
+    {
+        safeVisibleCount = static_cast<int>(displayText.length());
+    }
+
+    // 현재 보여줄 글자 수만큼 잘라낸다.
+    std::wstring visibleText = displayText.substr(0, safeVisibleCount);
 
     HFONT dialogueFont = CreateFontW(
         42, 
@@ -165,7 +192,7 @@ void StoryScene::Render(HDC hDC)
     SetTextColor(hDC, style.textColor);
     DrawTextW(
         hDC,
-        displayText.c_str(),
+        visibleText.c_str(),
         -1,
         &textRect,
         DT_LEFT | DT_TOP | DT_WORDBREAK
@@ -209,4 +236,52 @@ std::wstring StoryScene::ReplacePlayerNameToken(const std::wstring& text) const
     }
 
     return result;
+}
+
+std::wstring StoryScene::GetCurrentDisplaySpeaker() const
+{
+    // 대사가 없으면 빈 문자열을 반환한다.
+    if (dialogues.empty())
+    {
+        return L"";
+    }
+
+    // 현재 대사의 원래 화자를 가져온다.
+    const std::wstring& originalSpeaker = dialogues[currentDialogueIndex].speaker;
+
+    // {PLAYER} 토큰을 실제 플레이어 이름으로 바꿔 반환한다.
+    return ReplacePlayerNameToken(originalSpeaker);
+}
+
+std::wstring StoryScene::GetCurrentDisplayText() const
+{
+    // 대사가 없으면 빈 문자열을 반환한다.
+    if (dialogues.empty())
+    {
+        return L"";
+    }
+
+    // 현재 대사의 원래 본문을 가져온다.
+    const std::wstring& originalText = dialogues[currentDialogueIndex].text;
+
+    // {PLAYER} 토큰을 실제 플레이어 이름으로 바꿔 반환한다.
+    return ReplacePlayerNameToken(originalText);
+}
+
+void StoryScene::UpdateTyping() {
+    if (dialogues.empty() || finished) {
+        return;
+    }
+
+    std::wstring displayText = GetCurrentDisplayText();
+
+    if (visibleTextCount < static_cast<int>(displayText.length()))
+    {
+        visibleTextCount++;
+        isTypingFinished = false;
+    }
+    else
+    {
+        isTypingFinished = true;
+    }
 }

@@ -459,3 +459,25 @@ void GameManager::OnChar(wchar_t inputChar)
     }
 
 }
+
+void GameManager::OnTimer()
+{
+    switch (now_game_mode)
+    {
+    case game_mode_info::Story:
+    case game_mode_info::EndingDialogue:
+    {
+        // 스토리 대사 타이핑을 업데이트한다.
+        storyScene.UpdateTyping();
+
+        // 화면을 다시 그린다.
+        InvalidateRect(m_hWnd, nullptr, FALSE);
+        break;
+    }
+
+    default:
+    {
+        break;
+    }
+    }
+}
