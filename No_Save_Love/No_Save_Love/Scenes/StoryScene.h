@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <atlimage.h>
 
 // 대사 한 줄의 정보다.
 // StoryScene 밖에서도 사용할 수 있게 class 밖에 둔다.
@@ -10,7 +11,13 @@ struct DialogueLineInfo
 {
     std::wstring speaker; // 말하는 사람 이름
     std::wstring text;    // 실제 대사 내용
+
+    std::wstring backgroundKey = L""; // 배경 이미지 이름 또는 키
+    std::wstring characterKey = L"";  // 캐릭터 이미지 이름 또는 키
+    std::wstring effectKey = L"";     // 흔들림, 페이드 같은 효과
 };
+
+
 
 class StoryScene
 {
@@ -40,6 +47,14 @@ public:
     // 타이핑 효과 대사 단어 하나씩 늘리기
     void UpdateTyping();
 
+    // 현재 대사의 backgroundKey, characterKey를 보고 출력 상태를 갱신한다.
+    void ApplyCurrentLineVisualInfo();
+
+    // 현재 배경 key에 맞는 배경 이미지를 반환한다. (복사 하지 않기 위해 포인터 사용)
+    CImage* GetBackgroundImage(const std::wstring& backgroundKey);
+
+    // 현재 캐릭터 key에 맞는 캐릭터 이미지를 반환한다.
+    CImage* GetCharacterImage(const std::wstring& characterKey);
 private:
     struct SpeakerStyle
     {
@@ -47,6 +62,11 @@ private:
         COLORREF textColor; // 대사 색상
         COLORREF accent;    // 포인트 라인 색상
         COLORREF outline;   // 대화창 테두리 색상
+    };
+
+    struct heroine_image
+    {
+        CImage normal; // 기본 표저ㅏ
     };
 
 private:
@@ -63,6 +83,18 @@ private:
     std::wstring GetCurrentDisplayText() const;
 
 private:
+    CImage story_background_image[3];
+
+    heroine_image hansea;
+    heroine_image seoirin;
+    heroine_image yuharin;
+
+    // 현재 출력 중인 배경 key
+    std::wstring currentBackgroundKey = L"";
+
+    // 현재 출력 중인 캐릭터 key
+    std::wstring currentCharacterKey = L"";
+
     // 현재 StoryScene이 출력할 대사 목록
     std::vector<DialogueLineInfo> dialogues;
 
@@ -115,4 +147,5 @@ private:
 
     // 플레이어가 입력한 이름
     std::wstring m_playerName = L"윤서"; // 기본은 윤서
+
 };
