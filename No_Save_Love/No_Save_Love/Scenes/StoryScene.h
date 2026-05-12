@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <atlimage.h>
+#include <gdiplus.h>
+
+#pragma comment(lib, "gdiplus.lib")
 
 // 대사 한 줄의 정보다.
 // StoryScene 밖에서도 사용할 수 있게 class 밖에 둔다.
@@ -54,8 +57,19 @@ public:
     CImage* GetBackgroundImage(const std::wstring& backgroundKey);
 
     // 현재 캐릭터 key에 맞는 캐릭터 이미지를 반환한다.
-    CImage* GetCharacterImage(const std::wstring& characterKey);
+// 캐릭터 PNG는 알파 처리를 위해 GDI+ Image로 관리한다.
+    Gdiplus::Image* GetCharacterImage(const std::wstring& characterKey);
 private:
+    // GDI+ 초기화 토큰이다.
+// GDI+를 시작하고 종료할 때 필요하다.
+    ULONG_PTR gdiplusToken = 0;
+    // GDI+를 사용해서 캐릭터 이미지를 출력한다.
+// PNG 알파 채널과 외곽선을 더 자연스럽게 처리하기 위한 함수이다.
+    void DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y);
+
+    // GDI+가 정상적으로 시작되었는지 확인하는 값이다.
+    bool isGdiPlusStarted = false;
+
     struct SpeakerStyle
     {
         COLORREF nameColor; // 이름 색상
@@ -66,7 +80,9 @@ private:
 
     struct heroine_image
     {
-        CImage normal; // 기본 표저ㅏ
+        // GDI+ 이미지 포인터이다.
+        // PNG 알파 채널을 더 안정적으로 출력하기 위해 CImage 대신 GDI+ Image를 사용한다.
+        Gdiplus::Image* normal = nullptr;
     };
 
 private:

@@ -2,17 +2,34 @@
 
 void StoryScene::Initialize()
 {
-    
+    // =========================
+    // GDI+ 초기화
+    // =========================
+    Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+
+    // GDI+를 시작한다.
+    // 성공하면 gdiplusToken에 종료할 때 필요한 값이 저장된다.
+    if (Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr) == Gdiplus::Ok)
+    {
+        isGdiPlusStarted = true;
+    }
+
+    // =========================
+    // 배경 이미지는 기존 CImage로 로드한다.
+    // =========================
     story_background_image[0].Load(L"resource\\background\\hansea_student_council_room.png");
     story_background_image[1].Load(L"resource\\background\\yuharin_class_room.png");
     story_background_image[2].Load(L"resource\\background\\seoirin_library.png");
-    hansea.normal.Load(L"resource\\heroine\\hansea\\normal.png");
-    seoirin.normal.Load(L"resource\\heroine\\seoirin\\normal.png");
-    yuharin.normal.Load(L"resource\\heroine\\yuharin\\normal.png");
 
+    // =========================
+    // 캐릭터 이미지는 GDI+ Image로 로드한다.
+    // PNG 투명 알파 처리를 더 안정적으로 하기 위해 CImage 대신 사용한다.
+    // =========================
+    hansea.normal = new Gdiplus::Image(L"resource\\heroine\\hansea\\normal.png");
+    seoirin.normal = new Gdiplus::Image(L"resource\\heroine\\seoirin\\normal.png");
+    yuharin.normal = new Gdiplus::Image(L"resource\\heroine\\yuharin\\normal.png");
 
     // 처음에는 비워둔다.
-    // 실제 대사는 GameManager가 SetDialogues로 넣어준다.
     dialogues.clear();
     currentDialogueIndex = 0;
     visibleTextCount = 0;
@@ -24,6 +41,7 @@ void StoryScene::Shutdown()
 {
     dialogues.clear();
 
+    // 배경 이미지는 기존 CImage 방식으로 해제한다.
     for (int i = 0; i < 3; i++)
     {
         if (!story_background_image[i].IsNull())
@@ -32,19 +50,31 @@ void StoryScene::Shutdown()
         }
     }
 
-    if (!hansea.normal.IsNull())
+    // 캐릭터 이미지는 GDI+ Image 포인터이므로 delete로 해제한다.
+    if (hansea.normal != nullptr)
     {
-        hansea.normal.Destroy();
+        delete hansea.normal;
+        hansea.normal = nullptr;
     }
 
-    if (!yuharin.normal.IsNull())
+    if (yuharin.normal != nullptr)
     {
-        yuharin.normal.Destroy();
+        delete yuharin.normal;
+        yuharin.normal = nullptr;
     }
 
-    if (!seoirin.normal.IsNull())
+    if (seoirin.normal != nullptr)
     {
-        seoirin.normal.Destroy();
+        delete seoirin.normal;
+        seoirin.normal = nullptr;
+    }
+
+    // GDI+를 종료한다.
+    if (isGdiPlusStarted)
+    {
+        Gdiplus::GdiplusShutdown(gdiplusToken);
+        isGdiPlusStarted = false;
+        gdiplusToken = 0;
     }
 
     currentDialogueIndex = 0;
@@ -168,12 +198,16 @@ void StoryScene::Render(HDC hDC)
     // =========================
     // 캐릭터 이미지 출력
     // =========================
-    CImage* characterImage = GetCharacterImage(currentCharacterKey);
+    Gdiplus::Image* characterImage = GetCharacterImage(currentCharacterKey);
 
-    if (characterImage != nullptr && !characterImage->IsNull())
+    if (characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
     {
-        // 일단 오른쪽에 출력하는 기본 위치
-        characterImage->Draw(hDC, 0, 0);
+        // 1408 x 3046 원본 캐릭터를 1920 x 1080 화면에 맞춰 출력하는 예시 좌표이다.
+        int characterX = 725;
+        int characterY = 25;
+
+        // GDI+로 캐릭터 이미지를 출력한다.
+        DrawCharacterImage(hDC, characterImage, characterX, characterY);
     }
 
 
@@ -268,10 +302,12 @@ void StoryScene::Render(HDC hDC)
         DT_LEFT | DT_TOP | DT_WORDBREAK
     );
 
+    // GDI 객체 복구
     SelectObject(hDC, oldPen);
     SelectObject(hDC, oldBrush);
     SelectObject(hDC, oldFont);
 
+    // 직접 만든 GDI 객체 삭제
     DeleteObject(linePen);
     DeleteObject(boxPen);
     DeleteObject(boxBrush);
@@ -397,20 +433,55 @@ CImage* StoryScene::GetBackgroundImage(const std::wstring& backgroundKey)
     return nullptr;
 }
 
-CImage* StoryScene::GetCharacterImage(const std::wstring& characterKey)
+Gdiplus::Image* StoryScene::GetCharacterImage(const std::wstring& characterKey)
 {
     if (characterKey == L"hansea_normal")
     {
-        return &hansea.normal;
+        return hansea.normal;
     }
     else if (characterKey == L"yuharin_normal")
     {
-        return &yuharin.normal;
+        return yuharin.normal;
     }
     else if (characterKey == L"seoirin_normal")
     {
-        return &seoirin.normal;
+        return seoirin.normal;
     }
 
     return nullptr;
+}
+
+void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y)
+{
+    // 이미지가 없으면 출력하지 않는다.
+    if (image == nullptr)
+    {
+        return;
+    }
+
+    // 이미지 로드에 실패했으면 출력하지 않는다.
+    if (image->GetLastStatus() != Gdiplus::Ok)
+    {
+        return;
+    }
+
+    // HDC를 기반으로 GDI+ Graphics 객체를 만든다.
+    Gdiplus::Graphics graphics(hDC);
+
+    // 픽셀 단위로 출력하도록 설정한다.
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+
+    // PNG 알파 합성 품질을 높인다.
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+
+    // 확대/축소가 있을 때 품질을 높인다.
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+
+    // 외곽선과 반투명 픽셀을 조금 더 부드럽게 처리한다.
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHighQuality);
+
+    // 지정한 위치와 크기로 캐릭터를 출력한다.
+    graphics.DrawImage(image, x, y);
 }
