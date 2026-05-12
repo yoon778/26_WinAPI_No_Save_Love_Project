@@ -16,6 +16,18 @@ PCroomgame::PCroomgame() {
 	frameWidth = 362;
 	frameHeight = 362;
 
+	centerPotState = POT_BOILING_WATER;
+
+	centerPotFrame = 0;
+	centerPotAnimTick = 0;
+	centerPotAnimDelay = 5;
+
+	centerPotAnimating = false;
+
+	boilingWaterFrame = 0;
+	boilingWaterAnimTick = 0;
+	boilingWaterAnimDelay = 6;
+
 	currentFrame = 1;	// 정지 기본 프레임은 가운데 이미지
 	maxFrame = 3;		// 방향당 3프레임
 	animTick = 0;
@@ -35,6 +47,11 @@ PCroomgame::PCroomgame() {
 	resultMessage = L"";
 	resultTimer = 0;
 	currentDir = DIR_FRONT;
+
+	waterFrame = 0;
+	waterAnimTick = 0;
+	waterAnimDelay = 6;
+
 }
 
 bool PCroomgame::InsideRect(RECT rect, int x, int y) {
@@ -144,13 +161,22 @@ void PCroomgame::Init() {
 	resetArea = { 160, 200, 393, 317 };
 
 	// 재료 버튼 위치
-	ingredientArea[0] = { 70, 540, 325, 670 };  // 물
+	// 배경의 일반 물 / 뜨거운 물 위치
+	waterArea[0] = { 84, 575, 179, 685 };   // 일반 물
+	waterArea[1] = { 216, 575, 311, 685 };  // 뜨거운 물
+
 	ingredientArea[1] = { 393, 200, 626, 317 }; // 면
 	ingredientArea[2] = { 626, 200, 860, 317 }; // 스프
 
 	ingredientArea[3] = { 160, 317, 393, 435 }; // 계란
 	ingredientArea[4] = { 393, 317, 626, 435 }; // 치즈
 	ingredientArea[5] = { 626, 317, 860, 435 }; // 만두
+
+	bowlArea[0] = { 260, 590, 480, 773 };  // 왼쪽 냄비
+	bowlArea[1] = { 455, 590, 675, 773 };  // 가운데 냄비
+	bowlArea[2] = { 675, 590, 895, 773 };  // 오른쪽 냄비
+
+
 
 	curramen.clear();
 
@@ -166,12 +192,150 @@ void PCroomgame::Init() {
 	customerImg[1].Load(L"order2.png"); // 라면 먹는 모습
 	customerImg[2].Load(L"order3.png"); // 화내는 모습
 
+	ingredientImg.Load(L"ingredient.png");
+	waterImg.Load(L"water.png");
+	resetBtnImg.Load(L"reset.png");
+
+	boilingWaterImg.Load(L"boiling_water.png");
+
+	addWaterImg.Load(L"add_water.png");
+	addNoodleImg.Load(L"add_noodle.png");
+	addSoupImg.Load(L"add_soup.png");
+	addCheeseImg.Load(L"add_cheese.png");
+	addDumplingImg.Load(L"add_dumpling.png");
+	addEggImg.Load(L"add_egg.png");
+
+	boilingNoodleImg.Load(L"boling_noodle.png");
+	boilingCheeseImg.Load(L"boling_cheese.png");
+	boilingDumplingImg.Load(L"boling_dumpling.png");
+	boilingEggImg.Load(L"boling_egg.png");
+
+	ResetCenterPotState();
+
+	boilingWaterFrame = 0;
+	boilingWaterAnimTick = 0;
+
+	waterFrame = 0;
+	waterAnimTick = 0;
+
 	for (int i = 0; i < 6; i++)
 	{
 		customerState[i] = ORDER1;
 		customerFrame[i] = 0;
 		customerAnimTick[i] = 0;
 		customerStateTimer[i] = 0;
+	}
+}
+void PCroomgame::ResetCenterPotState()
+{
+	centerPotState = POT_BOILING_WATER;
+	centerPotFrame = 0;
+	centerPotAnimTick = 0;
+	centerPotAnimating = false;
+}
+void PCroomgame::StartCenterPotAnimation(CenterPotState state)
+{
+	centerPotState = state;
+	centerPotFrame = 0;
+	centerPotAnimTick = 0;
+	centerPotAnimating = true;
+}
+
+void PCroomgame::UpdateCenterPotAnimation()
+{
+	// 기본 끓는 물 상태는 기존 boilingWater 애니메이션을 사용
+	if (centerPotState == POT_BOILING_WATER)
+	{
+		return;
+	}
+
+	centerPotAnimTick++;
+
+	if (centerPotAnimTick < centerPotAnimDelay)
+	{
+		return;
+	}
+
+	centerPotAnimTick = 0;
+
+	switch (centerPotState)
+	{
+	case POT_ADD_WATER:
+		centerPotFrame++;
+		if (centerPotFrame >= 3)
+		{
+			centerPotState = POT_BOILING_WATER;
+			centerPotFrame = 0;
+			centerPotAnimating = false;
+		}
+		break;
+
+	case POT_ADD_NOODLE:
+		centerPotFrame++;
+		if (centerPotFrame >= 3)
+		{
+			centerPotState = POT_BOILING_NOODLE;
+			centerPotFrame = 0;
+			centerPotAnimating = false;
+		}
+		break;
+
+	case POT_BOILING_NOODLE:
+		centerPotFrame = (centerPotFrame + 1) % 3;
+		break;
+
+	case POT_ADD_SOUP:
+		centerPotFrame++;
+		if (centerPotFrame >= 3)
+		{
+			// 스프를 넣은 뒤에는 면이 끓는 상태 애니메이션으로 유지
+			centerPotState = POT_BOILING_NOODLE;
+			centerPotFrame = 0;
+			centerPotAnimating = false;
+		}
+		break;
+
+	case POT_ADD_CHEESE:
+		centerPotFrame++;
+		if (centerPotFrame >= 3)
+		{
+			centerPotState = POT_BOILING_CHEESE;
+			centerPotFrame = 0;
+			centerPotAnimating = false;
+		}
+		break;
+
+	case POT_BOILING_CHEESE:
+		centerPotFrame = (centerPotFrame + 1) % 3;
+		break;
+
+	case POT_ADD_DUMPLING:
+		centerPotFrame++;
+		if (centerPotFrame >= 3)
+		{
+			centerPotState = POT_BOILING_DUMPLING;
+			centerPotFrame = 0;
+			centerPotAnimating = false;
+		}
+		break;
+
+	case POT_BOILING_DUMPLING:
+		centerPotFrame = (centerPotFrame + 1) % 3;
+		break;
+
+	case POT_ADD_EGG:
+		centerPotFrame++;
+		if (centerPotFrame >= 3)
+		{
+			centerPotState = POT_BOILING_EGG;
+			centerPotFrame = 0;
+			centerPotAnimating = false;
+		}
+		break;
+
+	case POT_BOILING_EGG:
+		centerPotFrame = (centerPotFrame + 1) % 3;
+		break;
 	}
 }
 
@@ -185,32 +349,79 @@ void PCroomgame::MOUSE(int x, int y) {
 	if (InsideRect(resetArea, x, y))
 	{
 		curramen.clear();
+		ResetCenterPotState();
 		return;
 	}
 
 	// 재료 버튼 클릭 시 현재 라면에 추가
-	if (InsideRect(ingredientArea[0], x, y)) {
-		curramen.water = true;
+	// 일반 물 / 뜨거운 물 중 하나를 눌러도 물 추가
+	if (InsideRect(waterArea[0], x, y) || InsideRect(waterArea[1], x, y))
+	{
+		if (centerPotAnimating == false && curramen.water == false)
+		{
+			curramen.water = true;
+			StartCenterPotAnimation(POT_ADD_WATER);
+		}
 		return;
 	}
-	if (InsideRect(ingredientArea[1], x, y)) {
-		curramen.noodle = true;
+
+	if (InsideRect(ingredientArea[1], x, y))
+	{
+		if (curramen.water == true &&
+			centerPotAnimating == false &&
+			curramen.noodle == false)
+		{
+			curramen.noodle = true;
+			StartCenterPotAnimation(POT_ADD_NOODLE);
+		}
 		return;
 	}
-	if (InsideRect(ingredientArea[2], x, y)) {
-		curramen.soup = true;
+
+	if (InsideRect(ingredientArea[2], x, y))
+	{
+		if (curramen.water == true &&
+			centerPotAnimating == false &&
+			curramen.soup == false)
+		{
+			curramen.soup = true;
+			StartCenterPotAnimation(POT_ADD_SOUP);
+		}
 		return;
 	}
-	if (InsideRect(ingredientArea[3], x, y)) {
-		curramen.egg = true;
+
+	if (InsideRect(ingredientArea[3], x, y))
+	{
+		if (curramen.water == true &&
+			centerPotAnimating == false &&
+			curramen.egg == false)
+		{
+			curramen.egg = true;
+			StartCenterPotAnimation(POT_ADD_EGG);
+		}
 		return;
 	}
-	if (InsideRect(ingredientArea[4], x, y)) {
-		curramen.cheese = true;
+
+	if (InsideRect(ingredientArea[4], x, y))
+	{
+		if (curramen.water == true &&
+			centerPotAnimating == false &&
+			curramen.cheese == false)
+		{
+			curramen.cheese = true;
+			StartCenterPotAnimation(POT_ADD_CHEESE);
+		}
 		return;
 	}
-	if (InsideRect(ingredientArea[5], x, y)) {
-		curramen.dumpling = true;
+
+	if (InsideRect(ingredientArea[5], x, y))
+	{
+		if (curramen.water == true &&
+			centerPotAnimating == false &&
+			curramen.dumpling == false)
+		{
+			curramen.dumpling = true;
+			StartCenterPotAnimation(POT_ADD_DUMPLING);
+		}
 		return;
 	}
 
@@ -257,6 +468,11 @@ void PCroomgame::Update()
 
 	// 손님 애니메이션은 플레이어 이동과 상관없이 항상 갱신
 	UpdateCustomers();
+
+	// 물 버튼 애니메이션
+	UpdateWaterAnimation();
+	UpdateBoilingWaterAnimation();
+	UpdateCenterPotAnimation();
 
 	if (ismoving == false)
 	{
@@ -505,6 +721,7 @@ void PCroomgame::DeliverToSeat(int seatIndex)
 
 	resultTimer = 15;
 	curramen.clear();
+	ResetCenterPotState();
 }
 
 void PCroomgame::DrawPlayer(HDC hDC)
@@ -589,34 +806,26 @@ void PCroomgame::PAINT(HDC hDC)
 	background.Draw(hDC, 0, 0, 1920, 1080);
 
 	// 초기화 버튼 그리기
-	Rectangle(hDC, resetArea.left, resetArea.top,
-		resetArea.right, resetArea.bottom);
-	DrawTextW(hDC, resetArea.left + 70, resetArea.top + 45, L"초기화");
+	if (!resetBtnImg.IsNull())
+	{
+		resetBtnImg.Draw(
+			hDC,
+			resetArea.left + 10,
+			resetArea.top + 10,
+			resetArea.right - resetArea.left - 5,
+			resetArea.bottom - resetArea.top - 5
+		);
+	}
 
 	// 재료 버튼 그리기
-	Rectangle(hDC, ingredientArea[0].left, ingredientArea[0].top,
-		ingredientArea[0].right, ingredientArea[0].bottom);
-	DrawTextW(hDC, ingredientArea[0].left + 100, ingredientArea[0].top + 50, L"물");
-
-	Rectangle(hDC, ingredientArea[1].left, ingredientArea[1].top,
-		ingredientArea[1].right, ingredientArea[1].bottom);
-	DrawTextW(hDC, ingredientArea[1].left + 80, ingredientArea[1].top + 45, L"면");
-
-	Rectangle(hDC, ingredientArea[2].left, ingredientArea[2].top,
-		ingredientArea[2].right, ingredientArea[2].bottom);
-	DrawTextW(hDC, ingredientArea[2].left + 80, ingredientArea[2].top + 45, L"스프");
-
-	Rectangle(hDC, ingredientArea[3].left, ingredientArea[3].top,
-		ingredientArea[3].right, ingredientArea[3].bottom);
-	DrawTextW(hDC, ingredientArea[3].left + 80, ingredientArea[3].top + 45, L"계란");
-
-	Rectangle(hDC, ingredientArea[4].left, ingredientArea[4].top,
-		ingredientArea[4].right, ingredientArea[4].bottom);
-	DrawTextW(hDC, ingredientArea[4].left + 80, ingredientArea[4].top + 45, L"치즈");
-
-	Rectangle(hDC, ingredientArea[5].left, ingredientArea[5].top,
-		ingredientArea[5].right, ingredientArea[5].bottom);
-	DrawTextW(hDC, ingredientArea[5].left + 80, ingredientArea[5].top + 45, L"만두");
+	// 배경 물 자리 2곳에 물 애니메이션 그리기
+	DrawWaterButton(hDC, waterArea[0]);
+	DrawWaterButton(hDC, waterArea[1]);
+	DrawIngredientImage(hDC, ingredientArea[1], 0, curramen.noodle);
+	DrawIngredientImage(hDC, ingredientArea[2], 1, curramen.soup);
+	DrawIngredientImage(hDC, ingredientArea[3], 2, curramen.egg);
+	DrawIngredientImage(hDC, ingredientArea[4], 3, curramen.cheese);
+	DrawIngredientImage(hDC, ingredientArea[5], 4, curramen.dumpling);
 
 	// 점수 출력
 	std::wstring scoreText = L"점수: " + std::to_wstring(score);
@@ -637,6 +846,9 @@ void PCroomgame::PAINT(HDC hDC)
 		DrawTextW(hDC, 50, 160, resultMessage);
 	}
 
+	// 중앙 인덕션 냄비 3개
+	DrawBowls(hDC);
+
 	// 좌석별 주문 출력
 // 손님 그리기
 	DrawCustomers(hDC);
@@ -650,11 +862,6 @@ void PCroomgame::PAINT(HDC hDC)
 	// 플레이어 그리기
 	DrawPlayer(hDC);
 
-	// 손님 그리기
-	DrawCustomers(hDC);
-
-	// 플레이어 그리기
-	DrawPlayer(hDC);
 
 	// 게임 종료 출력
 	if (finished == true)
@@ -882,4 +1089,277 @@ void PCroomgame::DrawOrderBubble(HDC hDC, int index)
 
 	DeleteObject(bubbleBrush);
 	DeleteObject(bubblePen);
+}
+
+void PCroomgame::DrawIngredientImage(HDC hDC, RECT rc, int imageIndex, bool selected)
+{
+	if (ingredientImg.IsNull())
+	{
+		return;
+	}
+
+	// 이미지가 가로 5칸으로 구성되어 있음
+	int srcW = ingredientImg.GetWidth() / 5;
+	int srcH = ingredientImg.GetHeight();
+
+	int srcX = imageIndex * srcW;
+	int srcY = 0;
+
+	// 선택된 재료 강조 표시
+	// 기존 영역 바깥으로 나가지 않도록 안쪽에 그림
+	if (selected == true)
+	{
+		HBRUSH selectedBrush = CreateSolidBrush(RGB(255, 240, 180));
+		HBRUSH oldBrush = (HBRUSH)SelectObject(hDC, selectedBrush);
+
+		HPEN selectedPen = CreatePen(PS_SOLID, 3, RGB(255, 150, 0));
+		HPEN oldPen = (HPEN)SelectObject(hDC, selectedPen);
+
+		RoundRect(
+			hDC,
+			rc.left + 4,
+			rc.top + 4,
+			rc.right - 4,
+			rc.bottom - 4,
+			18,
+			18
+		);
+
+		SelectObject(hDC, oldBrush);
+		SelectObject(hDC, oldPen);
+
+		DeleteObject(selectedBrush);
+		DeleteObject(selectedPen);
+	}
+
+	// 이미지도 영역보다 조금 작게 그려서 답답하지 않게 배치
+	int marginX = 12;
+	int marginY = 8;
+
+	int drawX = rc.left + marginX;
+	int drawY = rc.top + marginY;
+	int drawW = (rc.right - rc.left) - marginX * 2;
+	int drawH = (rc.bottom - rc.top) - marginY * 2;
+
+	ingredientImg.Draw(
+		hDC,
+		drawX,
+		drawY,
+		drawW,
+		drawH,
+		srcX,
+		srcY,
+		srcW,
+		srcH
+	);
+}
+
+void PCroomgame::UpdateWaterAnimation()
+{
+	waterAnimTick++;
+
+	if (waterAnimTick >= waterAnimDelay)
+	{
+		waterFrame++;
+
+		if (waterFrame >= 3)
+		{
+			waterFrame = 0;
+		}
+
+		waterAnimTick = 0;
+	}
+}
+
+void PCroomgame::DrawWaterButton(HDC hDC, RECT rc)
+{
+	if (waterImg.IsNull())
+	{
+		return;
+	}
+
+	int frameW = waterImg.GetWidth() / 3;
+	int frameH = waterImg.GetHeight();
+
+	int srcX = waterFrame * frameW;
+	int srcY = 0;
+
+	waterImg.Draw(
+		hDC,
+		rc.left,
+		rc.top,
+		rc.right - rc.left,
+		rc.bottom - rc.top,
+		srcX,
+		srcY,
+		frameW,
+		frameH
+	);
+}
+
+void PCroomgame::DrawBowls(HDC hDC)
+{
+	// 왼쪽 냄비
+	DrawThreeFrameImage(
+		hDC,
+		boilingWaterImg,
+		bowlArea[0],
+		boilingWaterFrame
+	);
+
+	// 오른쪽 냄비
+	DrawThreeFrameImage(
+		hDC,
+		boilingWaterImg,
+		bowlArea[2],
+		boilingWaterFrame
+	);
+
+	// 가운데 냄비
+	switch (centerPotState)
+	{
+	case POT_BOILING_WATER:
+		DrawThreeFrameImage(
+			hDC,
+			boilingWaterImg,
+			bowlArea[1],
+			boilingWaterFrame
+		);
+		break;
+
+	case POT_ADD_WATER:
+		DrawThreeFrameImage(
+			hDC,
+			addWaterImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_ADD_NOODLE:
+		DrawThreeFrameImage(
+			hDC,
+			addNoodleImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_BOILING_NOODLE:
+		DrawThreeFrameImage(
+			hDC,
+			boilingNoodleImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_ADD_SOUP:
+		DrawThreeFrameImage(
+			hDC,
+			addSoupImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+
+	case POT_ADD_CHEESE:
+		DrawThreeFrameImage(
+			hDC,
+			addCheeseImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_BOILING_CHEESE:
+		DrawThreeFrameImage(
+			hDC,
+			boilingCheeseImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_ADD_DUMPLING:
+		DrawThreeFrameImage(
+			hDC,
+			addDumplingImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_BOILING_DUMPLING:
+		DrawThreeFrameImage(
+			hDC,
+			boilingDumplingImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_ADD_EGG:
+		DrawThreeFrameImage(
+			hDC,
+			addEggImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+
+	case POT_BOILING_EGG:
+		DrawThreeFrameImage(
+			hDC,
+			boilingEggImg,
+			bowlArea[1],
+			centerPotFrame
+		);
+		break;
+	}
+}
+
+void PCroomgame::UpdateBoilingWaterAnimation()
+{
+	boilingWaterAnimTick++;
+
+	if (boilingWaterAnimTick >= boilingWaterAnimDelay)
+	{
+		boilingWaterFrame++;
+
+		if (boilingWaterFrame >= 3)
+		{
+			boilingWaterFrame = 0;
+		}
+
+		boilingWaterAnimTick = 0;
+	}
+}
+
+void PCroomgame::DrawThreeFrameImage(HDC hDC, CImage& img, RECT rc, int frame)
+{
+	if (img.IsNull())
+	{
+		return;
+	}
+
+	int imgW = img.GetWidth();
+	int imgH = img.GetHeight();
+
+	int srcLeft = (imgW * frame) / 3;
+	int srcRight = (imgW * (frame + 1)) / 3;
+	int srcW = srcRight - srcLeft;
+
+	img.Draw(
+		hDC,
+		rc.left,
+		rc.top,
+		rc.right - rc.left,
+		rc.bottom - rc.top,
+		srcLeft,
+		0,
+		srcW,
+		imgH
+	);
 }
