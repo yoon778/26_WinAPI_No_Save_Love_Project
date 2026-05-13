@@ -388,11 +388,10 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
-	// 재료 버튼 클릭 시 현재 라면에 추가
 	// 일반 물 / 뜨거운 물 중 하나를 눌러도 물 추가
 	if (InsideRect(waterArea[0], x, y) || InsideRect(waterArea[1], x, y))
 	{
-		if (centerPotAnimating == false && curramen.water == false)
+		if (curramen.water == false)
 		{
 			curramen.water = true;
 			StartCenterPotAnimation(POT_ADD_WATER);
@@ -400,10 +399,10 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
+	// 면 추가
 	if (InsideRect(ingredientArea[1], x, y))
 	{
 		if (curramen.water == true &&
-			centerPotAnimating == false &&
 			curramen.noodle == false)
 		{
 			curramen.noodle = true;
@@ -412,10 +411,10 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
+	// 스프 추가
 	if (InsideRect(ingredientArea[2], x, y))
 	{
 		if (curramen.water == true &&
-			centerPotAnimating == false &&
 			curramen.soup == false)
 		{
 			curramen.soup = true;
@@ -424,10 +423,10 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
+	// 계란 추가
 	if (InsideRect(ingredientArea[3], x, y))
 	{
 		if (curramen.water == true &&
-			centerPotAnimating == false &&
 			curramen.egg == false)
 		{
 			curramen.egg = true;
@@ -436,10 +435,10 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
+	// 치즈 추가
 	if (InsideRect(ingredientArea[4], x, y))
 	{
 		if (curramen.water == true &&
-			centerPotAnimating == false &&
 			curramen.cheese == false)
 		{
 			curramen.cheese = true;
@@ -448,10 +447,10 @@ void PCroomgame::MOUSE(int x, int y) {
 		return;
 	}
 
+	// 만두 추가
 	if (InsideRect(ingredientArea[5], x, y))
 	{
 		if (curramen.water == true &&
-			centerPotAnimating == false &&
 			curramen.dumpling == false)
 		{
 			curramen.dumpling = true;
