@@ -21,6 +21,12 @@ private:
 	CImage resetBtnImg;
 	CImage boilingWaterImg;
 
+	HFONT hudFont;
+	CImage hudImg;
+	RECT hudArea;
+
+	void DrawHudNumber(HDC hDC, RECT rc, std::wstring text, COLORREF color);
+
 	int frameWidth;       // 한 프레임 너비
 	int frameHeight;      // 한 프레임 높이
 

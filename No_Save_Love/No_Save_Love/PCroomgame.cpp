@@ -16,6 +16,8 @@ PCroomgame::PCroomgame() {
 	frameWidth = 362;
 	frameHeight = 362;
 
+	hudFont = NULL;
+
 	centerPotState = POT_BOILING_WATER;
 
 	centerPotFrame = 0;
@@ -125,6 +127,39 @@ void PCroomgame::Init() {
 	score = 0;
 	timer = 180.0;
 	finished = false;
+
+	hudImg.Load(L"TIMER.png");
+
+	// 상단 중앙 HUD 위치
+	hudArea = { 1080, -30, 1880, 200 };
+
+	// 잘난체 폰트 등록
+	AddFontResourceExW(L"Jalnan2TTF.ttf", FR_PRIVATE, 0);
+
+	// Init이 다시 호출될 수 있으므로 기존 폰트가 있으면 제거
+	if (hudFont != NULL)
+	{
+		DeleteObject(hudFont);
+		hudFont = NULL;
+	}
+
+	// 숫자용 폰트
+	hudFont = CreateFontW(
+		52,
+		0,
+		0,
+		0,
+		FW_BOLD,
+		FALSE,
+		FALSE,
+		FALSE,
+		DEFAULT_CHARSET,
+		OUT_DEFAULT_PRECIS,
+		CLIP_DEFAULT_PRECIS,
+		ANTIALIASED_QUALITY,
+		DEFAULT_PITCH | FF_DONTCARE,
+		L"Jalnan 2 TTF"
+	);
 
 	playerPos = { 1495, 1000 };
 	targetPos = playerPos;
@@ -805,6 +840,57 @@ void PCroomgame::PAINT(HDC hDC)
 {
 	background.Draw(hDC, 0, 0, 1920, 1080);
 
+	// 오른쪽 상단 HUD 패널
+	if (!hudImg.IsNull())
+	{
+		hudImg.Draw(
+			hDC,
+			hudArea.left,
+			hudArea.top,
+			hudArea.right - hudArea.left,
+			hudArea.bottom - hudArea.top
+		);
+	}
+
+	// 시간 숫자
+	wchar_t timerBuffer[100];
+	swprintf_s(timerBuffer, L"%.1f", timer);
+
+	// HUD 이미지 안의 TIME 숫자 위치
+	RECT timerTextArea =
+	{
+		hudArea.left + 135,
+		hudArea.top + 78,
+		hudArea.left + 405,
+		hudArea.top + 180
+	};
+
+	DrawHudNumber(
+		hDC,
+		timerTextArea,
+		timerBuffer,
+		RGB(245, 235, 190)
+	);
+
+	// 점수 숫자
+	std::wstring scoreText = std::to_wstring(score);
+
+	// HUD 이미지 안의 SCORE 숫자 위치
+	RECT scoreTextArea =
+	{
+		hudArea.left + 520,
+		hudArea.top + 78,
+		hudArea.left + 760,
+		hudArea.top + 180
+	};
+
+	DrawHudNumber(
+		hDC,
+		scoreTextArea,
+		scoreText,
+		RGB(255, 215, 90)
+	);
+
 	// 초기화 버튼 그리기
 	if (!resetBtnImg.IsNull())
 	{
@@ -827,30 +913,12 @@ void PCroomgame::PAINT(HDC hDC)
 	DrawIngredientImage(hDC, ingredientArea[4], 3, curramen.cheese);
 	DrawIngredientImage(hDC, ingredientArea[5], 4, curramen.dumpling);
 
-	// 점수 출력
-	std::wstring scoreText = L"점수: " + std::to_wstring(score);
-	DrawTextW(hDC, 50, 50, scoreText);
-
-	// 남은 시간 출력
-	wchar_t timerBuffer[100];
-	swprintf_s(timerBuffer, L"남은 시간: %.1f", timer);
-	DrawTextW(hDC, 50, 80, timerBuffer);
-
-	// 현재 만든 라면 출력
-	std::wstring currentText = L"현재 라면: " + RamenToString(curramen);
-	DrawTextW(hDC, 50, 120, currentText);
-
-	// 성공/실패 메시지 출력
-	if (resultMessage != L"")
-	{
-		DrawTextW(hDC, 50, 160, resultMessage);
-	}
 
 	// 중앙 인덕션 냄비 3개
 	DrawBowls(hDC);
 
 	// 좌석별 주문 출력
-// 손님 그리기
+	// 손님 그리기
 	DrawCustomers(hDC);
 
 	// 주문 중인 손님 위에 말풍선 그리기
@@ -1081,7 +1149,12 @@ void PCroomgame::DrawOrderBubble(HDC hDC, int index)
 	int textX = centerX - textSize.cx / 2;
 	int textY = bubbleTop + paddingY;
 
+	COLORREF oldTextColor = GetTextColor(hDC);
+
+	SetTextColor(hDC, RGB(0, 0, 0));   // 말풍선 글씨 검정색
 	DrawTextW(hDC, textX, textY, orderText);
+
+	SetTextColor(hDC, oldTextColor);   // 원래 글씨 색으로 복구
 
 	// GDI 자원 정리
 	SelectObject(hDC, oldBrush);
@@ -1362,4 +1435,41 @@ void PCroomgame::DrawThreeFrameImage(HDC hDC, CImage& img, RECT rc, int frame)
 		srcW,
 		imgH
 	);
+}
+
+void PCroomgame::DrawHudNumber(HDC hDC, RECT rc, std::wstring text, COLORREF color)
+{
+	if (hudFont == NULL)
+	{
+		return;
+	}
+
+	HFONT oldFont = (HFONT)SelectObject(hDC, hudFont);
+
+	SetBkMode(hDC, TRANSPARENT);
+
+	// 그림자
+	RECT shadowRc = rc;
+	OffsetRect(&shadowRc, 3, 3);
+
+	SetTextColor(hDC, RGB(25, 25, 25));
+	::DrawTextW(
+		hDC,
+		text.c_str(),
+		(int)text.length(),
+		&shadowRc,
+		DT_CENTER | DT_VCENTER | DT_SINGLELINE
+	);
+
+	// 본문
+	SetTextColor(hDC, color);
+	::DrawTextW(
+		hDC,
+		text.c_str(),
+		(int)text.length(),
+		&rc,
+		DT_CENTER | DT_VCENTER | DT_SINGLELINE
+	);
+
+	SelectObject(hDC, oldFont);
 }
