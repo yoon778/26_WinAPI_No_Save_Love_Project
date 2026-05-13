@@ -460,24 +460,27 @@ void GameManager::OnChar(wchar_t inputChar)
 
 }
 
-void GameManager::OnTimer()
+void GameManager::OnTimer(HWND hWnd)
 {
     switch (now_game_mode)
     {
     case game_mode_info::Story:
-    case game_mode_info::EndingDialogue:
-    {
-        // 스토리 대사 타이핑을 업데이트한다.
-        storyScene.UpdateTyping();
+        // StoryScene 내부에서 타이핑과 페이드를 모두 처리한다.
+        storyScene.Update();
 
-        // 화면을 다시 그린다.
-        InvalidateRect(m_hWnd, nullptr, FALSE);
+        // 화면을 다시 그리도록 요청한다.
+        InvalidateRect(hWnd, NULL, FALSE);
         break;
-    }
+
+    case game_mode_info::EndingDialogue:
+        // 엔딩 대사도 StoryScene을 재사용하므로 같은 Update를 호출한다.
+        storyScene.Update();
+
+        // 화면을 다시 그리도록 요청한다.
+        InvalidateRect(hWnd, NULL, FALSE);
+        break;
 
     default:
-    {
         break;
-    }
     }
 }

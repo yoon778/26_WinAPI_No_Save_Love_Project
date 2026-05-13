@@ -85,20 +85,48 @@ void StoryScene::Shutdown()
 
 void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 {
+    // 새로운 대사 목록을 저장한다.
     dialogues = newDialogues;
 
+    // 첫 번째 대사부터 시작한다.
     currentDialogueIndex = 0;
+
+    // 스토리 종료 상태를 초기화한다.
     finished = false;
 
+    // 타이핑 상태를 초기화한다.
     visibleTextCount = 0;
     isTypingFinished = false;
 
-    // 새 대사 묶음의 첫 줄에 배경/캐릭터 정보가 있으면 적용한다.
-    ApplyCurrentLineVisualInfo();
+    // 페이드 상태를 초기화한다.
+    fadeState = FadeState::None;
+    fadeAlpha = 0;
+
+    // 이전 스토리에서 쓰던 배경/캐릭터 key를 초기화한다.
+    currentBackgroundKey = L"";
+    currentCharacterKey = L"";
+    nextBackgroundKey = L"";
+    nextCharacterKey = L"";
+
+    // 대사가 없으면 바로 종료 상태로 만든다.
+    if (dialogues.empty())
+    {
+        finished = true;
+        return;
+    }
+
+    // 첫 번째 줄의 배경/캐릭터는 페이드 없이 바로 적용한다.
+    ApplyCurrentLineVisualInfo(false);
 }
 
 void StoryScene::OnMouseClick(int x, int y)
 {
+    // 페이드 중에는 클릭 입력을 무시한다.
+    if (fadeState != FadeState::None)
+    {
+        return;
+    }
+
     // 대사가 없으면 바로 끝난 것으로 처리
     if (dialogues.empty())
     {
@@ -130,7 +158,7 @@ void StoryScene::OnMouseClick(int x, int y)
         isTypingFinished = false;
 
         // 새 대사로 넘어갔으므로 배경/캐릭터 정보를 갱신한다.
-        ApplyCurrentLineVisualInfo();
+        ApplyCurrentLineVisualInfo(false);
     }
     else
     {
@@ -202,7 +230,6 @@ void StoryScene::Render(HDC hDC)
 
     if (characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
     {
-        // 1408 x 3046 원본 캐릭터를 1920 x 1080 화면에 맞춰 출력하는 예시 좌표이다.
         int characterX = 725;
         int characterY = 25;
 
@@ -210,6 +237,9 @@ void StoryScene::Render(HDC hDC)
         DrawCharacterImage(hDC, characterImage, characterX, characterY);
     }
 
+    // 배경과 캐릭터 위에 검은 반투명 레이어를 덮는다.
+    // 대화창은 이 아래에서 따로 그리기 때문에 어두워지지 않는다.
+    DrawFadeOverlay(hDC);
 
     // 출력할 대사가 없으면 그리지 않는다.
     if (dialogues.empty())
@@ -372,8 +402,26 @@ std::wstring StoryScene::GetCurrentDisplayText() const
     return ReplacePlayerNameToken(originalText);
 }
 
-void StoryScene::UpdateTyping() {
-    if (dialogues.empty() || finished) {
+void StoryScene::Update()
+{
+    // 페이드 효과를 먼저 갱신한다.
+    UpdateFade();
+
+    // 타이핑 효과를 갱신한다.
+    UpdateTyping();
+}
+
+void StoryScene::UpdateTyping()
+{
+    // 대사가 없거나 스토리가 끝났으면 타이핑을 진행하지 않는다.
+    if (dialogues.empty() || finished)
+    {
+        return;
+    }
+
+    // 페이드 중에는 타이핑을 잠시 멈춘다.
+    if (fadeState != FadeState::None)
+    {
         return;
     }
 
@@ -389,31 +437,106 @@ void StoryScene::UpdateTyping() {
         isTypingFinished = true;
     }
 }
-
-void StoryScene::ApplyCurrentLineVisualInfo()
+void StoryScene::StartFadeTransition(
+    const std::wstring& newBackgroundKey,
+    const std::wstring& newCharacterKey)
 {
-    // 대사가 없으면 아무것도 하지 않는다.
+    // 다음에 적용할 배경 key를 저장한다.
+    nextBackgroundKey = newBackgroundKey;
+
+    // 다음에 적용할 캐릭터 key를 저장한다.
+    nextCharacterKey = newCharacterKey;
+
+    // 현재 배경과 캐릭터가 모두 비어 있다면
+    // 이것은 스토리의 첫 이미지 등장으로 본다. // 시작은 false
+    bool isFirstVisual =
+        currentBackgroundKey.empty() &&
+        currentCharacterKey.empty();
+
+    // 첫 등장일 때는 FadeOut 없이 바로 FadeIn만 한다.
+    if (isFirstVisual)
+    {
+        // 먼저 실제 출력할 이미지를 적용한다.
+        currentBackgroundKey = newBackgroundKey;
+        currentCharacterKey = newCharacterKey;
+
+        // 완전 검은 상태에서 시작한다.
+        fadeAlpha = 255;
+
+        // 검은 화면이 점점 투명해지는 FadeIn으로 시작한다.
+        fadeState = FadeState::FadeIn;
+
+        return;
+    }
+
+    // 기존 이미지가 이미 있는 상태에서 바뀌는 경우에는
+    // FadeOut → 이미지 교체 → FadeIn 방식으로 전환한다.
+    fadeState = FadeState::FadeOut;
+    fadeAlpha = 0;
+}
+
+void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
+{
+    // 대사가 없으면 처리하지 않는다.
     if (dialogues.empty())
     {
         return;
     }
 
-    const DialogueLineInfo& currentLine = dialogues[currentDialogueIndex];
-
-    // backgroundKey가 비어 있지 않으면 현재 배경을 변경한다.
-    // 비어 있으면 이전 배경을 유지한다.
-    if (!currentLine.backgroundKey.empty())
+    // 현재 대사 번호가 범위를 벗어나면 처리하지 않는다.
+    if (currentDialogueIndex < 0 || currentDialogueIndex >= static_cast<int>(dialogues.size()))
     {
-        currentBackgroundKey = currentLine.backgroundKey;
+        return;
     }
 
-    // characterKey가 비어 있지 않으면 현재 캐릭터를 변경한다.
-    // 비어 있으면 이전 캐릭터를 유지한다.
-    if (!currentLine.characterKey.empty())
+    // 현재 대사 정보를 가져온다.
+    const DialogueLineInfo& line = dialogues[currentDialogueIndex];
+
+    // 기본값은 현재 출력 중인 배경/캐릭터 key를 유지한다.
+    std::wstring newBackgroundKey = currentBackgroundKey;
+    std::wstring newCharacterKey = currentCharacterKey;
+
+    // 현재 대사에 배경 key가 있으면 새 배경 후보로 설정한다.
+    if (!line.backgroundKey.empty())
     {
-        currentCharacterKey = currentLine.characterKey;
+        newBackgroundKey = line.backgroundKey;
+    }
+
+    // 현재 대사에 캐릭터 key가 있으면 새 캐릭터 후보로 설정한다.
+    if (!line.characterKey.empty())
+    {
+        newCharacterKey = line.characterKey;
+    }
+
+    // 첫 줄이거나 강제 적용이면 바로 적용한다.
+    if (immediateApply)
+    {
+        currentBackgroundKey = newBackgroundKey;
+        currentCharacterKey = newCharacterKey;
+        return;
+    }
+
+    // 배경이 실제로 바뀌었는지 확인한다.
+    bool isBackgroundChanged = (newBackgroundKey != currentBackgroundKey);
+
+    // 캐릭터가 실제로 바뀌었는지 확인한다.
+    bool isCharacterChanged = (newCharacterKey != currentCharacterKey);
+
+    // 배경이 바뀌는 경우에만 페이드 전환을 실행한다.
+    if (isBackgroundChanged)
+    {
+        StartFadeTransition(newBackgroundKey, newCharacterKey);
+        return;
+    }
+
+    // 배경은 그대로이고 캐릭터만 바뀌는 경우에는 즉시 변경한다.
+    if (isCharacterChanged)
+    {
+        currentCharacterKey = newCharacterKey;
+        return;
     }
 }
+
 
 CImage* StoryScene::GetBackgroundImage(const std::wstring& backgroundKey)
 {
@@ -484,4 +607,75 @@ void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y
 
     // 지정한 위치와 크기로 캐릭터를 출력한다.
     graphics.DrawImage(image, x, y);
+}
+
+void StoryScene::UpdateFade()
+{
+    // 페이드 효과가 없으면 아무것도 하지 않는다.
+    if (fadeState == FadeState::None)
+    {
+        return;
+    }
+
+    // FadeOut 단계: 화면을 점점 검게 만든다.
+    if (fadeState == FadeState::FadeOut)
+    {
+        fadeAlpha += fadeSpeed;
+
+        // 완전히 검게 되었으면 이미지를 교체한다.
+        if (fadeAlpha >= 255)
+        {
+            fadeAlpha = 255;
+
+            // 검은 화면으로 덮인 순간에 실제 이미지 key를 교체한다.
+            currentBackgroundKey = nextBackgroundKey;
+            currentCharacterKey = nextCharacterKey;
+
+            // 이제 다시 밝아지는 단계로 넘어간다.
+            fadeState = FadeState::FadeIn;
+        }
+    }
+    // FadeIn 단계: 검은 화면을 점점 투명하게 만든다.
+    else if (fadeState == FadeState::FadeIn)
+    {
+        fadeAlpha -= fadeSpeed;
+
+        // 완전히 밝아지면 페이드 종료
+        if (fadeAlpha <= 0)
+        {
+            fadeAlpha = 0;
+            fadeState = FadeState::None;
+        }
+    }
+}
+void StoryScene::DrawFadeOverlay(HDC hDC)
+{
+    // alpha가 0이면 검은 레이어를 그릴 필요가 없다.
+    if (fadeAlpha <= 0)
+    {
+        return;
+    }
+
+    // HDC를 기반으로 GDI+ Graphics 객체를 만든다.
+    Gdiplus::Graphics graphics(hDC);
+
+    // 픽셀 단위로 출력하도록 설정한다.
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+
+    // 기존 화면 위에 반투명 색을 자연스럽게 합성한다.
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+
+    // fadeAlpha 값을 가진 검은색 브러시를 만든다.
+    Gdiplus::SolidBrush blackBrush(
+        Gdiplus::Color(fadeAlpha, 0, 0, 0)
+    );
+
+    // 현재 프로젝트 해상도 기준으로 전체 화면에 검은 레이어를 덮는다.
+    graphics.FillRectangle(
+        &blackBrush,
+        0,
+        0,
+        1920,
+        1080
+    );
 }

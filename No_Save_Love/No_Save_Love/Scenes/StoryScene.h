@@ -19,12 +19,21 @@ struct DialogueLineInfo
     std::wstring characterKey = L"";  // 캐릭터 이미지 이름 또는 키
     std::wstring effectKey = L"";     // 흔들림, 페이드 같은 효과
 };
-
-
+//페이드 아웃 인 
+enum class FadeState
+{
+    None, // 페이드 효과 없음
+    FadeOut, // 점점 어두워지는 중
+    FadeIn // 다시 밝아지는 중
+};
 
 class StoryScene
 {
 public:
+    // 타이핑 효과와 페이드 효과를 한 번에 갱신한다.
+    // GameManager는 이 함수만 호출하면 된다.
+    void Update();
+
     // StoryScene 기본 초기화
     void Initialize();
 
@@ -36,7 +45,6 @@ public:
 
     //플레이어 이름 저장한다.
     void SetPlayerName(const std::wstring& playerName);
-
 
     // 마우스 클릭 시 다음 대사로 이동한다.
     void OnMouseClick(int x, int y);
@@ -51,7 +59,10 @@ public:
     void UpdateTyping();
 
     // 현재 대사의 backgroundKey, characterKey를 보고 출력 상태를 갱신한다.
-    void ApplyCurrentLineVisualInfo();
+    // immediateApply가 true면 페이드 없이 바로 적용한다.
+    void ApplyCurrentLineVisualInfo(bool immediateApply);
+
+
 
     // 현재 배경 key에 맞는 배경 이미지를 반환한다. (복사 하지 않기 위해 포인터 사용)
     CImage* GetBackgroundImage(const std::wstring& backgroundKey);
@@ -59,7 +70,15 @@ public:
     // 현재 캐릭터 key에 맞는 캐릭터 이미지를 반환한다.
 // 캐릭터 PNG는 알파 처리를 위해 GDI+ Image로 관리한다.
     Gdiplus::Image* GetCharacterImage(const std::wstring& characterKey);
+
+    void StartFadeTransition(const std::wstring& newBackgroundKey, const std::wstring& newCharacterKey);
+
+    void UpdateFade();
+
 private:
+    // fadeAlpha 값에 따라 검은 반투명 레이어를 화면에 덮는다.
+    void DrawFadeOverlay(HDC hDC);
+
     // GDI+ 초기화 토큰이다.
 // GDI+를 시작하고 종료할 때 필요하다.
     ULONG_PTR gdiplusToken = 0;
@@ -110,6 +129,22 @@ private:
 
     // 현재 출력 중인 캐릭터 key
     std::wstring currentCharacterKey = L"";
+
+    // 다음에 바꿀 배경 key
+    std::wstring nextBackgroundKey;
+
+    // 다음에 바꿀 캐릭터 key
+    std::wstring nextCharacterKey;
+
+    // 현재 페이드 상태
+    FadeState fadeState = FadeState::None;
+
+    // 검은 화면의 투명도
+    // 0이면 안 보임, 255면 완전 검정
+    int fadeAlpha = 255;
+
+    // 페이드 속도
+    int fadeSpeed = 25;
 
     // 현재 StoryScene이 출력할 대사 목록
     std::vector<DialogueLineInfo> dialogues;

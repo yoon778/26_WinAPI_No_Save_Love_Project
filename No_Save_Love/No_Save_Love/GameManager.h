@@ -24,7 +24,7 @@ public:
     void OnMouseClick(int x, int y);
     void Render(HDC hdc);
     void OnChar(wchar_t inputChar);
-    void OnTimer();
+    void OnTimer(HWND hWnd);
 
 private:
     HWND m_hWnd = nullptr;

@@ -106,7 +106,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_TIMER: {
 
-        g_gameManager.OnTimer();
+        g_gameManager.OnTimer(hWnd);
 
         return 0;
     }
