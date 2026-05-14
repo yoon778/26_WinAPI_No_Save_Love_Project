@@ -25,7 +25,9 @@ void GameManager::Initialize(HWND hWnd)
     titleScene.Initialize();
 
     // 처음 시작 모드는 대사 모드다.
-    now_game_mode = game_mode_info::Title;
+    RequestSceneChange(game_mode_info::Title);
+
+
 }
 void GameManager::Shutdown()
 {
@@ -37,6 +39,11 @@ void GameManager::Shutdown()
 
 void GameManager::OnMouseClick(int x, int y)
 {
+    if (sceneTransition.IsActive()) // 페이드 인 아웃시 클릭 금지
+    {
+        return;
+    }
+
     switch (now_game_mode)
     {
     case game_mode_info::Title: 
@@ -47,7 +54,7 @@ void GameManager::OnMouseClick(int x, int y)
 
             storyScene.SetDialogues(storyData.GetIntroStory());
 
-            now_game_mode = game_mode_info::NameInput;
+            RequestSceneChange(game_mode_info::NameInput);
         }
         break;
     }
@@ -71,7 +78,8 @@ void GameManager::OnMouseClick(int x, int y)
             storyScene.SetDialogues(storyData.GetIntroStory());
 
             // 대사 화면으로 이동한다.
-            now_game_mode = game_mode_info::Story;
+            RequestSceneChange(game_mode_info::Story);
+
         }
 
         break;
@@ -90,22 +98,25 @@ void GameManager::OnMouseClick(int x, int y)
                     {
                         minigam1_tutorial1.Initialize();
                         
-                        now_game_mode = game_mode_info::MiniGameTutor1;
+                        RequestSceneChange(game_mode_info::MiniGameTutor1);
                         break;
                     }
                     case 1:
                     {
-                        now_game_mode = game_mode_info::MiniGameTutor2;
+                        RequestSceneChange(game_mode_info::MiniGameTutor2);
+
                         break;
                     }
                     case 2:
                     {
-                        now_game_mode = game_mode_info::MiniGameTutor3;
+                        RequestSceneChange(game_mode_info::MiniGameTutor3);
+
                         break;
                     }
                     case 3:
                     {
-                        now_game_mode = game_mode_info::MiniGameTutor4;
+                        RequestSceneChange(game_mode_info::MiniGameTutor4);
+
                         break;
                     }
 
@@ -117,6 +128,7 @@ void GameManager::OnMouseClick(int x, int y)
             {
                 //최종 선택으로
                 EnterFinalChoice();
+                RequestSceneChange(game_mode_info::FinalChoice);
             }
         }
 
@@ -128,7 +140,38 @@ void GameManager::OnMouseClick(int x, int y)
         minigam1_tutorial1.OnMouseClick(x, y);
         if (minigam1_tutorial1.IsFinished()) {
             minigame1.Init(); // 미니게임 초기화
-            now_game_mode = game_mode_info::MiniGame1;
+            RequestSceneChange(game_mode_info::MiniGame1);
+
+        }
+        break;
+    }
+    case game_mode_info::MiniGameTutor2:
+    {
+        minigam1_tutorial1.OnMouseClick(x, y);
+        if (minigam1_tutorial1.IsFinished()) {
+            minigame1.Init(); // 미니게임 초기화
+            RequestSceneChange(game_mode_info::MiniGame2);
+
+        }
+        break;
+    }
+    case game_mode_info::MiniGameTutor3:
+    {
+        minigam1_tutorial1.OnMouseClick(x, y);
+        if (minigam1_tutorial1.IsFinished()) {
+            minigame1.Init(); // 미니게임 초기화
+            RequestSceneChange(game_mode_info::MiniGame3);
+
+        }
+        break;
+    }
+    case game_mode_info::MiniGameTutor4:
+    {
+        minigam1_tutorial1.OnMouseClick(x, y);
+        if (minigam1_tutorial1.IsFinished()) {
+            minigame1.Init(); // 미니게임 초기화
+            RequestSceneChange(game_mode_info::MiniGame4);
+
         }
         break;
     }
@@ -190,7 +233,8 @@ void GameManager::OnMouseClick(int x, int y)
             // Choice에 들어갈 때마다 중복 반영 방지 플래그를 초기화한다.
             m_choiceApplied = false;
 
-            now_game_mode = game_mode_info::Choice;
+            RequestSceneChange(game_mode_info::Choice);
+
         }
 
         break;
@@ -241,7 +285,8 @@ void GameManager::OnMouseClick(int x, int y)
         // 엔딩 대사가 모두 끝나면 THE END 화면으로 이동한다.
         if (storyScene.IsFinished())
         {
-            now_game_mode = game_mode_info::Ending;
+            RequestSceneChange(game_mode_info::Ending);
+
         }
 
         break;
@@ -270,7 +315,8 @@ void GameManager::EnterResult(int whichGame, int score)
 
     resultScene.SetCurrentPlayerState(player);
 
-    now_game_mode = game_mode_info::Result;
+    RequestSceneChange(game_mode_info::Result);
+
 }
 
 void GameManager::ApplyStatGain(const Player_state& plusState)
@@ -366,6 +412,7 @@ void GameManager::Render(HDC hDC)
         break;
     }
     }
+    sceneTransition.Render(hDC, 1920, 1080); // 페이드 인 아웃 덮기
 }
 
 bool GameManager::EnterBranchStory(int selectedHeroineIndex)
@@ -379,7 +426,8 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
     // 4회차를 모두 끝냈다면 엔딩으로 이동한다.
     if (currentStoryRound >= STORY_ROUND_COUNT)
     {
-        now_game_mode = game_mode_info::Ending;
+        RequestSceneChange(game_mode_info::Ending);
+
         return true;
     }
 
@@ -400,7 +448,8 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
     currentStoryRound++;
 
     // 대사 모드로 전환한다.
-    now_game_mode = game_mode_info::Story;
+    RequestSceneChange(game_mode_info::Story);
+
 
     return true;
 }
@@ -436,8 +485,6 @@ void GameManager::EnterFinalChoice()
     // FinalChoiceScene을 처음 상태로 준비한다.
     finalChoiceScene.Reset();
 
-    // 최종 선택 확인 화면으로 이동한다.
-    now_game_mode = game_mode_info::FinalChoice;
 }
 
 void GameManager::EnterEndingStory()
@@ -454,7 +501,8 @@ void GameManager::EnterEndingStory()
     storyScene.SetDialogues(endingDialogues);
 
     // 이제 StoryScene으로 엔딩 대사를 출력한다.
-    now_game_mode = game_mode_info::EndingDialogue;
+    RequestSceneChange(game_mode_info::EndingDialogue);
+
 }
 
 int GameManager::CalculateEndingType(int heroineIndex) const
@@ -534,7 +582,8 @@ void GameManager::OnChar(wchar_t inputChar)
 
                 storyScene.SetDialogues(storyData.GetIntroStory());
 
-                now_game_mode = game_mode_info::Story;
+                RequestSceneChange(game_mode_info::Story);
+
             }
 
             break;
@@ -555,30 +604,81 @@ void GameManager::OnChar(wchar_t inputChar)
 
 void GameManager::OnTimer(HWND hWnd)
 {
-    switch (now_game_mode)
+    // 전역 Scene 전환 중이 아닐 때만 현재 Scene 내부 업데이트를 진행한다.
+    if (!sceneTransition.IsActive())
     {
-    case game_mode_info::Story:
-        // StoryScene 내부에서 타이핑과 페이드를 모두 처리한다.
-        storyScene.Update();
+        switch (now_game_mode)
+        {
+        case game_mode_info::Story:
+            storyScene.Update();
+            break;
 
-        // 화면을 다시 그리도록 요청한다.
-        InvalidateRect(hWnd, NULL, FALSE);
-        break;
+        case game_mode_info::EndingDialogue:
+            storyScene.Update();
+            break;
 
-    case game_mode_info::EndingDialogue:
-        // 엔딩 대사도 StoryScene을 재사용하므로 같은 Update를 호출한다.
-        storyScene.Update();
+        case game_mode_info::MiniGame1:
+            minigame1.Update();
+            break;
+        default:
+            break;
+        }
+    }
 
-        // 화면을 다시 그리도록 요청한다.
-        InvalidateRect(hWnd, NULL, FALSE);
-        break;
+    // 전역 페이드는 항상 업데이트한다.
+    sceneTransition.Update();
 
-    case game_mode_info::MiniGame1: 
+    // 완전히 검은 화면이 되었으면 이 순간 실제 Scene을 변경한다.
+    if (sceneTransition.IsBlack())
     {
-        minigame1.Update();
-        InvalidateRect(hWnd, NULL, FALSE);
+        ApplyPendingSceneChange();
     }
-    default:
-        break;
+
+    // 다시 그리기 요청
+    InvalidateRect(hWnd, NULL, FALSE);
+}
+
+void GameManager::RequestSceneChange(game_mode_info nextMode )
+{
+    // 이미 전환 중이면 중복 요청을 막는다.
+    if (sceneTransition.IsActive())
+    {
+        return;
     }
+
+    // 다음에 이동할 모드를 저장한다.
+    pendingGameMode = nextMode;
+
+
+
+    // 예약된 Scene 변경이 있다고 표시한다.
+    hasPendingSceneChange = true;
+
+    // 전역 페이드 아웃 시작
+    sceneTransition.Start();
+}
+
+void GameManager::ApplyPendingSceneChange()
+{
+    // 예약된 Scene 변경이 없으면 아무것도 하지 않는다.
+    if (!hasPendingSceneChange)
+    {
+        return;
+    }
+
+    // 검은 화면이 된 순간 다음 Scene 준비 작업을 실행한다.
+    if (pendingSceneSetup != nullptr)
+    {
+        pendingSceneSetup();
+    }
+
+    // 실제 모드를 변경한다.
+    now_game_mode = pendingGameMode;
+
+    // 예약 정보 초기화
+    hasPendingSceneChange = false;
+    pendingSceneSetup = nullptr;
+
+    // 새 화면이 밝아지도록 FadeIn 시작
+    sceneTransition.StartFadeIn();
 }

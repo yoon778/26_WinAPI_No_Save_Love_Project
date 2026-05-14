@@ -5,6 +5,8 @@
 #include <array>
 #include <vector>
 
+#include <functional> // 페이드 인 아웃 구현에 필요
+
 // 장면들
 
 #include "Scenes/TitleScene.h"
@@ -15,14 +17,17 @@
 #include "Scenes/FinalChoiceScene.h"
 #include "Scenes/EndingScene.h"
 
-#include"Scenes/MiniGame1TutorialScene.h"
 
 // 데이터
 #include "StoryData.h"
 
+// 효과
+#include "SceneTransition.h"
+
 
 // 미니 게임
-#include "PCroomgame.h" // 피시방 미니게임 헤더파일
+#include"Scenes/MiniGame1TutorialScene.h"
+#include "minigame1/PCroomgame.h" // 피시방 미니게임 헤더파일
 
 class GameManager
 {
@@ -130,6 +135,25 @@ private:
     // 최종 히로인과 스탯을 바탕으로 엔딩 대사를 StoryScene에 넣는다.
     void EnterEndingStory();
 
-    // 키보드 입력 처리
-   
+    
+ private: // 페이드 인 아웃
+
+     // 전체 Scene 전환 페이드
+    SceneTransition sceneTransition;
+
+    // 페이드가 완전히 검은 화면이 되었을 때 이동할 다음 모드
+    game_mode_info pendingGameMode;
+
+    // 예약된 Scene 변경이 있는지 확인
+    bool hasPendingSceneChange = false;
+
+    // 검은 화면이 된 순간 실행할 준비 작업
+    std::function<void()> pendingSceneSetup;
+
+    // 바로 Scene을 바꾸지 않고 페이드 전환을 요청한다.
+    void RequestSceneChange(game_mode_info nextMode);
+
+    // 화면이 완전히 검어진 순간 실제 Scene 변경을 적용한다.
+    void ApplyPendingSceneChange();
+
 };

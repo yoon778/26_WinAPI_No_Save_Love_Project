@@ -63,14 +63,17 @@
     <ClCompile Include="Scenes\NameInputScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="PCroomgame.cpp">
-      <Filter>소스 파일\minigame1</Filter>
-    </ClCompile>
-    <ClCompile Include="ramen.cpp">
-      <Filter>소스 파일\minigame1</Filter>
-    </ClCompile>
     <ClCompile Include="Scenes\MiniGame1TutorialScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneTransition.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="minigame1\PCroomgame.cpp">
+      <Filter>소스 파일\minigame1</Filter>
+    </ClCompile>
+    <ClCompile Include="minigame1\ramen.cpp">
+      <Filter>소스 파일\minigame1</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -101,14 +104,17 @@
     <ClInclude Include="Scenes\NameInputScene.h">
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="PCroomgame.h">
-      <Filter>헤더 파일\minigame1</Filter>
-    </ClInclude>
-    <ClInclude Include="ramen.h">
-      <Filter>헤더 파일\minigame1</Filter>
-    </ClInclude>
     <ClInclude Include="Scenes\MiniGame1TutorialScene.h">
       <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneTransition.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="minigame1\PCroomgame.h">
+      <Filter>헤더 파일\minigame1</Filter>
+    </ClInclude>
+    <ClInclude Include="minigame1\ramen.h">
+      <Filter>헤더 파일\minigame1</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
