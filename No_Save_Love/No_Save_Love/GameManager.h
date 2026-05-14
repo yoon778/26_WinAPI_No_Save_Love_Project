@@ -5,6 +5,8 @@
 #include <array>
 #include <vector>
 
+// 장면들
+
 #include "Scenes/TitleScene.h"
 #include "Scenes/NameInputScene.h"
 #include "Scenes/StoryScene.h"
@@ -13,8 +15,12 @@
 #include "Scenes/FinalChoiceScene.h"
 #include "Scenes/EndingScene.h"
 
-
+// 데이터
 #include "StoryData.h"
+
+
+// 미니 게임
+#include "PCroomgame.h" // 피시방 미니게임 헤더파일
 
 class GameManager
 {
@@ -34,7 +40,10 @@ private:
         Title, 
         NameInput,
         Story,
-        MiniGame,
+        MiniGame1,
+        MiniGame2,
+        MiniGame3,
+        MiniGame4,
         Result,
         Choice,
         FinalChoice,
@@ -53,6 +62,7 @@ private:
     StoryData storyData;
     FinalChoiceScene finalChoiceScene;
 
+    PCroomgame minigame1;
 private:
     static const int HEROINE_COUNT = 3;
     static const int STORY_ROUND_COUNT = 4;
@@ -77,7 +87,7 @@ private:
     int currentMiniGameIndex = 0;
 
     // 임시 미니게임 점수
-    int testMiniGameScore = 30;
+    int testMiniGameScore = 70;
 
     // Choice 선택 결과가 중복 반영되는 것을 막기 위한 플래그
     bool m_choiceApplied = false;

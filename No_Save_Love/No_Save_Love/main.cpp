@@ -48,32 +48,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdPa
     return Message.wParam;
 }
 
-//헤더 정리=========================================================
-//윤서
-#include "GameManager.h"  // 어떤 장면을 실행할지 결정함
+#include "GameManager.h"
 
-
-
-//새누
-#include "PCroomgame.h" // 피시방 미니게임 헤더파일
-
-
-
-// 선언 정리=========================================================
-//윤서
 GameManager g_gameManager;
-
-
-
-
-//새누
-PCroomgame minigame1;
-
-
-//===================================================================
-
-
-
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { 
     HDC hDC, mDC;
@@ -83,8 +60,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     case WM_CREATE: {
         g_gameManager.Initialize(hWnd);
         SetTimer(hWnd, 1, 60, nullptr);
-        
-        // minigame1.Init();
         
         return 0;
     }
@@ -103,16 +78,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         int mouseX = LOWORD(lParam);
         int mouseY = HIWORD(lParam);
         
-       
-       // minigame1.MOUSE(mouseX, mouseY);
-       
         g_gameManager.OnMouseClick(mouseX, mouseY);
         return 0;
     }
     case WM_TIMER: {
 
         g_gameManager.OnTimer(hWnd);
-        // minigame1.Update();
         return 0;
     }
 
@@ -131,11 +102,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
         // mDC로 그리기 하기!!!
         g_gameManager.Render(mDC);
-
-        // minigame1.PAINT(mDC);
-
-
-
 
 
         BitBlt(hDC, 0, 0, rt.right, rt.bottom, mDC, 0, 0, SRCCOPY);

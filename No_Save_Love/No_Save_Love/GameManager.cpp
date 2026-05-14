@@ -82,12 +82,33 @@ void GameManager::OnMouseClick(int x, int y)
 
         if (storyScene.IsFinished())
         {
-            // 현재는 미니게임이 없으므로,
-            // 대사가 끝나면 미니게임을 완료했다고 가정하고 Result로 이동한다.
             if (currentMiniGameIndex < 4)
             {
-                EnterResult(currentMiniGameIndex, testMiniGameScore);
+               
+                switch (currentMiniGameIndex) {
+                    case 0: 
+                    {
+                        minigame1.Init(); // 미니게임 초기화
+                        now_game_mode = game_mode_info::MiniGame1;
+                        break;
+                    }
+                    case 1:
+                    {
+                        now_game_mode = game_mode_info::MiniGame2;
+                        break;
+                    }
+                    case 2:
+                    {
+                        now_game_mode = game_mode_info::MiniGame3;
+                        break;
+                    }
+                    case 3:
+                    {
+                        now_game_mode = game_mode_info::MiniGame4;
+                        break;
+                    }
 
+                }
                 // 다음 미니게임 번호로 증가시킨다.
                 currentMiniGameIndex++;
             }
@@ -100,6 +121,52 @@ void GameManager::OnMouseClick(int x, int y)
 
         break;
     }
+    case game_mode_info::MiniGame1: 
+    {
+        minigame1.MOUSE(x, y);
+        if (minigame1.isfinished()) {
+            // 미니게임 1 결과
+            int rawScore = minigame1.getscore();
+            if (rawScore <= 0)
+            {
+                rawScore = 0;
+            }
+            // 1500점을 100점 만점 기준으로 환산한다.
+            int convertedScore = rawScore * 100 / 2000;
+
+            // 100점을 넘으면 100점으로 고정한다.
+            if (convertedScore > 100)
+            {
+                convertedScore = 100;
+            }
+
+            EnterResult(currentMiniGameIndex, convertedScore); // 점수 넘기고 result로 넘어가기
+
+        }
+        break;
+    }
+    case game_mode_info::MiniGame2:
+    {
+      
+            EnterResult(currentMiniGameIndex, testMiniGameScore); // 점수 넘기고 result로 넘어가기
+
+        break;
+    }
+    case game_mode_info::MiniGame3:
+    {
+
+        EnterResult(currentMiniGameIndex, testMiniGameScore); // 점수 넘기고 result로 넘어가기
+
+        break;
+    }
+    case game_mode_info::MiniGame4:
+    {
+
+        EnterResult(currentMiniGameIndex, testMiniGameScore); // 점수 넘기고 result로 넘어가기
+
+        break;
+    }
+
 
     case game_mode_info::Result:
     {
@@ -233,6 +300,11 @@ void GameManager::Render(HDC hDC)
     case game_mode_info::Story:
     {
         storyScene.Render(hDC);
+        break;
+    }
+    case game_mode_info::MiniGame1:
+    {
+        minigame1.PAINT(hDC);
         break;
     }
 
@@ -431,31 +503,34 @@ void GameManager::OnChar(wchar_t inputChar)
 {
     switch (now_game_mode)
     {
-    case game_mode_info::NameInput:
-    {
-        // 이름 입력 화면일 때만 문자 입력을 전달한다.
-        nameinputScene.OnChar(inputChar);
-
-        // 엔터로 입력이 끝났다면 다음 장면으로 이동한다.
-        if (nameinputScene.IsFinished())
+        case game_mode_info::NameInput:
         {
-            playerName = nameinputScene.GetPlayerName();
+            // 이름 입력 화면일 때만 문자 입력을 전달한다.
+            nameinputScene.OnChar(inputChar);
 
-            storyScene.SetPlayerName(playerName);
-            resultScene.SetPlayerName(playerName);
+            // 엔터로 입력이 끝났다면 다음 장면으로 이동한다.
+            if (nameinputScene.IsFinished())
+            {
+                playerName = nameinputScene.GetPlayerName();
 
-            storyScene.SetDialogues(storyData.GetIntroStory());
+                storyScene.SetPlayerName(playerName);
+                resultScene.SetPlayerName(playerName);
 
-            now_game_mode = game_mode_info::Story;
+                storyScene.SetDialogues(storyData.GetIntroStory());
+
+                now_game_mode = game_mode_info::Story;
+            }
+
+            break;
+        }
+        case game_mode_info::MiniGame1: {
+            minigame1.KEYDOWN(inputChar);
         }
 
-        break;
-    }
-
-    default:
-    {
-        break;
-    }
+        default:
+        {
+            break;
+        }
     }
 
 }
@@ -480,6 +555,11 @@ void GameManager::OnTimer(HWND hWnd)
         InvalidateRect(hWnd, NULL, FALSE);
         break;
 
+    case game_mode_info::MiniGame1: 
+    {
+        minigame1.Update();
+        InvalidateRect(hWnd, NULL, FALSE);
+    }
     default:
         break;
     }
