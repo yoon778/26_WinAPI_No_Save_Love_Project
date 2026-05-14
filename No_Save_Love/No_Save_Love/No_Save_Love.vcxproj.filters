@@ -31,6 +31,12 @@
     <Filter Include="헤더 파일\minigame1">
       <UniqueIdentifier>{d1b41c9c-1bcf-41d6-b7f4-92161c369c66}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\minigame2">
+      <UniqueIdentifier>{8679ab22-79eb-4fe2-b161-426b66d49d3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\minigame2">
+      <UniqueIdentifier>{a0952d13-0058-46d3-8337-e0a74ab76e7a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -69,6 +75,9 @@
     <ClCompile Include="ramen.cpp">
       <Filter>소스 파일\minigame1</Filter>
     </ClCompile>
+    <ClCompile Include="RhythmMiniGame.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
@@ -103,6 +112,9 @@
     </ClInclude>
     <ClInclude Include="ramen.h">
       <Filter>헤더 파일\minigame1</Filter>
+    </ClInclude>
+    <ClInclude Include="RhythmMiniGame.h">
+      <Filter>헤더 파일\minigame2</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
