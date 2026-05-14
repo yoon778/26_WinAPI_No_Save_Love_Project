@@ -128,7 +128,7 @@ void PCroomgame::Init() {
 	timer = 180.0;
 	finished = false;
 
-	hudImg.Load(L"TIMER.png");
+	hudImg.Load(L"resorce/TIMER.png");
 
 	// 상단 중앙 HUD 위치
 	hudArea = { 1080, -30, 1880, 200 };
@@ -219,31 +219,31 @@ void PCroomgame::Init() {
 		seatorder[i].makerandramen();
 	}
 
-	background.Load(L"pcroom_1920x1080.png");
-	player.Load(L"ramen_player.png");
-	playerReturn.Load(L"playerreturn.png");
+	background.Load(L"resorce/pcroom_1920x1080.png");
+	player.Load(L"resorce/ramen_player.png");
+	playerReturn.Load(L"resorce/playerreturn.png");
 
-	customerImg[0].Load(L"order1.png"); // 주문하는 모습
-	customerImg[1].Load(L"order2.png"); // 라면 먹는 모습
-	customerImg[2].Load(L"order3.png"); // 화내는 모습
+	customerImg[0].Load(L"resorce/order1.png"); // 주문하는 모습
+	customerImg[1].Load(L"resorce/order2.png"); // 라면 먹는 모습
+	customerImg[2].Load(L"resorce/order3.png"); // 화내는 모습
 
-	ingredientImg.Load(L"ingredient.png");
-	waterImg.Load(L"water.png");
-	resetBtnImg.Load(L"reset.png");
+	ingredientImg.Load(L"resorce/ingredient.png");
+	waterImg.Load(L"resorce/water.png");
+	resetBtnImg.Load(L"resorce/reset.png");
 
-	boilingWaterImg.Load(L"boiling_water.png");
+	boilingWaterImg.Load(L"resorce/boiling_water.png");
 
-	addWaterImg.Load(L"add_water.png");
-	addNoodleImg.Load(L"add_noodle.png");
-	addSoupImg.Load(L"add_soup.png");
-	addCheeseImg.Load(L"add_cheese.png");
-	addDumplingImg.Load(L"add_dumpling.png");
-	addEggImg.Load(L"add_egg.png");
+	addWaterImg.Load(L"resorce/add_water.png");
+	addNoodleImg.Load(L"resorce/add_noodle.png");
+	addSoupImg.Load(L"resorce/add_soup.png");
+	addCheeseImg.Load(L"resorce/add_cheese.png");
+	addDumplingImg.Load(L"resorce/add_dumpling.png");
+	addEggImg.Load(L"resorce/add_egg.png");
 
-	boilingNoodleImg.Load(L"boling_noodle.png");
-	boilingCheeseImg.Load(L"boling_cheese.png");
-	boilingDumplingImg.Load(L"boling_dumpling.png");
-	boilingEggImg.Load(L"boling_egg.png");
+	boilingNoodleImg.Load(L"resorce/boling_noodle.png");
+	boilingCheeseImg.Load(L"resorce/boling_cheese.png");
+	boilingDumplingImg.Load(L"resorce/boling_dumpling.png");
+	boilingEggImg.Load(L"resorce/boling_egg.png");
 
 	ResetCenterPotState();
 
