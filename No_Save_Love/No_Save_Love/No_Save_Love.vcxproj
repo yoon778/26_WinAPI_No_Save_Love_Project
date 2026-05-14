@@ -129,6 +129,8 @@
   <ItemGroup>
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PCroomgame.cpp" />
+    <ClCompile Include="ramen.cpp" />
     <ClCompile Include="Scenes\ChoiceScene.cpp" />
     <ClCompile Include="Scenes\EndingScene.cpp" />
     <ClCompile Include="Scenes\FinalChoiceScene.cpp" />
@@ -140,6 +142,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h" />
+    <ClInclude Include="PCroomgame.h" />
+    <ClInclude Include="ramen.h" />
     <ClInclude Include="Scenes\ChoiceScene.h" />
     <ClInclude Include="Scenes\EndingScene.h" />
     <ClInclude Include="Scenes\FinalChoiceScene.h" />

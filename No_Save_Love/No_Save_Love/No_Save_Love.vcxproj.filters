@@ -25,6 +25,12 @@
     <Filter Include="헤더 파일\data">
       <UniqueIdentifier>{13af5e2b-4c2f-4f8f-a20f-b85798c7b452}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\minigame1">
+      <UniqueIdentifier>{a70668f6-1f59-4e01-948c-9b5192e79173}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\minigame1">
+      <UniqueIdentifier>{d1b41c9c-1bcf-41d6-b7f4-92161c369c66}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -57,6 +63,12 @@
     <ClCompile Include="Scenes\NameInputScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="PCroomgame.cpp">
+      <Filter>소스 파일\minigame1</Filter>
+    </ClCompile>
+    <ClCompile Include="ramen.cpp">
+      <Filter>소스 파일\minigame1</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
@@ -85,6 +97,12 @@
     </ClInclude>
     <ClInclude Include="Scenes\NameInputScene.h">
       <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="PCroomgame.h">
+      <Filter>헤더 파일\minigame1</Filter>
+    </ClInclude>
+    <ClInclude Include="ramen.h">
+      <Filter>헤더 파일\minigame1</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
