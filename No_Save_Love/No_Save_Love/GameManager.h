@@ -15,6 +15,8 @@
 #include "Scenes/FinalChoiceScene.h"
 #include "Scenes/EndingScene.h"
 
+#include"Scenes/MiniGame1TutorialScene.h"
+
 // 데이터
 #include "StoryData.h"
 
@@ -40,6 +42,10 @@ private:
         Title, 
         NameInput,
         Story,
+        MiniGameTutor1,
+        MiniGameTutor2,
+        MiniGameTutor3,
+        MiniGameTutor4,
         MiniGame1,
         MiniGame2,
         MiniGame3,
@@ -61,6 +67,8 @@ private:
     ChoiceScene choiceScene;
     StoryData storyData;
     FinalChoiceScene finalChoiceScene;
+
+    MiniGame1TutorialScene minigam1_tutorial1;
 
     PCroomgame minigame1;
 private:

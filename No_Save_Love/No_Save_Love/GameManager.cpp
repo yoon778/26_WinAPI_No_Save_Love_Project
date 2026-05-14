@@ -88,23 +88,24 @@ void GameManager::OnMouseClick(int x, int y)
                 switch (currentMiniGameIndex) {
                     case 0: 
                     {
-                        minigame1.Init(); // 미니게임 초기화
-                        now_game_mode = game_mode_info::MiniGame1;
+                        minigam1_tutorial1.Initialize();
+                        
+                        now_game_mode = game_mode_info::MiniGameTutor1;
                         break;
                     }
                     case 1:
                     {
-                        now_game_mode = game_mode_info::MiniGame2;
+                        now_game_mode = game_mode_info::MiniGameTutor2;
                         break;
                     }
                     case 2:
                     {
-                        now_game_mode = game_mode_info::MiniGame3;
+                        now_game_mode = game_mode_info::MiniGameTutor3;
                         break;
                     }
                     case 3:
                     {
-                        now_game_mode = game_mode_info::MiniGame4;
+                        now_game_mode = game_mode_info::MiniGameTutor4;
                         break;
                     }
 
@@ -119,6 +120,16 @@ void GameManager::OnMouseClick(int x, int y)
             }
         }
 
+        break;
+    }
+
+    case game_mode_info::MiniGameTutor1: 
+    {
+        minigam1_tutorial1.OnMouseClick(x, y);
+        if (minigam1_tutorial1.IsFinished()) {
+            minigame1.Init(); // 미니게임 초기화
+            now_game_mode = game_mode_info::MiniGame1;
+        }
         break;
     }
     case game_mode_info::MiniGame1: 
@@ -300,6 +311,11 @@ void GameManager::Render(HDC hDC)
     case game_mode_info::Story:
     {
         storyScene.Render(hDC);
+        break;
+    }
+    case game_mode_info::MiniGameTutor1:
+    {
+        minigam1_tutorial1.Render(hDC);
         break;
     }
     case game_mode_info::MiniGame1:
@@ -523,8 +539,10 @@ void GameManager::OnChar(wchar_t inputChar)
 
             break;
         }
+        
         case game_mode_info::MiniGame1: {
             minigame1.KEYDOWN(inputChar);
+            break;
         }
 
         default:
