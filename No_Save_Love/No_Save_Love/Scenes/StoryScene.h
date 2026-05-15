@@ -62,6 +62,9 @@ public:
     // immediateApply가 true면 페이드 없이 바로 적용한다.
     void ApplyCurrentLineVisualInfo(bool immediateApply);
 
+    // SKIP 버튼을 그린다.
+    void DrawSkipButton(HDC hDC);
+
 
 
     CImage normal_back_ground;
@@ -202,5 +205,10 @@ private:
 
     // 플레이어가 입력한 이름
     std::wstring m_playerName = L"윤서"; // 기본은 윤서
+
+
+    // 오른쪽 위 SKIP 버튼 영역
+    RECT skipButtonRect = { 1700, 40, 1860, 100 };
+
 
 };

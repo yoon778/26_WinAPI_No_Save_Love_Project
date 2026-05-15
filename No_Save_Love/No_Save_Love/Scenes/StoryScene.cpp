@@ -125,18 +125,36 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 
 void StoryScene::OnMouseClick(int x, int y)
 {
-    // 페이드 중에는 클릭 입력을 무시한다.
+    POINT mousePoint = { x, y };
+
+      //스킵 버튼
+    if (PtInRect(&skipButtonRect, mousePoint))
+    {
+        finished = true;
+        fadeState = FadeState::None;
+        fadeAlpha = 0;
+
+        if (!dialogues.empty())
+        {
+            std::wstring displayText = GetCurrentDisplayText();
+            visibleTextCount = static_cast<int>(displayText.length());
+        }
+
+        isTypingFinished = true;
+        return;
+    }
+
     if (fadeState != FadeState::None)
     {
         return;
     }
 
-    // 대사가 없으면 바로 끝난 것으로 처리
     if (dialogues.empty())
     {
         finished = true;
         return;
     }
+
     if (finished)
     {
         return;
@@ -203,6 +221,69 @@ StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker
     return style;
 }
 
+void StoryScene::DrawSkipButton(HDC hDC)
+{
+    HBRUSH buttonBrush = CreateSolidBrush(RGB(35, 35, 45));
+
+    HPEN buttonPen = CreatePen(PS_SOLID, 2, RGB(230, 210, 255));
+
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, buttonBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, buttonPen));
+
+    RoundRect(
+        hDC,
+        skipButtonRect.left,
+        skipButtonRect.top,
+        skipButtonRect.right,
+        skipButtonRect.bottom,
+        18,
+        18
+    );
+
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+
+    DeleteObject(buttonBrush);
+    DeleteObject(buttonPen);
+
+    HFONT skipFont = CreateFontW(
+        28,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, skipFont));
+
+    // 배경 투명
+    SetBkMode(hDC, TRANSPARENT);
+
+    // 글자 색상을 지정한다.
+    SetTextColor(hDC, RGB(245, 245, 250));
+
+    // SKIP 글자를 출력한다.
+    DrawTextW(
+        hDC,
+        L"SKIP",
+        -1,
+        &skipButtonRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+    SelectObject(hDC, oldFont);
+    DeleteObject(skipFont);
+}
+
 
 
 void StoryScene::Render(HDC hDC)
@@ -237,8 +318,7 @@ void StoryScene::Render(HDC hDC)
         DrawCharacterImage(hDC, characterImage, characterX, characterY);
     }
 
-    // 배경과 캐릭터 위에 검은 반투명 레이어를 덮는다.
-    // 대화창은 이 아래에서 따로 그리기 때문에 어두워지지 않는다.
+
     DrawFadeOverlay(hDC);
 
     // 출력할 대사가 없으면 그리지 않는다.
@@ -332,16 +412,18 @@ void StoryScene::Render(HDC hDC)
         DT_LEFT | DT_TOP | DT_WORDBREAK
     );
 
-    // GDI 객체 복구
     SelectObject(hDC, oldPen);
     SelectObject(hDC, oldBrush);
     SelectObject(hDC, oldFont);
 
-    // 직접 만든 GDI 객체 삭제
     DeleteObject(linePen);
     DeleteObject(boxPen);
     DeleteObject(boxBrush);
     DeleteObject(dialogueFont);
+
+    //스킵 생성
+    DrawSkipButton(hDC);
+
 }
 
 void StoryScene::SetPlayerName(const std::wstring& playerName)
