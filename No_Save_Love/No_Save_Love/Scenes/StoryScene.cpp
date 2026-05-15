@@ -21,6 +21,8 @@ void StoryScene::Initialize()
     story_background_image[1].Load(L"resource\\background\\yuharin_class_room.png");
     story_background_image[2].Load(L"resource\\background\\seoirin_library.png");
 
+    normal_back_ground.Load(L"resource\\background\\choicescene_background.png");
+
     // =========================
     // 캐릭터 이미지는 GDI+ Image로 로드한다.
     // PNG 투명 알파 처리를 더 안정적으로 하기 위해 CImage 대신 사용한다.
@@ -28,6 +30,8 @@ void StoryScene::Initialize()
     hansea.normal = new Gdiplus::Image(L"resource\\heroine\\hansea\\normal.png");
     seoirin.normal = new Gdiplus::Image(L"resource\\heroine\\seoirin\\normal.png");
     yuharin.normal = new Gdiplus::Image(L"resource\\heroine\\yuharin\\normal.png");
+
+
 
     // 처음에는 비워둔다.
     dialogues.clear();
@@ -216,11 +220,7 @@ void StoryScene::Render(HDC hDC)
     }
     else
     {
-        // 배경 key가 없거나 이미지가 없을 때 임시 배경색
-        HBRUSH bgBrush = CreateSolidBrush(RGB(230, 230, 240));
-        RECT bgRect = { 0, 0, 1920, 1080 };
-        FillRect(hDC, &bgRect, bgBrush);
-        DeleteObject(bgBrush);
+        normal_back_ground.Draw(hDC, 0, 0, 1920, 1080);
     }
 
     // =========================

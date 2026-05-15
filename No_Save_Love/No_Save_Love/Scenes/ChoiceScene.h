@@ -2,10 +2,13 @@
 
 #include <windows.h>
 #include <string>
-
+#include <atlimage.h>
+#include <vector>
 class ChoiceScene
 {
 public:
+
+
     // 선택지 화면을 처음 준비할 때 호출한다.
     void Initialize();
 
@@ -25,6 +28,8 @@ public:
     int GetSelectedIndex() const;
 
 private:
+    ATL::CImage choice_back_ground;
+
     // 선택지는 현재 3개로 고정한다.
     static const int HEROINE_COUNT = 3;
 
@@ -74,4 +79,5 @@ private:
             { 610, 745 }
         }
     };
+
 };

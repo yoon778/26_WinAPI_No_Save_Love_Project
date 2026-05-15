@@ -64,6 +64,8 @@ public:
 
 
 
+    CImage normal_back_ground;
+
     // 현재 배경 key에 맞는 배경 이미지를 반환한다. (복사 하지 않기 위해 포인터 사용)
     CImage* GetBackgroundImage(const std::wstring& backgroundKey);
 
@@ -103,6 +105,8 @@ private:
         // PNG 알파 채널을 더 안정적으로 출력하기 위해 CImage 대신 GDI+ Image를 사용한다.
         Gdiplus::Image* normal = nullptr;
     };
+
+
 
 private:
     // 화자 이름에 맞는 색상 스타일을 가져온다.

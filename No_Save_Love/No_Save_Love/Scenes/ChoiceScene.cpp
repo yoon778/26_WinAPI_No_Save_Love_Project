@@ -2,13 +2,13 @@
 
 void ChoiceScene::Initialize()
 {
-    // 처음 시작할 때 선택 상태를 초기화한다.
+    choice_back_ground.Load(L"resource\\background\\choicescene_background.png");
     Reset();
 }
 
 void ChoiceScene::Reset()
 {
-    // 선택지 화면에 다시 들어올 때 이전 선택 기록을 지운다.
+    // 선택지 화면에 다시 들어올 때 이전 선택 기록을 지운다. 
     m_hasSelected = false;
     selectedCharacter = -1;
 }
@@ -33,6 +33,9 @@ void ChoiceScene::HandleChoiceClick(int x, int y)
 
 void ChoiceScene::RenderChoice(HDC hDC)
 {
+    //배경 그리기
+    choice_back_ground.Draw(hDC, 0, 0, 1920, 1080);
+
     // 선택지 박스 내부 색상 브러시를 만든다.
     HBRUSH whiteBrush = CreateSolidBrush(RGB(245, 245, 245));
 
