@@ -36,7 +36,7 @@ PCroomgame::PCroomgame() {
 	animDelay = 3;
 
 	score = 0;
-	timer = 60.0;
+	timer = 30.0;
 	finished = false;
 
 	playerPos = { 1495, 1000 };
@@ -125,7 +125,7 @@ void PCroomgame::DrawTextW(HDC hDC, int x, int y, std::wstring text)
 
 void PCroomgame::Init() {
 	score = 0;
-	timer = 60.0;
+	timer = 30.0;
 	finished = false;
 
 	hudImg.Load(L"resource/minigame1/TIMER.png");

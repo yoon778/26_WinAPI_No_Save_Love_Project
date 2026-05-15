@@ -129,7 +129,7 @@ void GameManager::OnMouseClick(int x, int y)
                 rawScore = 0;
             }
             // 1500점을 100점 만점 기준으로 환산한다.
-            int convertedScore = rawScore * 100 / 2000;
+            int convertedScore = rawScore * 100 / 1000;
 
             // 100점을 넘으면 100점으로 고정한다.
             if (convertedScore > 100)
