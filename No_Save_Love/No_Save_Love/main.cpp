@@ -1,122 +1,107 @@
-﻿#include <windows.h>
+﻿#include <windows.h> //--- 윈도우 헤더 파일
 #include <tchar.h>
-#include <random>
+#include "RhythmMiniGame.h"
 
-// 기본 창 설정
-int location_x = 0; // 창 위치
-int location_y = 0;
-int size_w = 1920; //창 크기
-int size_h = 1080;
+RhythmMiniGame minigame2;
 
-HINSTANCE g_hinst;
+HINSTANCE g_hInst;
 LPCTSTR lpszClass = L"My Window Class";
-LPCTSTR lpszWindowName = L"NO_SAVE_LOVE";
-
-LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM Wparam, LPARAM IPARAM);
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdParam, int nCmdShow) {
-    HWND hWnd;
-    MSG Message;
-    WNDCLASSEX WndClass;
-    g_hinst = hInstance;
-    WndClass.cbSize = sizeof(WndClass);
-    WndClass.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
-    WndClass.lpfnWndProc = (WNDPROC)WndProc;
-    WndClass.cbClsExtra = 0;
-    WndClass.cbWndExtra = 0;
-    WndClass.hInstance = hInstance;
-    WndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    WndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    WndClass.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
-    WndClass.lpszMenuName = NULL;
-    WndClass.lpszClassName = lpszClass;
-    WndClass.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
-    RegisterClassExW(&WndClass);
-
-    hWnd = CreateWindow(
-        lpszClass, lpszWindowName, WS_OVERLAPPEDWINDOW,
-        location_x, location_y, size_w, size_h,
-        NULL, (HMENU)NULL, hInstance, NULL);
-
-    ShowWindow(hWnd, nCmdShow);
-    UpdateWindow(hWnd);
-
-    while (GetMessage(&Message, 0, 0, 0)) {
-        TranslateMessage(&Message);
-        DispatchMessage(&Message);
-    }
-    return Message.wParam;
+LPCTSTR lpszWindowName = L"Window Programming Lab";
+LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam);
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdParam, int nCmdShow)
+{
+	HWND hWnd;
+	MSG Message;
+	WNDCLASSEX WndClass;
+	g_hInst = hInstance;
+	WndClass.cbSize = sizeof(WndClass);
+	WndClass.style = CS_HREDRAW | CS_VREDRAW;
+	WndClass.lpfnWndProc = (WNDPROC)WndProc;
+	WndClass.cbClsExtra = 0;
+	WndClass.cbWndExtra = 0;
+	WndClass.hInstance = hInstance;
+	WndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	WndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+	WndClass.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+	WndClass.lpszMenuName = NULL;
+	WndClass.lpszClassName = lpszClass;
+	WndClass.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+	RegisterClassEx(&WndClass);
+	hWnd = CreateWindow(lpszClass, lpszWindowName, WS_OVERLAPPEDWINDOW, 0, 0, 1920, 1080, NULL, (HMENU)NULL, hInstance, NULL);
+	ShowWindow(hWnd, nCmdShow);
+	UpdateWindow(hWnd);
+	while (GetMessage(&Message, 0, 0, 0)) {
+		TranslateMessage(&Message);
+		DispatchMessage(&Message);
+	}
+	return Message.wParam;
 }
 
-#include "GameManager.h"
-
-GameManager g_gameManager;
-
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { 
-    HDC hDC, mDC;
-    HBITMAP hBitmap;
-    RECT rt;
-    switch (uMsg) {
-    case WM_CREATE: {
-        g_gameManager.Initialize(hWnd);
-        SetTimer(hWnd, 1, 60, nullptr);
-        
-        return 0;
-    }
-    case WM_CHAR:
-    {
-        // 현재 입력된 문자를 GameManager로 넘긴다.
-        g_gameManager.OnChar(static_cast<wchar_t>(wParam));
-
-        // 화면을 다시 그리게 한다.
-        InvalidateRect(hWnd, NULL, FALSE);
-
-        return 0;
-    }
-    case WM_LBUTTONDOWN:
-    {
-        int mouseX = LOWORD(lParam);
-        int mouseY = HIWORD(lParam);
-        
-        g_gameManager.OnMouseClick(mouseX, mouseY);
-        return 0;
-    }
-    case WM_TIMER: {
-
-        g_gameManager.OnTimer(hWnd);
-        return 0;
-    }
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	PAINTSTRUCT ps;
+	HDC hDC, mDC;
+	RECT rt;
+	HBITMAP hBitmap;
 
 
-    case WM_PAINT:
-    {
-        PAINTSTRUCT ps;
-        GetClientRect(hWnd, &rt);
-        hDC = BeginPaint(hWnd, &ps);
-        mDC = CreateCompatibleDC(hDC);
-        hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom);
-        SelectObject(mDC, (HBITMAP)hBitmap);
+	//--- 메시지 처리하기
+	switch (uMsg) {
+	case WM_CREATE:
+	{
+		minigame2.Init();
+		SetTimer(hWnd, 1, 16, NULL);
+		break;
+	}
+	case WM_PAINT:
+		GetClientRect(hWnd, &rt);
+		hDC = BeginPaint(hWnd, &ps);
+		mDC = CreateCompatibleDC(hDC); //--- 메모리 DC 만들기
+		hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom); //--- 메모리 DC와 연결할 비트맵 만들기
+		SelectObject(mDC, (HBITMAP)hBitmap);
+		FillRect(mDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
 
-        // 배경 흰색으로 지우기
-        FillRect(mDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
+		minigame2.Render(mDC);
+		BitBlt(hDC, 0, 0, rt.right, rt.bottom, mDC, 0, 0, SRCCOPY);
 
-        // mDC로 그리기 하기!!!
-        g_gameManager.Render(mDC);
+		DeleteDC(mDC); //--- 생성한 메모리 DC 삭제
+		DeleteObject(hBitmap);
+		EndPaint(hWnd, &ps);
+		break;
+	case WM_TIMER:
+		minigame2.Update();
+		InvalidateRect(hWnd, NULL, false);
+		break;
+	case WM_LBUTTONDOWN:
+	{
+		int mouseX = LOWORD(lParam);
+		int mouseY = HIWORD(lParam);
+		minigame2.OnMouseDown(mouseX, mouseY);
+		break;
+	}
 
+	case WM_LBUTTONUP:
+	{
+		int mouseX = LOWORD(lParam);
+		int mouseY = HIWORD(lParam);
+		minigame2.OnMouseUp(mouseX, mouseY);
+		break;
+	}
 
-        BitBlt(hDC, 0, 0, rt.right, rt.bottom, mDC, 0, 0, SRCCOPY);
-        DeleteDC(mDC);
-        DeleteObject(hBitmap);
-        EndPaint(hWnd, &ps);
-        return 0;
-    }
-
-    case WM_DESTROY:
-    {
-        KillTimer(hWnd, 1);
-        PostQuitMessage(0);
-        return 0;
-    }
-    }
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+	case WM_MOUSEMOVE:
+	{
+		int mouseX = LOWORD(lParam);
+		int mouseY = HIWORD(lParam);
+		minigame2.OnMouseMove(mouseX, mouseY);
+		break;
+	}
+	case WM_DESTROY:
+	{
+		KillTimer(hWnd, 1);
+		minigame2.Release();
+		PostQuitMessage(0);
+		break;
+	}
+	}
+	return DefWindowProc(hWnd, uMsg, wParam, lParam); //--- 위의 세 메시지 외의 나머지 메시지는 OS로
 }
