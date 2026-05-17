@@ -1,4 +1,5 @@
 ﻿#include "RhythmMiniGame.h"
+#include <cstdlib>
 
 RhythmMiniGame::RhythmMiniGame()
 {
@@ -81,12 +82,34 @@ void RhythmMiniGame::Init()
         sliders[i].duration = 0;
     }
 
-    CreateHitCircle(960, 540);
+    lastHitCircleSpawnTime = GetTickCount();
+    hitCircleSpawnInterval = 1200;
 }
 
 void RhythmMiniGame::Update()
 {
     DWORD currentTime = GetTickCount();
+
+    // =========================
+    // 일정 시간마다 히트서클 생성
+    // =========================
+    if (currentTime - lastHitCircleSpawnTime >= hitCircleSpawnInterval)
+    {
+        int marginX = 250;
+        int marginY = 200;
+
+        int randomX =
+            marginX + rand() % (screenWidth - marginX * 2);
+
+        int randomY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        CreateHitCircle(randomX, randomY);
+
+        lastHitCircleSpawnTime = currentTime;
+    }
+
+
 
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {

@@ -100,6 +100,12 @@ private:
     
     int judgeX;
     int judgeY;
+    
+    // =========================
+    // 히트서클 자동 생성
+    // =========================
+    DWORD lastHitCircleSpawnTime;
+    DWORD hitCircleSpawnInterval;
 
     // =========================
     // 히트서클 / 슬라이더 저장 배열
