@@ -22,6 +22,42 @@ void RhythmMiniGame::Init()
     mouseX = 0;
     mouseY = 0;
     isMouseDown = false;
+
+    hitCircleCount = 0;
+    sliderCount = 0;
+
+    // 히트서클 초기화
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        hitCircles[i].isActive = false;
+        hitCircles[i].isJudged = false;
+
+        hitCircles[i].x = 0;
+        hitCircles[i].y = 0;
+
+        hitCircles[i].spawnTime = 0;
+        hitCircles[i].hitTime = 0;
+    }
+
+    // 슬라이더 초기화
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        sliders[i].isActive = false;
+        sliders[i].isStarted = false;
+        sliders[i].isFinished = false;
+        sliders[i].isFailed = false;
+
+        sliders[i].startX = 0;
+        sliders[i].startY = 0;
+        sliders[i].endX = 0;
+        sliders[i].endY = 0;
+
+        sliders[i].spawnTime = 0;
+        sliders[i].hitTime = 0;
+        sliders[i].duration = 0;
+    }
+
+    CreateHitCircle(960, 540);
 }
 
 void RhythmMiniGame::Update()
@@ -90,4 +126,28 @@ bool RhythmMiniGame::IsGameOver() const
 int RhythmMiniGame::GetScore() const
 {
     return score;
+}
+
+void RhythmMiniGame::CreateHitCircle(int x, int y)
+{
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == false)
+        {
+            DWORD currentTime = GetTickCount();
+
+            hitCircles[i].isActive = true;
+            hitCircles[i].isJudged = false;
+
+            hitCircles[i].x = x;
+            hitCircles[i].y = y;
+
+            hitCircles[i].spawnTime = currentTime;
+            hitCircles[i].hitTime = currentTime + 1000;
+
+            hitCircleCount++;
+
+            break;
+        }
+    }
 }

@@ -77,6 +77,8 @@ private:
     int hitCircleCount;     // 현재까지 사용 중인 히트서클 개수
     int sliderCount;        // 현재까지 사용 중인 슬라이더 개수
 
+    void CreateHitCircle(int x, int y);     // 히트서클 1개 생성하는 함수
+
 public:
     RhythmMiniGame();
 
