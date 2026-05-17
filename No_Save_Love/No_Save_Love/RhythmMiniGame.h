@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include <windows.h>
+#include <atlimage.h>
 
 // 화면에 동시에 존재할 수 있는 최대 개수
 #define MAX_HIT_CIRCLES 30
@@ -69,6 +70,13 @@ private:
     int screenHeight;
 
     // =========================
+    // 히트서클 이미지
+    // =========================
+    CImage hitCircleImg;
+    CImage hitCircleOverlayImg;
+    CImage approachCircleImg;
+    
+    // =========================
     // 히트서클 / 슬라이더 저장 배열
     // =========================
     HitCircle hitCircles[MAX_HIT_CIRCLES];
@@ -78,6 +86,7 @@ private:
     int sliderCount;        // 현재까지 사용 중인 슬라이더 개수
 
     void CreateHitCircle(int x, int y);     // 히트서클 1개 생성하는 함수
+    void PremultiplyAlpha(CImage& image);
 
 public:
     RhythmMiniGame();
