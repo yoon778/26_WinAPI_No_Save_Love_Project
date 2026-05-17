@@ -76,7 +76,7 @@
       <Filter>소스 파일\minigame1</Filter>
     </ClCompile>
     <ClCompile Include="RhythmMiniGame.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>소스 파일\minigame2</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
