@@ -125,6 +125,8 @@ private:
 
     int hitCircleCount;     // 현재까지 사용 중인 히트서클 개수
     int sliderCount;        // 현재까지 사용 중인 슬라이더 개수
+    int spawnedObjectCount;
+  
 
     void CreateHitCircle(int x, int y);     // 히트서클 1개 생성하는 함수
     void PremultiplyAlpha(CImage& image);   // 이미지 알파 처리 함수(이미지에 있는 빛번짐 같은거 제거)

@@ -64,6 +64,7 @@ void RhythmMiniGame::Init()
     hitCircleCount = 0;
     sliderCount = 0;
    
+    spawnedObjectCount = 0;
 
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
@@ -100,32 +101,88 @@ void RhythmMiniGame::Init()
 
     lastHitCircleSpawnTime = GetTickCount();
     hitCircleSpawnInterval = 1200;
-    CreateSlider(600, 700, 1250, 700);
+
 }
 
 void RhythmMiniGame::Update()
 {
     DWORD currentTime = GetTickCount();
+    bool hasActiveSlider = false;
+
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            hasActiveSlider = true;
+            break;
+        }
+    }
 
     // =========================
     // 일정 시간마다 히트서클 생성
     // =========================
-    if (currentTime - lastHitCircleSpawnTime >= hitCircleSpawnInterval)
+    if (hasActiveSlider == false &&
+        currentTime - lastHitCircleSpawnTime >= hitCircleSpawnInterval)
     {
-        int marginX = 250;
-        int marginY = 200;
+        spawnedObjectCount++;
 
-        int randomX =
-            marginX + rand() % (screenWidth - marginX * 2);
+        int marginX = 300;
+        int marginY = 220;
 
-        int randomY =
-            marginY + rand() % (screenHeight - marginY * 2);
+        // =========================
+        // 4번째마다 슬라이더 생성
+        // =========================
+        if (spawnedObjectCount % 4 == 0)
+        {
+            int startX =
+                marginX + rand() % (screenWidth - marginX * 2);
 
-        CreateHitCircle(randomX, randomY);
+            int startY =
+                marginY + rand() % (screenHeight - marginY * 2);
+
+            int endX = startX;
+            int endY = startY;
+
+            // 너무 짧은 슬라이더가 나오지 않도록 반복
+            while (true)
+            {
+                endX =
+                    marginX + rand() % (screenWidth - marginX * 2);
+
+                endY =
+                    marginY + rand() % (screenHeight - marginY * 2);
+
+                int dx = endX - startX;
+                int dy = endY - startY;
+
+                int distanceSquared = dx * dx + dy * dy;
+
+                // 길이가 약 350px 이상인 슬라이더만 허용
+                if (distanceSquared >= 350 * 350)
+                {
+                    break;
+                }
+            }
+
+            CreateSlider(startX, startY, endX, endY);
+        }
+
+        // =========================
+        // 그 외에는 히트서클 생성
+        // =========================
+        else
+        {
+            int randomX =
+                marginX + rand() % (screenWidth - marginX * 2);
+
+            int randomY =
+                marginY + rand() % (screenHeight - marginY * 2);
+
+            CreateHitCircle(randomX, randomY);
+        }
 
         lastHitCircleSpawnTime = currentTime;
     }
-
 
 
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
@@ -166,6 +223,7 @@ void RhythmMiniGame::Update()
                 judgeX = sliders[i].startX;
                 judgeY = sliders[i].startY;
                 judgeDisplayStartTime = currentTime;
+                lastHitCircleSpawnTime = currentTime;
             }
         }
     }
@@ -212,7 +270,10 @@ void RhythmMiniGame::Update()
             int dx = mouseX - ballX;
             int dy = mouseY - ballY;
 
-            int followRadius = sliderFollowCircleImg.GetWidth() / 2;
+            double followScale = 0.75;
+
+            int followRadius =
+                (int)(sliderFollowCircleImg.GetWidth() * followScale / 2);
 
             if (dx * dx + dy * dy > followRadius * followRadius)
             {
@@ -254,6 +315,8 @@ void RhythmMiniGame::Update()
                 {
                     lastJudge = JUDGE_MISS;
                 }
+
+                lastHitCircleSpawnTime = currentTime;
             }
         }
     }
@@ -424,8 +487,13 @@ void RhythmMiniGame::Render(HDC hDC)
             // -------------------------
             // 슬라이더 팔로우 원
             // -------------------------
-            int followWidth = sliderFollowCircleImg.GetWidth();
-            int followHeight = sliderFollowCircleImg.GetHeight();
+            double followScale = 0.75;
+
+            int followWidth =
+                (int)(sliderFollowCircleImg.GetWidth() * followScale);
+
+            int followHeight =
+                (int)(sliderFollowCircleImg.GetHeight() * followScale);
 
             sliderFollowCircleImg.Draw(
                 hDC,
@@ -665,21 +733,21 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
             int dx = x - hitCircles[i].x;
             int dy = y - hitCircles[i].y;
 
-            int hitRadius = hitCircleImg.GetWidth() / 2;
+            int hitRadius = hitCircleImg.GetWidth() / 2 + 15;
 
             if (dx * dx + dy * dy <= hitRadius * hitRadius)
             {
                 // -------------------------
                 // 2. 클릭 타이밍 차이 계산
                 // -------------------------
-                int timeDiff = (int)currentTime - (int)hitCircles[i].hitTime;
+                int signedTimeDiff =
+                    (int)currentTime - (int)hitCircles[i].hitTime;
+
+                int timeDiff = signedTimeDiff;
 
                 if (timeDiff < 0)
                     timeDiff = -timeDiff;
 
-                // -------------------------
-                // 3. 판정
-                // -------------------------
                 if (timeDiff <= 80)
                 {
                     lastJudge = JUDGE_PERFECT;
@@ -690,14 +758,19 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
                     lastJudge = JUDGE_GOOD;
                     score += 100;
                 }
-                else if (timeDiff <= 250)
+                else if (
+                    // 정확한 타이밍보다 빠른 클릭은 350ms까지 허용
+                    (signedTimeDiff < 0 && timeDiff <= 450) ||
+
+                    // 늦은 클릭은 기존처럼 250ms까지 허용
+                    (signedTimeDiff > 0 && timeDiff <= 250)
+                    )
                 {
                     lastJudge = JUDGE_BAD;
                     score += 50;
                 }
                 else
                 {
-                    // 너무 이르거나 너무 늦은 클릭은 무시
                     break;
                 }
 
@@ -728,12 +801,14 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
             int dx = x - sliders[i].startX;
             int dy = y - sliders[i].startY;
 
-            int hitRadius = sliderStartCircleImg.GetWidth() / 2;
+            int hitRadius = sliderStartCircleImg.GetWidth() / 2 + 15;
 
             if (dx * dx + dy * dy <= hitRadius * hitRadius)
             {
-                int timeDiff =
+                int signedTimeDiff =
                     (int)currentTime - (int)sliders[i].hitTime;
+
+                int timeDiff = signedTimeDiff;
 
                 if (timeDiff < 0)
                     timeDiff = -timeDiff;
@@ -748,7 +823,13 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
                     lastJudge = JUDGE_GOOD;
                     score += 100;
                 }
-                else if (timeDiff <= 250)
+                else if (
+                    // 조금 빠른 클릭은 350ms까지 허용
+                    (signedTimeDiff < 0 && timeDiff <= 350) ||
+
+                    // 늦은 클릭은 250ms까지 허용
+                    (signedTimeDiff > 0 && timeDiff <= 250)
+                    )
                 {
                     lastJudge = JUDGE_BAD;
                     score += 50;
