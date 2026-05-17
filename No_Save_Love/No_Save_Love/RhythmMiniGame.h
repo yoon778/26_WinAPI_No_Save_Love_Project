@@ -40,6 +40,7 @@ struct Slider
     bool isStarted;     // 시작 원을 클릭해서 슬라이더가 시작되었는가?
     bool isFinished;    // 슬라이더 진행이 끝났는가?
     bool isFailed;      // 도중에 실패했는가?
+    bool isTrackingSuccess;   // 끝까지 제대로 따라가고 있는가?
 
     int startX;         // 슬라이더 시작점 x좌표
     int startY;         // 슬라이더 시작점 y좌표
@@ -49,6 +50,7 @@ struct Slider
     DWORD spawnTime;    // 슬라이더가 화면에 생성된 시간
     DWORD hitTime;      // 시작 원을 눌러야 하는 정확한 시간
     DWORD duration;     // 슬라이더 볼이 시작점에서 끝점까지 이동하는 시간
+    DWORD slideStartTime;   // 슬라이더 공이 실제로 움직이기 시작한 시간
 };
 
 
@@ -91,7 +93,15 @@ private:
     CImage hit100Img;
     CImage hit50Img;
     CImage hit0Img;
-    
+
+    // =========================
+    // 슬라이더 이미지
+    // =========================
+    CImage sliderStartCircleImg;
+    CImage sliderStartCircleOverlayImg;
+    CImage sliderBallImg;
+    CImage sliderFollowCircleImg;
+
     // =========================
     // 최근 판정 표시용
     // =========================
@@ -118,6 +128,7 @@ private:
 
     void CreateHitCircle(int x, int y);     // 히트서클 1개 생성하는 함수
     void PremultiplyAlpha(CImage& image);   // 이미지 알파 처리 함수(이미지에 있는 빛번짐 같은거 제거)
+    void CreateSlider(int startX, int startY, int endX, int endY);  // 슬라이더 생성 함수
 
 public:
     RhythmMiniGame();

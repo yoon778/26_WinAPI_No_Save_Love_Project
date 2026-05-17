@@ -1,5 +1,6 @@
 ﻿#include "RhythmMiniGame.h"
 #include <cstdlib>
+#include <cmath>
 
 RhythmMiniGame::RhythmMiniGame()
 {
@@ -26,6 +27,18 @@ void RhythmMiniGame::Init()
     hit50Img.Load(L"resource\\minigame2\\judge\\hit50.png");
     hit0Img.Load(L"resource\\minigame2\\judge\\hit0.png");
 
+    sliderStartCircleImg.Load(L"resource\\minigame2\\slider\\sliderstartcircle.png");
+    sliderStartCircleOverlayImg.Load(L"resource\\minigame2\\slider\\sliderstartcircleoverlay.png");
+    sliderBallImg.Load(L"resource\\minigame2\\slider\\sliderb.png");
+    sliderFollowCircleImg.Load(
+        L"resource\\minigame2\\slider\\sliderfollowcircle.png"
+    );
+
+    PremultiplyAlpha(sliderFollowCircleImg);
+    PremultiplyAlpha(sliderStartCircleImg);
+    PremultiplyAlpha(sliderStartCircleOverlayImg);
+    PremultiplyAlpha(sliderBallImg);
+
     PremultiplyAlpha(approachCircleImg);
     PremultiplyAlpha(hitCircleImg);
     PremultiplyAlpha(hitCircleOverlayImg);
@@ -50,6 +63,7 @@ void RhythmMiniGame::Init()
 
     hitCircleCount = 0;
     sliderCount = 0;
+   
 
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
@@ -80,10 +94,13 @@ void RhythmMiniGame::Init()
         sliders[i].spawnTime = 0;
         sliders[i].hitTime = 0;
         sliders[i].duration = 0;
+        sliders[i].slideStartTime = 0;
+        sliders[i].isTrackingSuccess = false;
     }
 
     lastHitCircleSpawnTime = GetTickCount();
     hitCircleSpawnInterval = 1200;
+    CreateSlider(600, 700, 1250, 700);
 }
 
 void RhythmMiniGame::Update()
@@ -129,6 +146,117 @@ void RhythmMiniGame::Update()
             }
         }
     }
+    // =========================
+    // 슬라이더 시작 타이밍 Miss 처리
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == false &&
+            sliders[i].isFinished == false)
+        {
+            if (currentTime > sliders[i].hitTime + 250)
+            {
+                sliders[i].isActive = false;
+                sliders[i].isFailed = true;
+                sliders[i].isFinished = true;
+                sliderCount--;
+
+                lastJudge = JUDGE_MISS;
+                judgeX = sliders[i].startX;
+                judgeY = sliders[i].startY;
+                judgeDisplayStartTime = currentTime;
+            }
+        }
+    }
+
+    // =========================
+// 슬라이더 추적 판정
+// =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == true &&
+            sliders[i].isFinished == false &&
+            sliders[i].isFailed == false)
+        {
+            DWORD elapsedTime =
+                currentTime - sliders[i].slideStartTime;
+
+            double progress =
+                (double)elapsedTime / sliders[i].duration;
+
+            if (progress < 0.0)
+                progress = 0.0;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+            int ballX =
+                (int)(sliders[i].startX +
+                    (sliders[i].endX - sliders[i].startX) * progress);
+
+            int ballY =
+                (int)(sliders[i].startY +
+                    (sliders[i].endY - sliders[i].startY) * progress);
+
+            // 마우스 버튼을 떼면 실패
+            if (isMouseDown == false)
+            {
+                sliders[i].isFailed = true;
+                sliders[i].isTrackingSuccess = false;
+                continue;
+            }
+
+            // 마우스가 슬라이더 볼 주변에 있는지 확인
+            int dx = mouseX - ballX;
+            int dy = mouseY - ballY;
+
+            int followRadius = sliderFollowCircleImg.GetWidth() / 2;
+
+            if (dx * dx + dy * dy > followRadius * followRadius)
+            {
+                sliders[i].isFailed = true;
+                sliders[i].isTrackingSuccess = false;
+            }
+        }
+    }
+
+    // =========================
+    // 슬라이더 볼 이동 완료 처리
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == true &&
+            sliders[i].isFinished == false)
+        {
+            DWORD elapsedTime =
+                currentTime - sliders[i].slideStartTime;
+
+            if (elapsedTime >= sliders[i].duration)
+            {
+                sliders[i].isFinished = true;
+                sliders[i].isActive = false;
+                sliderCount--;
+
+                judgeX = sliders[i].endX;
+                judgeY = sliders[i].endY;
+                judgeDisplayStartTime = currentTime;
+
+                if (sliders[i].isTrackingSuccess == true &&
+                    sliders[i].isFailed == false)
+                {
+                    lastJudge = JUDGE_PERFECT;
+                    score += 300;
+                }
+                else
+                {
+                    lastJudge = JUDGE_MISS;
+                }
+            }
+        }
+    }
 }
 
 void RhythmMiniGame::Render(HDC hDC)
@@ -140,6 +268,185 @@ void RhythmMiniGame::Render(HDC hDC)
     wchar_t scoreText[100];
     wsprintf(scoreText, L"Score : %d", score);
     TextOut(hDC, 50, 90, scoreText, lstrlen(scoreText));
+
+    // =========================
+    // 슬라이더 그리기
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            int startX = sliders[i].startX;
+            int startY = sliders[i].startY;
+            int endX = sliders[i].endX;
+            int endY = sliders[i].endY;
+
+            // -------------------------
+            // 슬라이더 몸체
+            // -------------------------
+            HPEN sliderOutlinePen = CreatePen(PS_SOLID, 90, RGB(255, 255, 255));
+            HPEN oldPen = (HPEN)SelectObject(hDC, sliderOutlinePen);
+
+            MoveToEx(hDC, startX, startY, NULL);
+            LineTo(hDC, endX, endY);
+
+            SelectObject(hDC, oldPen);
+            DeleteObject(sliderOutlinePen);
+
+            HPEN sliderInnerPen = CreatePen(PS_SOLID, 72, RGB(180, 180, 180));
+            oldPen = (HPEN)SelectObject(hDC, sliderInnerPen);
+
+            MoveToEx(hDC, startX, startY, NULL);
+            LineTo(hDC, endX, endY);
+
+            SelectObject(hDC, oldPen);
+            DeleteObject(sliderInnerPen);
+
+            // -------------------------
+            // 슬라이더 시작 원의 접근 원
+            // -------------------------
+            if (sliders[i].isStarted == false)
+            {
+                DWORD currentTime = GetTickCount();
+
+                DWORD spawnTime = sliders[i].spawnTime;
+                DWORD hitTime = sliders[i].hitTime;
+
+                DWORD totalTime = hitTime - spawnTime;
+                DWORD elapsedTime = currentTime - spawnTime;
+
+                double progress = 0.0;
+
+                if (totalTime > 0)
+                {
+                    progress = (double)elapsedTime / totalTime;
+                }
+
+                if (progress < 0.0)
+                    progress = 0.0;
+
+                if (progress > 1.0)
+                    progress = 1.0;
+
+                double startScale = 1.8;
+                double endScale = 1.0;
+
+                double currentScale =
+                    startScale - (startScale - endScale) * progress;
+
+                int approachBaseWidth = approachCircleImg.GetWidth();
+                int approachBaseHeight = approachCircleImg.GetHeight();
+
+                int approachWidth = (int)(approachBaseWidth * currentScale);
+                int approachHeight = (int)(approachBaseHeight * currentScale);
+
+                int approachDrawX = startX - approachWidth / 2;
+                int approachDrawY = startY - approachHeight / 2;
+
+                approachCircleImg.Draw(
+                    hDC,
+                    approachDrawX,
+                    approachDrawY,
+                    approachWidth,
+                    approachHeight
+                );
+            }
+            // -------------------------
+            // 시작 원 이미지
+            // -------------------------
+            int startCircleWidth = sliderStartCircleImg.GetWidth();
+            int startCircleHeight = sliderStartCircleImg.GetHeight();
+
+            sliderStartCircleImg.Draw(
+                hDC,
+                startX - startCircleWidth / 2,
+                startY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+
+            sliderStartCircleOverlayImg.Draw(
+                hDC,
+                startX - startCircleWidth / 2,
+                startY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+
+            // -------------------------
+            // 끝 원
+            // 지금은 시작 원 이미지를 재사용
+            // -------------------------
+            sliderStartCircleImg.Draw(
+                hDC,
+                endX - startCircleWidth / 2,
+                endY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+
+            sliderStartCircleOverlayImg.Draw(
+                hDC,
+                endX - startCircleWidth / 2,
+                endY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+        }
+        // -------------------------
+        // 슬라이더 볼 이동
+        // -------------------------
+        if (sliders[i].isStarted == true &&
+            sliders[i].isFinished == false)
+        {
+            DWORD currentTime = GetTickCount();
+
+            DWORD elapsedTime =
+                currentTime - sliders[i].slideStartTime;
+
+            double progress =
+                (double)elapsedTime / sliders[i].duration;
+
+            if (progress < 0.0)
+                progress = 0.0;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+            int ballX =
+                (int)(sliders[i].startX +
+                    (sliders[i].endX - sliders[i].startX) * progress);
+
+            int ballY =
+                (int)(sliders[i].startY +
+                    (sliders[i].endY - sliders[i].startY) * progress);
+           
+            // -------------------------
+            // 슬라이더 팔로우 원
+            // -------------------------
+            int followWidth = sliderFollowCircleImg.GetWidth();
+            int followHeight = sliderFollowCircleImg.GetHeight();
+
+            sliderFollowCircleImg.Draw(
+                hDC,
+                ballX - followWidth / 2,
+                ballY - followHeight / 2,
+                followWidth,
+                followHeight
+            );
+
+            int ballWidth = sliderBallImg.GetWidth();
+            int ballHeight = sliderBallImg.GetHeight();
+
+            sliderBallImg.Draw(
+                hDC,
+                ballX - ballWidth / 2,
+                ballY - ballHeight / 2,
+                ballWidth,
+                ballHeight
+            );
+        }
+    }
 
     DWORD currentTime = GetTickCount();
 
@@ -326,6 +633,18 @@ void RhythmMiniGame::Release()
 
     if (!hit0Img.IsNull())
         hit0Img.Destroy();
+
+    if (!sliderStartCircleImg.IsNull())
+        sliderStartCircleImg.Destroy();
+
+    if (!sliderStartCircleOverlayImg.IsNull())
+        sliderStartCircleOverlayImg.Destroy();
+
+    if (!sliderBallImg.IsNull())
+        sliderBallImg.Destroy();
+
+    if (!sliderFollowCircleImg.IsNull())
+        sliderFollowCircleImg.Destroy();
 }
 
 void RhythmMiniGame::OnMouseDown(int x, int y)
@@ -391,6 +710,61 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
 
                 judgeX = hitCircles[i].x;
                 judgeY = hitCircles[i].y;
+                judgeDisplayStartTime = currentTime;
+
+                break;
+            }
+        }
+    }
+    // =========================
+    // 슬라이더 시작 원 클릭 판정
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == false &&
+            sliders[i].isFinished == false)
+        {
+            int dx = x - sliders[i].startX;
+            int dy = y - sliders[i].startY;
+
+            int hitRadius = sliderStartCircleImg.GetWidth() / 2;
+
+            if (dx * dx + dy * dy <= hitRadius * hitRadius)
+            {
+                int timeDiff =
+                    (int)currentTime - (int)sliders[i].hitTime;
+
+                if (timeDiff < 0)
+                    timeDiff = -timeDiff;
+
+                if (timeDiff <= 80)
+                {
+                    lastJudge = JUDGE_PERFECT;
+                    score += 300;
+                }
+                else if (timeDiff <= 160)
+                {
+                    lastJudge = JUDGE_GOOD;
+                    score += 100;
+                }
+                else if (timeDiff <= 250)
+                {
+                    lastJudge = JUDGE_BAD;
+                    score += 50;
+                }
+                else
+                {
+                    break;
+                }
+
+                sliders[i].isStarted = true;
+                sliders[i].slideStartTime = currentTime;
+
+                sliders[i].isTrackingSuccess = true;
+
+                judgeX = sliders[i].startX;
+                judgeY = sliders[i].startY;
                 judgeDisplayStartTime = currentTime;
 
                 break;
@@ -483,6 +857,54 @@ void RhythmMiniGame::PremultiplyAlpha(CImage& image)
             blue = (BYTE)((blue * alpha) / 255);
             green = (BYTE)((green * alpha) / 255);
             red = (BYTE)((red * alpha) / 255);
+        }
+    }
+}
+
+void RhythmMiniGame::CreateSlider(int startX, int startY, int endX, int endY)
+{
+    
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == false)
+        {
+            DWORD currentTime = GetTickCount();
+
+            sliders[i].isActive = true;
+            sliders[i].isStarted = false;
+            sliders[i].isFinished = false;
+            sliders[i].isFailed = false;
+
+            sliders[i].startX = startX;
+            sliders[i].startY = startY;
+            sliders[i].endX = endX;
+            sliders[i].endY = endY;
+
+            sliders[i].spawnTime = currentTime;
+            sliders[i].hitTime = currentTime + 1000;
+            sliders[i].isTrackingSuccess = false;
+            int dx = endX - startX;
+            int dy = endY - startY;
+
+            double distance = sqrt((double)(dx * dx + dy * dy));
+
+            // 슬라이더 볼 속도
+            // 값이 작을수록 느리고, 클수록 빠름
+            double sliderSpeed = 350.0;   // 초당 350픽셀 이동
+
+            sliders[i].duration =
+                (DWORD)((distance / sliderSpeed) * 1000.0);
+
+            if (sliders[i].duration < 700)
+            {
+                sliders[i].duration = 700;
+            }
+
+            sliders[i].slideStartTime = 0;
+            
+            sliderCount++;
+
+            break;
         }
     }
 }
