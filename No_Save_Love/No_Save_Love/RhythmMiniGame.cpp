@@ -34,6 +34,12 @@ void RhythmMiniGame::Init()
         L"resource\\minigame2\\slider\\sliderfollowcircle.png"
     );
 
+    cursorImg.Load(L"resource\\minigame2\\cursor\\cursor.png");
+    cursorTrailImg.Load(L"resource\\minigame2\\cursor\\cursortrail.png");
+
+    PremultiplyAlpha(cursorImg);
+    PremultiplyAlpha(cursorTrailImg);
+
     PremultiplyAlpha(sliderFollowCircleImg);
     PremultiplyAlpha(sliderStartCircleImg);
     PremultiplyAlpha(sliderStartCircleOverlayImg);
@@ -97,6 +103,19 @@ void RhythmMiniGame::Init()
         sliders[i].duration = 0;
         sliders[i].slideStartTime = 0;
         sliders[i].isTrackingSuccess = false;
+    }
+
+    // =========================
+    // 커서 초기화
+    // =========================
+    cursorTrailIndex = 0;
+
+    for (int i = 0; i < MAX_CURSOR_TRAIL; i++)
+    {
+        cursorTrail[i].x = 0;
+        cursorTrail[i].y = 0;
+        cursorTrail[i].isActive = false;
+        cursorTrail[i].createTime = 0;
     }
 
     lastHitCircleSpawnTime = GetTickCount();
@@ -677,6 +696,54 @@ void RhythmMiniGame::Render(HDC hDC)
             );
         }
     }
+
+    // =========================
+    // 커서 궤적 그리기
+    // =========================
+    for (int i = 0; i < MAX_CURSOR_TRAIL; i++)
+    {
+        int index = (cursorTrailIndex + i) % MAX_CURSOR_TRAIL;
+
+        if (cursorTrail[index].isActive == true)
+        {
+            DWORD elapsedTime =
+                currentTime - cursorTrail[index].createTime;
+
+            if (elapsedTime > CURSOR_TRAIL_LIFETIME)
+            {
+                cursorTrail[index].isActive = false;
+                continue;
+            }
+
+            int trailWidth = cursorTrailImg.GetWidth();
+            int trailHeight = cursorTrailImg.GetHeight();
+
+            cursorTrailImg.Draw(
+                hDC,
+                cursorTrail[index].x - trailWidth / 2,
+                cursorTrail[index].y - trailHeight / 2,
+                trailWidth,
+                trailHeight
+            );
+        }
+    }
+
+    // =========================
+    // 현재 커서 그리기
+    // =========================
+    if (!cursorImg.IsNull())
+    {
+        int cursorWidth = cursorImg.GetWidth();
+        int cursorHeight = cursorImg.GetHeight();
+
+        cursorImg.Draw(
+            hDC,
+            mouseX - cursorWidth / 2,
+            mouseY - cursorHeight / 2,
+            cursorWidth,
+            cursorHeight
+        );
+    }
 }
 
 void RhythmMiniGame::Release()
@@ -713,6 +780,12 @@ void RhythmMiniGame::Release()
 
     if (!sliderFollowCircleImg.IsNull())
         sliderFollowCircleImg.Destroy();
+
+    if (!cursorImg.IsNull())
+        cursorImg.Destroy();
+
+    if (!cursorTrailImg.IsNull())
+        cursorTrailImg.Destroy();
 }
 
 void RhythmMiniGame::OnMouseDown(int x, int y)
@@ -871,9 +944,17 @@ void RhythmMiniGame::OnMouseMove(int x, int y)
     mouseX = x;
     mouseY = y;
 
-    // 이후 여기에
-    // - 슬라이더 추적 판정
-    // 을 넣을 예정
+    cursorTrail[cursorTrailIndex].x = x;
+    cursorTrail[cursorTrailIndex].y = y;
+    cursorTrail[cursorTrailIndex].isActive = true;
+    cursorTrail[cursorTrailIndex].createTime = GetTickCount();
+
+    cursorTrailIndex++;
+
+    if (cursorTrailIndex >= MAX_CURSOR_TRAIL)
+    {
+        cursorTrailIndex = 0;
+    }
 }
 
 bool RhythmMiniGame::IsGameOver() const

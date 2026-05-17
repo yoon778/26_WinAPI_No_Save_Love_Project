@@ -6,6 +6,18 @@
 #define MAX_HIT_CIRCLES 30
 #define MAX_SLIDERS 10
 
+
+#define MAX_CURSOR_TRAIL 80
+#define CURSOR_TRAIL_LIFETIME 450
+
+struct CursorTrailPoint     // 마우스 커서 구조체
+{
+    int x;
+    int y;
+    bool isActive;
+    DWORD createTime;
+};
+
 enum HitJudge           // 클릭판정
 {
     JUDGE_NONE,
@@ -103,6 +115,12 @@ private:
     CImage sliderFollowCircleImg;
 
     // =========================
+    // 커서 이미지
+    // =========================
+    CImage cursorImg;
+    CImage cursorTrailImg;
+
+    // =========================
     // 최근 판정 표시용
     // =========================
     HitJudge lastJudge;
@@ -126,7 +144,8 @@ private:
     int hitCircleCount;     // 현재까지 사용 중인 히트서클 개수
     int sliderCount;        // 현재까지 사용 중인 슬라이더 개수
     int spawnedObjectCount;
-  
+    CursorTrailPoint cursorTrail[MAX_CURSOR_TRAIL];
+    int cursorTrailIndex;
 
     void CreateHitCircle(int x, int y);     // 히트서클 1개 생성하는 함수
     void PremultiplyAlpha(CImage& image);   // 이미지 알파 처리 함수(이미지에 있는 빛번짐 같은거 제거)

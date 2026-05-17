@@ -70,6 +70,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_TIMER:
 		minigame2.Update();
+		ShowCursor(FALSE);
 		InvalidateRect(hWnd, NULL, false);
 		break;
 	case WM_LBUTTONDOWN:
