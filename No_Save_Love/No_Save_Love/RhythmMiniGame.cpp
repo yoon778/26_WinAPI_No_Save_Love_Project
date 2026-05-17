@@ -19,12 +19,29 @@ void RhythmMiniGame::Init()
     hitCircleImg.Load(L"resource\\minigame2\\hitcircle\\hitcircle.png");
     hitCircleOverlayImg.Load(L"resource\\minigame2\\hitcircle\\hitcircleoverlay.png");
     approachCircleImg.Load(L"resource\\minigame2\\hitcircle\\approachcircle.png");
+    
+    hit300Img.Load(L"resource\\minigame2\\judge\\hit300.png");
+    hit100Img.Load(L"resource\\minigame2\\judge\\hit100.png");
+    hit50Img.Load(L"resource\\minigame2\\judge\\hit50.png");
+    hit0Img.Load(L"resource\\minigame2\\judge\\hit0.png");
+
     PremultiplyAlpha(approachCircleImg);
     PremultiplyAlpha(hitCircleImg);
     PremultiplyAlpha(hitCircleOverlayImg);
 
+    PremultiplyAlpha(hit300Img);
+    PremultiplyAlpha(hit100Img);
+    PremultiplyAlpha(hit50Img);
+    PremultiplyAlpha(hit0Img);
+
+    lastJudge = JUDGE_NONE;
+    judgeDisplayStartTime = 0;
+
     score = 0;
     isGameOver = false;
+
+    judgeX = 0;
+    judgeY = 0;
 
     mouseX = 0;
     mouseY = 0;
@@ -69,11 +86,26 @@ void RhythmMiniGame::Init()
 
 void RhythmMiniGame::Update()
 {
-    // 이후 여기에
-    // - 히트서클 갱신
-    // - 슬라이더 갱신
-    // - Miss 판정
-    // 을 넣을 예정
+    DWORD currentTime = GetTickCount();
+
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == true)
+        {
+            // 눌러야 할 시간보다 250ms 이상 늦으면 Miss
+            if (currentTime > hitCircles[i].hitTime + 250)
+            {
+                hitCircles[i].isActive = false;
+                hitCircles[i].isJudged = true;
+                hitCircleCount--;
+
+                judgeX = hitCircles[i].x;
+                judgeY = hitCircles[i].y;
+                lastJudge = JUDGE_MISS;
+                judgeDisplayStartTime = currentTime;
+            }
+        }
+    }
 }
 
 void RhythmMiniGame::Render(HDC hDC)
@@ -85,6 +117,70 @@ void RhythmMiniGame::Render(HDC hDC)
     wchar_t scoreText[100];
     wsprintf(scoreText, L"Score : %d", score);
     TextOut(hDC, 50, 90, scoreText, lstrlen(scoreText));
+
+    DWORD currentTime = GetTickCount();
+
+    if (lastJudge != JUDGE_NONE &&
+        currentTime - judgeDisplayStartTime <= 500)
+    {
+        CImage* judgeImg = nullptr;
+
+        switch (lastJudge)
+        {
+        case JUDGE_PERFECT:
+            judgeImg = &hit300Img;
+            break;
+
+        case JUDGE_GOOD:
+            judgeImg = &hit100Img;
+            break;
+
+        case JUDGE_BAD:
+            judgeImg = &hit50Img;
+            break;
+
+        case JUDGE_MISS:
+            judgeImg = &hit0Img;
+            break;
+        }
+
+        if (judgeImg != nullptr && !judgeImg->IsNull())
+        {
+            DWORD elapsedTime = currentTime - judgeDisplayStartTime;
+            DWORD displayTime = 500;
+
+            // 0.0 ~ 1.0 진행도
+            double progress = (double)elapsedTime / displayTime;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+            // 처음에는 1.2배 크기
+            // 시간이 지나면 1.0배 크기로 줄어듦
+            double startScale = 1.35;
+            double endScale = 1.0;
+
+            double currentScale =
+                startScale - (startScale - endScale) * progress;
+
+            int originalWidth = judgeImg->GetWidth();
+            int originalHeight = judgeImg->GetHeight();
+
+            int drawWidth = (int)(originalWidth * currentScale);
+            int drawHeight = (int)(originalHeight * currentScale);
+
+            int drawX = judgeX - drawWidth / 2;
+            int drawY = judgeY - drawHeight / 2;
+
+            judgeImg->Draw(
+                hDC,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight
+            );
+        }
+    }
 
     // =========================
     // 히트서클 그리기
@@ -195,6 +291,18 @@ void RhythmMiniGame::Release()
 
     if (!approachCircleImg.IsNull())
         approachCircleImg.Destroy();
+
+    if (!hit300Img.IsNull())
+        hit300Img.Destroy();
+
+    if (!hit100Img.IsNull())
+        hit100Img.Destroy();
+
+    if (!hit50Img.IsNull())
+        hit50Img.Destroy();
+
+    if (!hit0Img.IsNull())
+        hit0Img.Destroy();
 }
 
 void RhythmMiniGame::OnMouseDown(int x, int y)
@@ -203,10 +311,70 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
     mouseY = y;
     isMouseDown = true;
 
-    // 이후 여기에
-    // - 히트서클 클릭 판정
-    // - 슬라이더 시작 판정
-    // 을 넣을 예정
+    DWORD currentTime = GetTickCount();
+
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == true)
+        {
+            // -------------------------
+            // 1. 클릭 위치가 히트서클 안인지 확인
+            // -------------------------
+            int dx = x - hitCircles[i].x;
+            int dy = y - hitCircles[i].y;
+
+            int hitRadius = hitCircleImg.GetWidth() / 2;
+
+            if (dx * dx + dy * dy <= hitRadius * hitRadius)
+            {
+                // -------------------------
+                // 2. 클릭 타이밍 차이 계산
+                // -------------------------
+                int timeDiff = (int)currentTime - (int)hitCircles[i].hitTime;
+
+                if (timeDiff < 0)
+                    timeDiff = -timeDiff;
+
+                // -------------------------
+                // 3. 판정
+                // -------------------------
+                if (timeDiff <= 80)
+                {
+                    lastJudge = JUDGE_PERFECT;
+                    score += 300;
+                }
+                else if (timeDiff <= 160)
+                {
+                    lastJudge = JUDGE_GOOD;
+                    score += 100;
+                }
+                else if (timeDiff <= 250)
+                {
+                    lastJudge = JUDGE_BAD;
+                    score += 50;
+                }
+                else
+                {
+                    // 너무 이르거나 너무 늦은 클릭은 무시
+                    break;
+                }
+
+                // -------------------------
+                // 4. 판정이 난 히트서클 제거
+                // -------------------------
+                hitCircles[i].isActive = false;
+                hitCircles[i].isJudged = true;
+                hitCircleCount--;
+
+                judgeX = hitCircles[i].x;
+                judgeY = hitCircles[i].y;
+                judgeDisplayStartTime = currentTime;
+
+                break;
+            }
+        }
+    }
+
 }
 
 void RhythmMiniGame::OnMouseUp(int x, int y)

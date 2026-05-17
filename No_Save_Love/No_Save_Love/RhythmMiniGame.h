@@ -6,6 +6,14 @@
 #define MAX_HIT_CIRCLES 30
 #define MAX_SLIDERS 10
 
+enum HitJudge           // 클릭판정
+{
+    JUDGE_NONE,
+    JUDGE_PERFECT,
+    JUDGE_GOOD,
+    JUDGE_BAD,
+    JUDGE_MISS
+};
 
 // =========================
 // 히트서클 정보
@@ -77,6 +85,23 @@ private:
     CImage approachCircleImg;
     
     // =========================
+    // 판정 이미지
+    // =========================
+    CImage hit300Img;
+    CImage hit100Img;
+    CImage hit50Img;
+    CImage hit0Img;
+    
+    // =========================
+    // 최근 판정 표시용
+    // =========================
+    HitJudge lastJudge;
+    DWORD judgeDisplayStartTime;
+    
+    int judgeX;
+    int judgeY;
+
+    // =========================
     // 히트서클 / 슬라이더 저장 배열
     // =========================
     HitCircle hitCircles[MAX_HIT_CIRCLES];
@@ -86,7 +111,7 @@ private:
     int sliderCount;        // 현재까지 사용 중인 슬라이더 개수
 
     void CreateHitCircle(int x, int y);     // 히트서클 1개 생성하는 함수
-    void PremultiplyAlpha(CImage& image);
+    void PremultiplyAlpha(CImage& image);   // 이미지 알파 처리 함수(이미지에 있는 빛번짐 같은거 제거)
 
 public:
     RhythmMiniGame();
