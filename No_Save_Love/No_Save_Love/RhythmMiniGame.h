@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <windows.h>
 #include <atlimage.h>
+#include <gdiplus.h>
+#pragma comment(lib, "gdiplus.lib")
 
 // 화면에 동시에 존재할 수 있는 최대 개수
 #define MAX_HIT_CIRCLES 30
@@ -22,6 +24,21 @@
 
 #define SMALL_WINDOW_HITCIRCLE_SCALE 0.75
 #define SMALL_WINDOW_SPAWN_INTERVAL 800
+
+#define WINDOW_JUMP_GIMMICK_TRIGGER_TIME 35000
+#define WINDOW_JUMP_INTERVAL 1200
+#define WINDOW_JUMP_COUNT 5
+
+#define WINDOW_SLIDER_FOLLOW_TRIGGER_TIME 55000
+
+#define WINDOW_SLIDER_FOLLOW_CLIENT_WIDTH 760
+#define WINDOW_SLIDER_FOLLOW_CLIENT_HEIGHT 460
+
+#define WINDOW_SLIDER_FOLLOW_POWER 0.8
+
+#define WINDOW_SLIDER_FOLLOW_PATTERN_COUNT 5
+
+#define SECOND_WINDOW_GIMMICK_DELAY 10000
 
 struct CursorTrailPoint     // 마우스 커서 구조체
 {
@@ -71,6 +88,7 @@ struct Slider
     int startY;         // 슬라이더 시작점 y좌표
     int endX;           // 슬라이더 끝점 x좌표
     int endY;           // 슬라이더 끝점 y좌표
+    bool isWindowFollowTarget;
 
     DWORD spawnTime;    // 슬라이더가 화면에 생성된 시간
     DWORD hitTime;      // 시작 원을 눌러야 하는 정확한 시간
@@ -142,6 +160,15 @@ private:
     
     int judgeX;
     int judgeY;
+
+    // =========================
+    // 연속 창 점프 기믹
+    // =========================
+    bool hasWindowJumpGimmickTriggered;
+    bool isWindowJumpGimmickActive;
+
+    DWORD windowJumpLastMoveTime;
+    int windowJumpStep;
     
     // =========================
     // 히트서클 자동 생성
@@ -156,8 +183,8 @@ private:
     Slider sliders[MAX_SLIDERS];
 
     // =========================
-// 창 크기 변화 기믹
-// =========================
+    // 창 크기 변화 기믹
+    // =========================
     HWND gameHwnd;
 
     DWORD gameStartTime;
@@ -170,10 +197,39 @@ private:
 
     int originalClientWidth;
     int originalClientHeight;
+    // =========================
+    // 슬라이더 볼 따라 창 이동 기믹
+    // =========================
+    bool hasSliderFollowWindowGimmickTriggered;
+    bool isSliderFollowWindowGimmickActive;
+    int sliderFollowPatternStep;
+
+    RECT sliderFollowBaseWindowRect;
+
+    // =========================
+    // 두 번째 작은 창 기믹 예약
+    // =========================
+    bool isSecondWindowGimmickWaiting;
+    DWORD secondWindowGimmickReserveTime;
+   
+    // =========================
+    // 회전 커서 장식
+    // =========================
+    ULONG_PTR gdiplusToken;
+    Gdiplus::Image* cursorMiddleImg;
+    float cursorRotationAngle;
+    Gdiplus::Image* cursorRotateImg;
+
+
+
+    void UpdateSliderFollowWindowGimmick(DWORD currentTime);
+    void TriggerSliderFollowWindowGimmick(DWORD currentTime);
+    void MoveWindowWithSliderBall(DWORD currentTime);
 
     void UpdateWindowGimmick(DWORD currentTime);
-    void TriggerWindowGimmick(DWORD currentTime);
-    void RestoreOriginalWindow();
+    void TriggerWindowGimmick(DWORD currentTime, bool isSecondRun = false);
+    void RestoreOriginalWindow(DWORD currentTime);
+    void MoveWindowJumpStep(int step, DWORD currentTime);
 
     void CalculateGimmickClientSize(int& outWidth, int& outHeight);
 
@@ -185,10 +241,16 @@ private:
 
     void CreateHitCircle(int x, int y);     // 히트서클 1개 생성하는 함수
     void PremultiplyAlpha(CImage& image);   // 이미지 알파 처리 함수(이미지에 있는 빛번짐 같은거 제거)
-    void CreateSlider(int startX, int startY, int endX, int endY);  // 슬라이더 생성 함수
+    void CreateSlider(int startX, int startY, int endX, int endY, bool isWindowFollowTarget = false);  // 슬라이더 생성 함수
 
     void ClearAllNotes();
     void CreateImmediateHitCircle();
+
+    void UpdateWindowJumpGimmick(DWORD currentTime);
+    void TriggerWindowJumpGimmick(DWORD currentTime);
+    void CreateSliderFollowPattern(int patternIndex, DWORD currentTime);
+
+    void MoveSliderFollowWindowToRandomPosition();
 
 public:
     RhythmMiniGame();
