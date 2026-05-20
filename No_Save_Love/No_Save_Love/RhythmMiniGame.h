@@ -40,6 +40,8 @@
 
 #define SECOND_WINDOW_GIMMICK_DELAY 10000
 
+#define CURSOR_TRAIL_POINT_SPACING 1
+
 struct CursorTrailPoint     // 마우스 커서 구조체
 {
     int x;
@@ -251,6 +253,7 @@ private:
     void CreateSliderFollowPattern(int patternIndex, DWORD currentTime);
 
     void MoveSliderFollowWindowToRandomPosition();
+    void AddCursorTrailPoint(int x, int y, DWORD createTime);
 
 public:
     RhythmMiniGame();

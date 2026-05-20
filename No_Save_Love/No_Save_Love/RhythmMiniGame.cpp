@@ -1192,20 +1192,43 @@ void RhythmMiniGame::OnMouseUp(int x, int y)
 
 void RhythmMiniGame::OnMouseMove(int x, int y)
 {
+    DWORD currentTime = GetTickCount();
+
+    // 이전 마우스 위치
+    int prevX = mouseX;
+    int prevY = mouseY;
+
+    // 이동 거리 계산
+    int dx = x - prevX;
+    int dy = y - prevY;
+
+    double distance = sqrt((double)(dx * dx + dy * dy));
+
+    // 일정 간격마다 trail 점 추가
+    int pointCount =
+        (int)(distance / CURSOR_TRAIL_POINT_SPACING);
+
+    if (pointCount < 1)
+    {
+        pointCount = 1;
+    }
+
+    for (int i = 1; i <= pointCount; i++)
+    {
+        double t = (double)i / pointCount;
+
+        int trailX =
+            (int)(prevX + dx * t);
+
+        int trailY =
+            (int)(prevY + dy * t);
+
+        AddCursorTrailPoint(trailX, trailY, currentTime);
+    }
+
+    // 현재 마우스 위치 갱신
     mouseX = x;
     mouseY = y;
-
-    cursorTrail[cursorTrailIndex].x = x;
-    cursorTrail[cursorTrailIndex].y = y;
-    cursorTrail[cursorTrailIndex].isActive = true;
-    cursorTrail[cursorTrailIndex].createTime = GetTickCount();
-
-    cursorTrailIndex++;
-
-    if (cursorTrailIndex >= MAX_CURSOR_TRAIL)
-    {
-        cursorTrailIndex = 0;
-    }
 }
 
 bool RhythmMiniGame::IsGameOver() const
@@ -2065,4 +2088,19 @@ void RhythmMiniGame::MoveSliderFollowWindowToRandomPosition()
     GetWindowRect(gameHwnd, &sliderFollowBaseWindowRect);
 
     InvalidateRect(gameHwnd, NULL, FALSE);
+}
+
+void RhythmMiniGame::AddCursorTrailPoint(int x, int y, DWORD createTime)
+{
+    cursorTrail[cursorTrailIndex].x = x;
+    cursorTrail[cursorTrailIndex].y = y;
+    cursorTrail[cursorTrailIndex].isActive = true;
+    cursorTrail[cursorTrailIndex].createTime = createTime;
+
+    cursorTrailIndex++;
+
+    if (cursorTrailIndex >= MAX_CURSOR_TRAIL)
+    {
+        cursorTrailIndex = 0;
+    }
 }
