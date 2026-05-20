@@ -16,8 +16,30 @@ RhythmMiniGame::RhythmMiniGame()
 }
 
 
-void RhythmMiniGame::Init()
+void RhythmMiniGame::Init(HWND hWnd)
 {
+    gameHwnd = hWnd;
+
+    gameStartTime = GetTickCount();
+    windowGimmickStartTime = 0;
+
+    hasWindowGimmickTriggered = false;
+    isWindowGimmickActive = false;
+
+    // 원래 창 위치와 크기 저장
+    GetWindowRect(gameHwnd, &originalWindowRect);
+
+    // 원래 클라이언트 영역 크기 저장
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    originalClientWidth = clientRect.right - clientRect.left;
+    originalClientHeight = clientRect.bottom - clientRect.top;
+
+    // 이후 노트 생성 범위도 실제 창 내부 크기를 기준으로 사용
+    screenWidth = originalClientWidth;
+    screenHeight = originalClientHeight;
+
     hitCircleImg.Load(L"resource\\minigame2\\hitcircle\\hitcircle.png");
     hitCircleOverlayImg.Load(L"resource\\minigame2\\hitcircle\\hitcircleoverlay.png");
     approachCircleImg.Load(L"resource\\minigame2\\hitcircle\\approachcircle.png");
@@ -36,6 +58,8 @@ void RhythmMiniGame::Init()
 
     cursorImg.Load(L"resource\\minigame2\\cursor\\cursor.png");
     cursorTrailImg.Load(L"resource\\minigame2\\cursor\\cursortrail.png");
+
+    back.Load(L"resource\\minigame2\\back.png");
 
     PremultiplyAlpha(cursorImg);
     PremultiplyAlpha(cursorTrailImg);
@@ -126,6 +150,7 @@ void RhythmMiniGame::Init()
 void RhythmMiniGame::Update()
 {
     DWORD currentTime = GetTickCount();
+    UpdateWindowGimmick(currentTime);
     bool hasActiveSlider = false;
 
     for (int i = 0; i < MAX_SLIDERS; i++)
@@ -140,57 +165,23 @@ void RhythmMiniGame::Update()
     // =========================
     // 일정 시간마다 히트서클 생성
     // =========================
+    DWORD currentSpawnInterval =
+        isWindowGimmickActive
+        ? SMALL_WINDOW_SPAWN_INTERVAL
+        : hitCircleSpawnInterval;
+
     if (hasActiveSlider == false &&
-        currentTime - lastHitCircleSpawnTime >= hitCircleSpawnInterval)
+        currentTime - lastHitCircleSpawnTime >= currentSpawnInterval)
     {
-        spawnedObjectCount++;
-
-        int marginX = 300;
-        int marginY = 220;
-
         // =========================
-        // 4번째마다 슬라이더 생성
+        // 작은 창 기믹 중
+        // 히트서클만 생성
         // =========================
-        if (spawnedObjectCount % 4 == 0)
+        if (isWindowGimmickActive == true)
         {
-            int startX =
-                marginX + rand() % (screenWidth - marginX * 2);
+            int marginX = 80;
+            int marginY = 70;
 
-            int startY =
-                marginY + rand() % (screenHeight - marginY * 2);
-
-            int endX = startX;
-            int endY = startY;
-
-            // 너무 짧은 슬라이더가 나오지 않도록 반복
-            while (true)
-            {
-                endX =
-                    marginX + rand() % (screenWidth - marginX * 2);
-
-                endY =
-                    marginY + rand() % (screenHeight - marginY * 2);
-
-                int dx = endX - startX;
-                int dy = endY - startY;
-
-                int distanceSquared = dx * dx + dy * dy;
-
-                // 길이가 약 350px 이상인 슬라이더만 허용
-                if (distanceSquared >= 350 * 350)
-                {
-                    break;
-                }
-            }
-
-            CreateSlider(startX, startY, endX, endY);
-        }
-
-        // =========================
-        // 그 외에는 히트서클 생성
-        // =========================
-        else
-        {
             int randomX =
                 marginX + rand() % (screenWidth - marginX * 2);
 
@@ -198,6 +189,61 @@ void RhythmMiniGame::Update()
                 marginY + rand() % (screenHeight - marginY * 2);
 
             CreateHitCircle(randomX, randomY);
+        }
+
+        // =========================
+        // 평상시
+        // 히트서클 / 슬라이더 섞어서 생성
+        // =========================
+        else
+        {
+            spawnedObjectCount++;
+
+            int marginX = 300;
+            int marginY = 220;
+
+            if (spawnedObjectCount % 4 == 0)
+            {
+                int startX =
+                    marginX + rand() % (screenWidth - marginX * 2);
+
+                int startY =
+                    marginY + rand() % (screenHeight - marginY * 2);
+
+                int endX = startX;
+                int endY = startY;
+
+                while (true)
+                {
+                    endX =
+                        marginX + rand() % (screenWidth - marginX * 2);
+
+                    endY =
+                        marginY + rand() % (screenHeight - marginY * 2);
+
+                    int dx = endX - startX;
+                    int dy = endY - startY;
+
+                    int distanceSquared = dx * dx + dy * dy;
+
+                    if (distanceSquared >= 350 * 350)
+                    {
+                        break;
+                    }
+                }
+
+                CreateSlider(startX, startY, endX, endY);
+            }
+            else
+            {
+                int randomX =
+                    marginX + rand() % (screenWidth - marginX * 2);
+
+                int randomY =
+                    marginY + rand() % (screenHeight - marginY * 2);
+
+                CreateHitCircle(randomX, randomY);
+            }
         }
 
         lastHitCircleSpawnTime = currentTime;
@@ -350,7 +396,7 @@ void RhythmMiniGame::Render(HDC hDC)
     wchar_t scoreText[100];
     wsprintf(scoreText, L"Score : %d", score);
     TextOut(hDC, 50, 90, scoreText, lstrlen(scoreText));
-
+    back.Draw(hDC, 0, 0, 1920, 1080);
     // =========================
     // 슬라이더 그리기
     // =========================
@@ -390,6 +436,7 @@ void RhythmMiniGame::Render(HDC hDC)
             if (sliders[i].isStarted == false)
             {
                 DWORD currentTime = GetTickCount();
+ 
 
                 DWORD spawnTime = sliders[i].spawnTime;
                 DWORD hitTime = sliders[i].hitTime;
@@ -606,8 +653,16 @@ void RhythmMiniGame::Render(HDC hDC)
     {
         if (hitCircles[i].isActive == true)
         {
-            int imageWidth = hitCircleImg.GetWidth();
-            int imageHeight = hitCircleImg.GetHeight();
+            double hitCircleScale =
+                isWindowGimmickActive
+                ? SMALL_WINDOW_HITCIRCLE_SCALE
+                : 1.0;
+
+            int imageWidth =
+                (int)(hitCircleImg.GetWidth() * hitCircleScale);
+
+            int imageHeight =
+                (int)(hitCircleImg.GetHeight() * hitCircleScale);
 
             int drawX = hitCircles[i].x - imageWidth / 2;
             int drawY = hitCircles[i].y - imageHeight / 2;
@@ -658,8 +713,11 @@ void RhythmMiniGame::Render(HDC hDC)
             int approachBaseWidth = approachCircleImg.GetWidth();
             int approachBaseHeight = approachCircleImg.GetHeight();
 
-            int approachWidth = (int)(approachBaseWidth * currentScale);
-            int approachHeight = (int)(approachBaseHeight * currentScale);
+            int approachWidth =
+                (int)(approachBaseWidth * currentScale * hitCircleScale);
+
+            int approachHeight =
+                (int)(approachBaseHeight * currentScale * hitCircleScale);
 
             // 중심을 유지하도록 좌표 계산
             int approachDrawX = hitCircles[i].x - approachWidth / 2;
@@ -796,71 +854,91 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
 
     DWORD currentTime = GetTickCount();
 
+    // =========================
+    // 히트서클 클릭 판정
+    // 겹쳤을 경우 먼저 생성된 히트서클 우선
+    // =========================
+    int targetHitCircleIndex = -1;
+
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
         if (hitCircles[i].isActive == true)
         {
-            // -------------------------
-            // 1. 클릭 위치가 히트서클 안인지 확인
-            // -------------------------
+            double hitCircleScale =
+                isWindowGimmickActive
+                ? SMALL_WINDOW_HITCIRCLE_SCALE
+                : 1.0;
+
+            int hitRadius =
+                (int)(hitCircleImg.GetWidth() * hitCircleScale / 2) + 15;
+
             int dx = x - hitCircles[i].x;
             int dy = y - hitCircles[i].y;
 
-            int hitRadius = hitCircleImg.GetWidth() / 2 + 15;
-
             if (dx * dx + dy * dy <= hitRadius * hitRadius)
             {
-                // -------------------------
-                // 2. 클릭 타이밍 차이 계산
-                // -------------------------
-                int signedTimeDiff =
-                    (int)currentTime - (int)hitCircles[i].hitTime;
-
-                int timeDiff = signedTimeDiff;
-
-                if (timeDiff < 0)
-                    timeDiff = -timeDiff;
-
-                if (timeDiff <= 80)
+                // 아직 선택된 대상이 없으면 선택
+                if (targetHitCircleIndex == -1)
                 {
-                    lastJudge = JUDGE_PERFECT;
-                    score += 300;
+                    targetHitCircleIndex = i;
                 }
-                else if (timeDiff <= 160)
-                {
-                    lastJudge = JUDGE_GOOD;
-                    score += 100;
-                }
+                // 더 먼저 생성된 히트서클이면 교체
                 else if (
-                    // 정확한 타이밍보다 빠른 클릭은 350ms까지 허용
-                    (signedTimeDiff < 0 && timeDiff <= 450) ||
-
-                    // 늦은 클릭은 기존처럼 250ms까지 허용
-                    (signedTimeDiff > 0 && timeDiff <= 250)
+                    hitCircles[i].spawnTime <
+                    hitCircles[targetHitCircleIndex].spawnTime
                     )
                 {
-                    lastJudge = JUDGE_BAD;
-                    score += 50;
+                    targetHitCircleIndex = i;
                 }
-                else
-                {
-                    break;
-                }
-
-                // -------------------------
-                // 4. 판정이 난 히트서클 제거
-                // -------------------------
-                hitCircles[i].isActive = false;
-                hitCircles[i].isJudged = true;
-                hitCircleCount--;
-
-                judgeX = hitCircles[i].x;
-                judgeY = hitCircles[i].y;
-                judgeDisplayStartTime = currentTime;
-
-                break;
             }
         }
+    }
+    if (targetHitCircleIndex != -1)
+    {
+        int i = targetHitCircleIndex;
+
+        int signedTimeDiff =
+            (int)currentTime - (int)hitCircles[i].hitTime;
+
+        int timeDiff = signedTimeDiff;
+
+        if (timeDiff < 0)
+            timeDiff = -timeDiff;
+
+        if (timeDiff <= 80)
+        {
+            lastJudge = JUDGE_PERFECT;
+            score += 300;
+        }
+        else if (timeDiff <= 160)
+        {
+            lastJudge = JUDGE_GOOD;
+            score += 100;
+        }
+        else if (
+            (signedTimeDiff < 0 && timeDiff <= 350) ||
+            (signedTimeDiff > 0 && timeDiff <= 250)
+            )
+        {
+            lastJudge = JUDGE_BAD;
+            score += 50;
+        }
+        else
+        {
+            // 히트서클 위를 눌렀지만 판정 타이밍이 아니면
+            // 다른 겹친 원으로 넘어가지 않고 그대로 종료
+            return;
+        }
+
+        hitCircles[i].isActive = false;
+        hitCircles[i].isJudged = true;
+        hitCircleCount--;
+
+        judgeX = hitCircles[i].x;
+        judgeY = hitCircles[i].y;
+        judgeDisplayStartTime = currentTime;
+
+        return;
     }
     // =========================
     // 슬라이더 시작 원 클릭 판정
@@ -1069,4 +1147,243 @@ void RhythmMiniGame::CreateSlider(int startX, int startY, int endX, int endY)
             break;
         }
     }
+}
+
+void RhythmMiniGame::UpdateWindowGimmick(DWORD currentTime)
+{
+    DWORD elapsedGameTime = currentTime - gameStartTime;
+
+    // 15초 뒤 한 번 발동
+    if (hasWindowGimmickTriggered == false &&
+        elapsedGameTime >= WINDOW_GIMMICK_TRIGGER_TIME)
+    {
+        TriggerWindowGimmick(currentTime);
+        hasWindowGimmickTriggered = true;
+    }
+
+    // 유지 시간이 끝나면 원래 창으로 복귀
+    if (isWindowGimmickActive == true &&
+        currentTime - windowGimmickStartTime >= WINDOW_GIMMICK_DURATION)
+    {
+        RestoreOriginalWindow();
+    }
+}
+
+void RhythmMiniGame::CalculateGimmickClientSize(int& outWidth, int& outHeight)
+{
+    int maxX = 0;
+    int maxY = 0;
+
+    // 현재 떠 있는 히트서클 확인
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == true)
+        {
+            if (hitCircles[i].x > maxX)
+                maxX = hitCircles[i].x;
+
+            if (hitCircles[i].y > maxY)
+                maxY = hitCircles[i].y;
+        }
+    }
+
+    // 현재 떠 있는 슬라이더 확인
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            if (sliders[i].startX > maxX)
+                maxX = sliders[i].startX;
+
+            if (sliders[i].endX > maxX)
+                maxX = sliders[i].endX;
+
+            if (sliders[i].startY > maxY)
+                maxY = sliders[i].startY;
+
+            if (sliders[i].endY > maxY)
+                maxY = sliders[i].endY;
+        }
+    }
+
+    int requiredWidth = maxX + GIMMICK_OBJECT_PADDING;
+    int requiredHeight = maxY + GIMMICK_OBJECT_PADDING;
+
+    // 최소 창 크기 보장
+    if (requiredWidth < MIN_GIMMICK_CLIENT_WIDTH)
+        requiredWidth = MIN_GIMMICK_CLIENT_WIDTH;
+
+    if (requiredHeight < MIN_GIMMICK_CLIENT_HEIGHT)
+        requiredHeight = MIN_GIMMICK_CLIENT_HEIGHT;
+
+
+    // 기믹 중에는 너무 커지지 않도록 제한
+    if (requiredWidth > MAX_GIMMICK_CLIENT_WIDTH)
+        requiredWidth = MAX_GIMMICK_CLIENT_WIDTH;
+
+    if (requiredHeight > MAX_GIMMICK_CLIENT_HEIGHT)
+        requiredHeight = MAX_GIMMICK_CLIENT_HEIGHT;
+
+    outWidth = requiredWidth;
+    outHeight = requiredHeight;
+}
+
+void RhythmMiniGame::TriggerWindowGimmick(DWORD currentTime)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    int targetClientWidth = 0;
+    int targetClientHeight = 0;
+
+    CalculateGimmickClientSize(targetClientWidth, targetClientHeight);
+
+    // 원하는 클라이언트 크기를 실제 윈도우 전체 크기로 변환
+    RECT adjustedRect = { 0, 0, targetClientWidth, targetClientHeight };
+
+    DWORD windowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_STYLE);
+
+    DWORD exWindowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_EXSTYLE);
+
+    AdjustWindowRectEx(
+        &adjustedRect,
+        windowStyle,
+        FALSE,
+        exWindowStyle
+    );
+
+    int targetWindowWidth =
+        adjustedRect.right - adjustedRect.left;
+
+    int targetWindowHeight =
+        adjustedRect.bottom - adjustedRect.top;
+
+    // 화면 오른쪽 위로 갑자기 이동
+    int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
+
+    int targetX = desktopWidth - targetWindowWidth - 40;
+    int targetY = 40;
+
+    if (targetX < 0)
+        targetX = 0;
+
+    if (targetY < 0)
+        targetY = 0;
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        targetX,
+        targetY,
+        targetWindowWidth,
+        targetWindowHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    // 바뀐 실제 클라이언트 영역 크기 반영
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    screenWidth = clientRect.right - clientRect.left;
+    screenHeight = clientRect.bottom - clientRect.top;
+
+    // 기존 노트는 모두 제거
+    ClearAllNotes();
+
+    // 바뀐 창 크기 안에서 즉시 새 히트서클 생성
+    CreateImmediateHitCircle();
+
+    // 다음 자동 생성 시간이 꼬이지 않도록 기준 시간 갱신
+    lastHitCircleSpawnTime = currentTime;
+
+    windowGimmickStartTime = currentTime;
+    isWindowGimmickActive = true;
+
+    InvalidateRect(gameHwnd, NULL, FALSE);
+}
+
+void RhythmMiniGame::RestoreOriginalWindow()
+{
+    if (gameHwnd == NULL)
+        return;
+
+    int originalWindowWidth =
+        originalWindowRect.right - originalWindowRect.left;
+
+    int originalWindowHeight =
+        originalWindowRect.bottom - originalWindowRect.top;
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        originalWindowRect.left,
+        originalWindowRect.top,
+        originalWindowWidth,
+        originalWindowHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    screenWidth = clientRect.right - clientRect.left;
+    screenHeight = clientRect.bottom - clientRect.top;
+
+    // 작은 창 기믹 종료
+    isWindowGimmickActive = false;
+
+    // 기존 작은 창 노트 제거 후 큰 창 기준으로 새 노트 생성
+    ClearAllNotes();
+    CreateImmediateHitCircle();
+
+    lastHitCircleSpawnTime = GetTickCount();
+
+    InvalidateRect(gameHwnd, NULL, FALSE);
+}
+void RhythmMiniGame::ClearAllNotes()
+{
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        hitCircles[i].isActive = false;
+        hitCircles[i].isJudged = false;
+    }
+
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        sliders[i].isActive = false;
+        sliders[i].isStarted = false;
+        sliders[i].isFinished = false;
+        sliders[i].isFailed = false;
+        sliders[i].isTrackingSuccess = false;
+    }
+
+    hitCircleCount = 0;
+    sliderCount = 0;
+}
+
+void RhythmMiniGame::CreateImmediateHitCircle()
+{
+    int marginX;
+    int marginY;
+
+    if (isWindowGimmickActive == true)
+    {
+        marginX = 80;
+        marginY = 70;
+    }
+    else
+    {
+        marginX = 180;
+        marginY = 140;
+    }
+
+    int randomX =
+        marginX + rand() % (screenWidth - marginX * 2);
+
+    int randomY =
+        marginY + rand() % (screenHeight - marginY * 2);
+
+    CreateHitCircle(randomX, randomY);
 }

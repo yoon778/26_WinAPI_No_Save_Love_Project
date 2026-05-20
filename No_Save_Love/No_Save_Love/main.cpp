@@ -49,7 +49,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	switch (uMsg) {
 	case WM_CREATE:
 	{
-		minigame2.Init();
+		minigame2.Init(hWnd);
 		SetTimer(hWnd, 1, 16, NULL);
 		break;
 	}

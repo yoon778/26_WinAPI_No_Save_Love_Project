@@ -10,6 +10,19 @@
 #define MAX_CURSOR_TRAIL 80
 #define CURSOR_TRAIL_LIFETIME 450
 
+#define WINDOW_GIMMICK_TRIGGER_TIME 15000   // 게임 시작 15초 뒤 발동
+#define WINDOW_GIMMICK_DURATION 8000         // 8초 동안 유지
+
+#define MIN_GIMMICK_CLIENT_WIDTH 640
+#define MIN_GIMMICK_CLIENT_HEIGHT 360
+
+#define GIMMICK_OBJECT_PADDING 220
+#define MAX_GIMMICK_CLIENT_WIDTH 800
+#define MAX_GIMMICK_CLIENT_HEIGHT 450
+
+#define SMALL_WINDOW_HITCIRCLE_SCALE 0.75
+#define SMALL_WINDOW_SPAWN_INTERVAL 800
+
 struct CursorTrailPoint     // 마우스 커서 구조체
 {
     int x;
@@ -90,6 +103,7 @@ private:
     // =========================
     int screenWidth;
     int screenHeight;
+    CImage back;
 
     // =========================
     // 히트서클 이미지
@@ -141,6 +155,28 @@ private:
     HitCircle hitCircles[MAX_HIT_CIRCLES];
     Slider sliders[MAX_SLIDERS];
 
+    // =========================
+// 창 크기 변화 기믹
+// =========================
+    HWND gameHwnd;
+
+    DWORD gameStartTime;
+    DWORD windowGimmickStartTime;
+
+    bool hasWindowGimmickTriggered;
+    bool isWindowGimmickActive;
+
+    RECT originalWindowRect;
+
+    int originalClientWidth;
+    int originalClientHeight;
+
+    void UpdateWindowGimmick(DWORD currentTime);
+    void TriggerWindowGimmick(DWORD currentTime);
+    void RestoreOriginalWindow();
+
+    void CalculateGimmickClientSize(int& outWidth, int& outHeight);
+
     int hitCircleCount;     // 현재까지 사용 중인 히트서클 개수
     int sliderCount;        // 현재까지 사용 중인 슬라이더 개수
     int spawnedObjectCount;
@@ -151,10 +187,13 @@ private:
     void PremultiplyAlpha(CImage& image);   // 이미지 알파 처리 함수(이미지에 있는 빛번짐 같은거 제거)
     void CreateSlider(int startX, int startY, int endX, int endY);  // 슬라이더 생성 함수
 
+    void ClearAllNotes();
+    void CreateImmediateHitCircle();
+
 public:
     RhythmMiniGame();
 
-    void Init();
+    void Init(HWND hWnd);
     void Update();
     void Render(HDC hDC);
     void Release();
