@@ -20,16 +20,24 @@ void StoryScene::Initialize()
     story_background_image[0].Load(L"resource\\background\\hansea_student_council_room.png");
     story_background_image[1].Load(L"resource\\background\\yuharin_class_room.png");
     story_background_image[2].Load(L"resource\\background\\seoirin_library.png");
+    story_background_image[3].Load(L"resource\\background\\school_day.png");
+    story_background_image[4].Load(L"resource\\background\\library_day.png");
+    story_background_image[5].Load(L"resource\\background\\room.png");
+    story_background_image[6].Load(L"resource\\background\\choice.png");
 
     normal_back_ground.Load(L"resource\\background\\choicescene_background.png");
+    book_image.Load(L"resource\\background\\open_book.png");
 
     // =========================
     // 캐릭터 이미지는 GDI+ Image로 로드한다.
     // PNG 투명 알파 처리를 더 안정적으로 하기 위해 CImage 대신 사용한다.
     // =========================
     hansea.normal = new Gdiplus::Image(L"resource\\heroine\\hansea\\normal.png");
+    hansea.smile = new Gdiplus::Image(L"resource\\heroine\\hansea\\smile.png");
     seoirin.normal = new Gdiplus::Image(L"resource\\heroine\\seoirin\\normal.png");
+    seoirin.smile = new Gdiplus::Image(L"resource\\heroine\\seoirin\\smile.png");
     yuharin.normal = new Gdiplus::Image(L"resource\\heroine\\yuharin\\normal.png");
+    yuharin.smile = new Gdiplus::Image(L"resource\\heroine\\yuharin\\smile.png");
 
 
 
@@ -46,7 +54,7 @@ void StoryScene::Shutdown()
     dialogues.clear();
 
     // 배경 이미지는 기존 CImage 방식으로 해제한다.
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 7; i++)
     {
         if (!story_background_image[i].IsNull())
         {
@@ -61,16 +69,39 @@ void StoryScene::Shutdown()
         hansea.normal = nullptr;
     }
 
+    if (hansea.smile != nullptr)
+    {
+        delete hansea.smile;
+        hansea.smile = nullptr;
+    }
+
     if (yuharin.normal != nullptr)
     {
         delete yuharin.normal;
         yuharin.normal = nullptr;
     }
 
+    if (yuharin.smile != nullptr)
+    {
+        delete yuharin.smile;
+        yuharin.smile = nullptr;
+    }
+
     if (seoirin.normal != nullptr)
     {
         delete seoirin.normal;
         seoirin.normal = nullptr;
+    }
+
+    if (seoirin.smile != nullptr)
+    {
+        delete seoirin.smile;
+        seoirin.smile = nullptr;
+    }
+
+    if (!book_image.IsNull())
+    {
+        book_image.Destroy();
     }
 
     // GDI+를 종료한다.
@@ -318,6 +349,10 @@ void StoryScene::Render(HDC hDC)
         DrawCharacterImage(hDC, characterImage, characterX, characterY);
     }
 
+    if (!dialogues.empty() && dialogues[currentDialogueIndex].speaker == L"노트")
+    {
+        DrawBookImage(hDC);
+    }
 
     DrawFadeOverlay(hDC);
 
@@ -424,6 +459,23 @@ void StoryScene::Render(HDC hDC)
     //스킵 생성
     DrawSkipButton(hDC);
 
+}
+
+void StoryScene::DrawBookImage(HDC hDC)
+{
+    if (book_image.IsNull())
+    {
+        return;
+    }
+
+    // 대사창과 겹치지 않게 화면 중앙 위쪽에 배치한다.
+    int drawWidth = 760;
+    int drawHeight = 520;
+    int drawX = (1920 - drawWidth) / 2;
+    int drawY = 140;
+
+    // PNG 알파 채널을 그대로 살려서 검은 노트 이미지를 출력한다.
+    book_image.Draw(hDC, drawX, drawY, drawWidth, drawHeight);
 }
 
 void StoryScene::SetPlayerName(const std::wstring& playerName)
@@ -634,6 +686,22 @@ CImage* StoryScene::GetBackgroundImage(const std::wstring& backgroundKey)
     {
         return &story_background_image[2];
     }
+    else if (backgroundKey == L"school_day")
+    {
+        return &story_background_image[3];
+    }
+    else if (backgroundKey == L"library_day")
+    {
+        return &story_background_image[4];
+    }
+    else if (backgroundKey == L"room")
+    {
+        return &story_background_image[5];
+    }
+    else if (backgroundKey == L"school_hallway")
+    {
+        return &story_background_image[6];
+    }
 
     return nullptr;
 }
@@ -644,13 +712,25 @@ Gdiplus::Image* StoryScene::GetCharacterImage(const std::wstring& characterKey)
     {
         return hansea.normal;
     }
+    else if (characterKey == L"hansea_smile")
+    {
+        return hansea.smile;
+    }
     else if (characterKey == L"yuharin_normal")
     {
         return yuharin.normal;
     }
+    else if (characterKey == L"yuharin_smile")
+    {
+        return yuharin.smile;
+    }
     else if (characterKey == L"seoirin_normal")
     {
         return seoirin.normal;
+    }
+    else if (characterKey == L"seoirin_smile")
+    {
+        return seoirin.smile;
     }
 
     return nullptr;

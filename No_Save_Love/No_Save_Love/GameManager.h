@@ -105,12 +105,19 @@ private:
     // Choice 선택 결과가 중복 반영되는 것을 막기 위한 플래그
     bool m_choiceApplied = false;
 
+    // 최종 선택 전용 도입 StoryScene을 이미 보여줬는지 확인한다.
+    bool m_finalChoiceIntroShown = false;
+
     // 엔딩 종류를 계산한다.
     // 0 = Happy, 1 = Bad, 2 = Hidden
     int CalculateEndingType(int heroineIndex) const;
 
     // 가장 많이 선택된 히로인 번호를 저장한다.
     int finalHeroineIndex = 0;
+
+    // 최종 선택 도입 대사 번호다.
+    // 0 = 한세아, 1 = 유하린, 2 = 서이린, 3 = 새누
+    int finalChoiceIntroIndex = 0;
 
     // 기본 이름 값
     std::wstring playerName = L"윤서";

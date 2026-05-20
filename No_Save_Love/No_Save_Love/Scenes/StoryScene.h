@@ -68,6 +68,7 @@ public:
 
 
     CImage normal_back_ground;
+    CImage book_image;
 
     // 현재 배경 key에 맞는 배경 이미지를 반환한다. (복사 하지 않기 위해 포인터 사용)
     CImage* GetBackgroundImage(const std::wstring& backgroundKey);
@@ -94,6 +95,9 @@ private:
     // GDI+가 정상적으로 시작되었는지 확인하는 값이다.
     bool isGdiPlusStarted = false;
 
+    // 노트 대사일 때 검은 노트 이미지를 화면 중앙에 출력한다.
+    void DrawBookImage(HDC hDC);
+
     struct SpeakerStyle
     {
         COLORREF nameColor; // 이름 색상
@@ -107,6 +111,7 @@ private:
         // GDI+ 이미지 포인터이다.
         // PNG 알파 채널을 더 안정적으로 출력하기 위해 CImage 대신 GDI+ Image를 사용한다.
         Gdiplus::Image* normal = nullptr;
+        Gdiplus::Image* smile = nullptr;
     };
 
 
@@ -125,7 +130,7 @@ private:
     std::wstring GetCurrentDisplayText() const;
 
 private:
-    CImage story_background_image[3];
+    CImage story_background_image[7];
 
     heroine_image hansea;
     heroine_image seoirin;

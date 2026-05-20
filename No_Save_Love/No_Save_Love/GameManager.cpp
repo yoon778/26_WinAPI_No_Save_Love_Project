@@ -96,10 +96,16 @@ void GameManager::OnMouseClick(int x, int y)
                 minigam1_tutorial1.Initialize();
                 RequestSceneChange(game_mode_info::MiniGameTutor1);
             }
+            else if (!m_finalChoiceIntroShown)
+            {
+                // 마지막 선택 화면으로 가기 전에 노트가 마지막 이름을 보여주는 대사를 출력한다.
+                EnterFinalChoice();
+                storyScene.SetDialogues(storyData.GetFinalChoiceIntroStory(finalChoiceIntroIndex));
+                m_finalChoiceIntroShown = true;
+            }
             else
             {
                 //최종 선택으로
-                EnterFinalChoice();
                 RequestSceneChange(game_mode_info::FinalChoice);
             }
         }
@@ -402,6 +408,17 @@ void GameManager::EnterFinalChoice()
         characters[finalHeroineIndex].name
     );
 
+    // 스탯이 너무 낮으면 히로인 대신 새누 히든 엔딩으로 진입한다.
+    if (CalculateEndingType(finalHeroineIndex) == 2)
+    {
+        finalChoiceIntroIndex = 3;
+        finalChoiceScene.SetFinalHeroine(-1, L"새누");
+    }
+    else
+    {
+        finalChoiceIntroIndex = finalHeroineIndex;
+    }
+
     // FinalChoiceScene을 처음 상태로 준비한다.
     finalChoiceScene.Reset();
 
@@ -413,9 +430,16 @@ void GameManager::EnterEndingStory()
     // 스탯을 보고 해피 / 배드 / 히든 엔딩을 계산한다.
     int endingType = CalculateEndingType(finalHeroineIndex);
 
+    // 히든 엔딩은 새누 전용 대사로 고정한다.
+    int endingHeroineIndex = finalHeroineIndex;
+    if (endingType == 2)
+    {
+        endingHeroineIndex = 0;
+    }
+
     // StoryData에서 해당 히로인, 해당 엔딩 종류의 대사를 가져온다.
     const std::vector<DialogueLineInfo>& endingDialogues =
-        storyData.GetEndingStory(endingType, finalHeroineIndex);
+        storyData.GetEndingStory(endingType, endingHeroineIndex);
 
     // 엔딩 대사를 StoryScene에 넣는다.
     storyScene.SetDialogues(endingDialogues);
@@ -431,11 +455,14 @@ int GameManager::CalculateEndingType(int heroineIndex) const
     // 1 = Bad
     // 2 = Hidden
 
-    // 모든 스탯이 20 이하이면 히든 엔딩
-    if (player.money <= 20 &&
-        player.speech <= 20 &&
-        player.charm <= 20 &&
-        player.appearance <= 20)
+    // 전체 스탯이 낮으면 새누 히든 엔딩으로 들어간다.
+    int totalStat =
+        player.money +
+        player.speech +
+        player.charm +
+        player.appearance;
+
+    if (totalStat <= 80)
     {
         return 2;
     }

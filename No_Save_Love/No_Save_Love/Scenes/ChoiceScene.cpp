@@ -2,7 +2,7 @@
 
 void ChoiceScene::Initialize()
 {
-    choice_back_ground.Load(L"resource\\background\\choicescene_background.png");
+    choice_back_ground.Load(L"resource\\background\\choice.png");
     Reset();
 }
 
