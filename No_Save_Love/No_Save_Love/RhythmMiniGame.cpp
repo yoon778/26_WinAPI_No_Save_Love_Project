@@ -426,40 +426,28 @@ void RhythmMiniGame::Update()
 
             if (elapsedTime >= sliders[i].duration)
             {
+                // 다음 슬라이더를 만들기 전에 현재 슬라이더 정보를 먼저 저장
+                bool wasWindowFollowTarget = sliders[i].isWindowFollowTarget;
+
+                bool isSliderSuccess =
+                    sliders[i].isTrackingSuccess == true &&
+                    sliders[i].isFailed == false;
+
+                int endX = sliders[i].endX;
+                int endY = sliders[i].endY;
+
                 sliders[i].isFinished = true;
                 sliders[i].isActive = false;
                 sliderCount--;
 
-                judgeX = sliders[i].endX;
-                judgeY = sliders[i].endY;
+                judgeX = endX;
+                judgeY = endY;
                 judgeDisplayStartTime = currentTime;
 
-                if (sliders[i].isWindowFollowTarget == true)
-                {
-                    sliderFollowPatternStep++;
-
-                    // 다음 패턴이 남아 있다면 이어서 생성
-                    if (sliderFollowPatternStep < WINDOW_SLIDER_FOLLOW_PATTERN_COUNT)
-                    {
-                        // 다음 방향으로 바뀌기 전에 창을 랜덤 위치에 다시 생성
-                        MoveSliderFollowWindowToRandomPosition();
-                        CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
-                    }
-                    else
-                    {
-                        isSliderFollowWindowGimmickActive = false;
-
-                        // 일단 원래 창으로 돌아가서 기본 플레이 진행
-                        RestoreOriginalWindow(currentTime);
-
-                        // 두 번째 작은 창 기믹을 일정 시간 뒤 실행하도록 예약
-                        isSecondWindowGimmickWaiting = true;
-                        secondWindowGimmickReserveTime = currentTime;
-                    }
-                }
-
-                if (sliders[i].isTrackingSuccess == true &&
-                    sliders[i].isFailed == false)
+                // =========================
+                // 먼저 현재 슬라이더 판정
+                // =========================
+                if (isSliderSuccess == true)
                 {
                     lastJudge = JUDGE_PERFECT;
                     score += 300;
@@ -474,6 +462,29 @@ void RhythmMiniGame::Update()
                 }
 
                 lastHitCircleSpawnTime = currentTime;
+
+                // =========================
+                // 그 다음에 특수 슬라이더 기믹 진행
+                // =========================
+                if (wasWindowFollowTarget == true)
+                {
+                    sliderFollowPatternStep++;
+
+                    if (sliderFollowPatternStep < WINDOW_SLIDER_FOLLOW_PATTERN_COUNT)
+                    {
+                        MoveSliderFollowWindowToRandomPosition();
+                        CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
+                    }
+                    else
+                    {
+                        isSliderFollowWindowGimmickActive = false;
+
+                        RestoreOriginalWindow(currentTime);
+
+                        isSecondWindowGimmickWaiting = true;
+                        secondWindowGimmickReserveTime = currentTime;
+                    }
+                }
             }
         }
     }
