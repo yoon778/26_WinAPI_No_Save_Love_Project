@@ -912,6 +912,8 @@ void RhythmMiniGame::Render(HDC hDC)
         }
     }
 
+    RenderComboAnimation(hDC);
+
     // =========================
     // 커서 궤적 그리기
     // =========================
@@ -1020,7 +1022,7 @@ void RhythmMiniGame::Render(HDC hDC)
             graphics.Restore(state);
         }
 
-        RenderComboAnimation(hDC);
+        
     
 }
 
