@@ -35,6 +35,7 @@ void GameManager::Shutdown()
     // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
     titleScene.Shutdown();
+    endingScene.Shutdown();
     m_hWnd = nullptr;
 }
 
@@ -212,6 +213,7 @@ void GameManager::OnMouseClick(int x, int y)
         // 엔딩 대사가 모두 끝나면 THE END 화면으로 이동한다.
         if (storyScene.IsFinished())
         {
+            endingScene.SetEndingImage(CalculateEndingType(finalHeroineIndex), finalHeroineIndex);
             endingScene.Reset();
             RequestSceneChange(game_mode_info::Ending);
 
@@ -342,6 +344,7 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
     // 4회차를 모두 끝냈다면 엔딩으로 이동한다.
     if (currentStoryRound >= STORY_ROUND_COUNT)
     {
+        endingScene.SetEndingImage(CalculateEndingType(finalHeroineIndex), finalHeroineIndex);
         endingScene.Reset();
         RequestSceneChange(game_mode_info::Ending);
 

@@ -6,12 +6,35 @@ void EndingScene::Initialize(const std::vector<std::wstring>& credits)
     Reset();
 }
 
+void EndingScene::Shutdown()
+{
+    if (!endingImage.IsNull())
+    {
+        endingImage.Destroy();
+    }
+}
+
 void EndingScene::Reset()
 {
     scrollOffset = 0;
 
     int totalHeight = static_cast<int>(creditLines.size()) * lineSpacing;
     stopOffset = startY + totalHeight - 520;
+}
+
+void EndingScene::SetEndingImage(int endingType, int heroineIndex)
+{
+    if (!endingImage.IsNull())
+    {
+        endingImage.Destroy();
+    }
+
+    std::wstring imagePath = GetEndingImagePath(endingType, heroineIndex);
+
+    if (!imagePath.empty())
+    {
+        endingImage.Load(imagePath.c_str());
+    }
 }
 
 void EndingScene::Update()
@@ -29,10 +52,7 @@ void EndingScene::Update()
 
 void EndingScene::Render(HDC hDC)
 {
-    RECT backgroundRect = { 0, 0, 1920, 1080 };
-    HBRUSH backgroundBrush = CreateSolidBrush(RGB(8, 8, 14));
-    FillRect(hDC, &backgroundRect, backgroundBrush);
-    DeleteObject(backgroundBrush);
+    DrawBackground(hDC);
 
     SetBkMode(hDC, TRANSPARENT);
 
@@ -47,6 +67,80 @@ void EndingScene::Render(HDC hDC)
 
         DrawCreditLine(hDC, creditLines[i], y, i);
     }
+}
+
+std::wstring EndingScene::GetEndingImagePath(int endingType, int heroineIndex) const
+{
+    if (endingType == 2)
+    {
+        return L"resource\\endingscene\\hidden_end.png";
+    }
+
+    if (endingType == 0)
+    {
+        if (heroineIndex == 0)
+        {
+            return L"resource\\endingscene\\hansea_happyend.png";
+        }
+        else if (heroineIndex == 1)
+        {
+            return L"resource\\endingscene\\harin_happyend.png";
+        }
+        else if (heroineIndex == 2)
+        {
+            return L"resource\\endingscene\\seoirin_happyend.png";
+        }
+    }
+    else if (endingType == 1)
+    {
+        if (heroineIndex == 0)
+        {
+            return L"resource\\endingscene\\hansea_badend.png";
+        }
+        else if (heroineIndex == 1)
+        {
+            return L"resource\\endingscene\\harin_badend.png";
+        }
+        else if (heroineIndex == 2)
+        {
+            return L"resource\\endingscene\\seoirin_badend.png";
+        }
+    }
+
+    return L"";
+}
+
+void EndingScene::DrawBackground(HDC hDC)
+{
+    RECT backgroundRect = { 0, 0, 1920, 1080 };
+
+    if (!endingImage.IsNull())
+    {
+        endingImage.Draw(hDC, 0, 0, 1920, 1080);
+    }
+    else
+    {
+        HBRUSH backgroundBrush = CreateSolidBrush(RGB(8, 8, 14));
+        FillRect(hDC, &backgroundRect, backgroundBrush);
+        DeleteObject(backgroundBrush);
+    }
+
+    HBRUSH overlayBrush = CreateSolidBrush(RGB(0, 0, 0));
+    BLENDFUNCTION blend = {};
+    blend.BlendOp = AC_SRC_OVER;
+    blend.SourceConstantAlpha = 155;
+
+    HDC memoryDC = CreateCompatibleDC(hDC);
+    HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, 1920, 1080);
+    HBITMAP oldBitmap = static_cast<HBITMAP>(SelectObject(memoryDC, overlayBitmap));
+    FillRect(memoryDC, &backgroundRect, overlayBrush);
+
+    AlphaBlend(hDC, 0, 0, 1920, 1080, memoryDC, 0, 0, 1920, 1080, blend);
+
+    SelectObject(memoryDC, oldBitmap);
+    DeleteObject(overlayBitmap);
+    DeleteDC(memoryDC);
+    DeleteObject(overlayBrush);
 }
 
 void EndingScene::DrawCreditLine(HDC hDC, const std::wstring& text, int y, int index)
