@@ -405,8 +405,8 @@ void RhythmMiniGame::Update()
     }
 
     // =========================
-// 슬라이더 추적 판정
-// =========================
+    // 슬라이더 추적 판정
+    // =========================
     for (int i = 0; i < MAX_SLIDERS; i++)
     {
         if (sliders[i].isActive == true &&
@@ -1179,6 +1179,8 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
         hitCircles[i].isActive = false;
         hitCircles[i].isJudged = true;
         hitCircleCount--;
+        
+        AddCombo();
 
         judgeX = hitCircles[i].x;
         judgeY = hitCircles[i].y;
