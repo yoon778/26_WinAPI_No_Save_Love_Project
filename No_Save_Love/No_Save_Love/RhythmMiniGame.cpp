@@ -156,6 +156,9 @@ void RhythmMiniGame::Init(HWND hWnd)
 
     noteSpawnBlockUntilTime = 0;
 
+    isWindowJumpNotePending = false;
+    windowJumpNoteSpawnTime = 0;
+
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
@@ -216,11 +219,27 @@ void RhythmMiniGame::Update()
 {
     DWORD currentTime = GetTickCount();
 
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    if (elapsedBgmTime >= RHYTHM_GAME_DURATION)
+    {
+        if (isGameOver == false)
+        {
+            isGameOver = true;
+
+            StopBGM();
+            ClearAllNotes();
+        }
+
+        return;
+    }
+
     UpdateComboAnimation(currentTime);
 
     UpdateWindowGimmick(currentTime);
     UpdateWindowJumpGimmick(currentTime);
     UpdateSliderFollowWindowGimmick(currentTime);
+    UpdateWindowJumpDelayedNote(currentTime);
     // =========================
     // 두 번째 작은 창 기믹 예약 실행
     // =========================
@@ -1580,6 +1599,9 @@ void RhythmMiniGame::RestoreOriginalWindow(DWORD currentTime)
     ClearAllNotes();
     CreateImmediateHitCircle();
 
+    isWindowJumpNotePending = false;
+    windowJumpNoteSpawnTime = 0;
+
     currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
     noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
     lastHitCircleSpawnTime = currentTime;
@@ -1774,16 +1796,17 @@ void RhythmMiniGame::MoveWindowJumpStep(int step, DWORD currentTime)
     screenWidth = clientRect.right - clientRect.left;
     screenHeight = clientRect.bottom - clientRect.top;
 
-    // 이전 노트가 잘리지 않도록 전부 제거
     ClearAllNotes();
 
-    // 새 창 기준으로 즉시 히트서클 하나 생성
-    CreateImmediateHitCircle();
+    // 창이 바뀐 직후 바로 노드를 만들지 않고,
+    // 잠깐 뒤에 생성하도록 예약
+    isWindowJumpNotePending = true;
+    windowJumpNoteSpawnTime = currentTime + WINDOW_JUMP_NOTE_DELAY;
 
+    // 박자 기반 자동 생성도 잠깐 차단
     currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
-    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
+    noteSpawnBlockUntilTime = currentTime + WINDOW_JUMP_NOTE_DELAY + 300;
 
-    // 다음 자동 생성 시간 기준 초기화
     lastHitCircleSpawnTime = currentTime;
 
     InvalidateRect(gameHwnd, NULL, FALSE);
@@ -2292,6 +2315,14 @@ void RhythmMiniGame::StopBGM()
 
 void RhythmMiniGame::UpdateBeatSpawn(DWORD currentTime)
 {
+    // 2번째 창 점프 기믹 중에는
+    // 창 하나당 예약된 히트서클 1개만 생성되게 한다.
+    if (isWindowJumpGimmickActive == true)
+        return;
+
+    if (isGameOver == true)
+        return;
+
     if (currentTime < noteSpawnBlockUntilTime)
         return;
 
@@ -2492,4 +2523,23 @@ bool RhythmMiniGame::ShouldSkipNoteBeforeGimmick(DWORD currentTime, int beatInde
     }
 
     return false;
+}
+
+void RhythmMiniGame::UpdateWindowJumpDelayedNote(DWORD currentTime)
+{
+    if (isWindowJumpNotePending == false)
+        return;
+
+    if (currentTime < windowJumpNoteSpawnTime)
+        return;
+
+    isWindowJumpNotePending = false;
+
+    // 창 이동 후 새 창 기준으로 히트서클 생성
+    CreateImmediateHitCircle();
+
+    // 생성 직후 박자 기반 노트가 바로 또 나오지 않게 막기
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
+    lastHitCircleSpawnTime = currentTime;
 }

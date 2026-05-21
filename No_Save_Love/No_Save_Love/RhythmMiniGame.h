@@ -27,7 +27,7 @@
 #define SMALL_WINDOW_SPAWN_INTERVAL 800
 
 #define WINDOW_JUMP_GIMMICK_TRIGGER_TIME 35000
-#define WINDOW_JUMP_INTERVAL (BEAT_INTERVAL * 3)
+#define WINDOW_JUMP_INTERVAL (BEAT_INTERVAL * 4)
 #define WINDOW_JUMP_COUNT 5
 
 #define WINDOW_SLIDER_FOLLOW_TRIGGER_TIME 55000
@@ -69,6 +69,8 @@
 #define PRE_GIMMICK_NOTE_SKIP_TIME (NOTE_BEAT_STEP * BEAT_INTERVAL)
 
 #define WINDOW_JUMP_NOTE_DELAY 450
+
+#define RHYTHM_GAME_DURATION 88000
 
 enum ComboCharacterType
 {
@@ -291,7 +293,6 @@ private:
 
 
 
-
     void TriggerComboAnimation();
     void UpdateComboAnimation(DWORD currentTime);
     void RenderComboAnimation(HDC hDC);
@@ -337,6 +338,7 @@ private:
     void StopBGM();
     void UpdateBeatSpawn(DWORD currentTime);
     bool ShouldSkipNoteBeforeGimmick(DWORD currentTime, int beatIndex);
+    void UpdateWindowJumpDelayedNote(DWORD currentTime);
 
 public:
     RhythmMiniGame();
