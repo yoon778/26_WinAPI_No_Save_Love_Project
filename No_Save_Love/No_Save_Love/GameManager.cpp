@@ -35,6 +35,7 @@ void GameManager::Shutdown()
     // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
     titleScene.Shutdown();
+    choiceScene.Shutdown();
     endingScene.Shutdown();
     m_hWnd = nullptr;
 }
@@ -156,6 +157,8 @@ void GameManager::OnMouseClick(int x, int y)
 
         if (resultScene.IsFinished())
         {
+            // ChoiceScene은 화면 표시용으로 현재 플레이어 스탯만 전달받는다.
+            choiceScene.SetPlayerState(player);
             choiceScene.Reset();
 
             // Choice에 들어갈 때마다 중복 반영 방지 플래그를 초기화한다.
