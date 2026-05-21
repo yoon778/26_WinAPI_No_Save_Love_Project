@@ -222,7 +222,16 @@ private:
     float cursorRotationAngle;
     Gdiplus::Image* cursorRotateImg;
 
+    // =========================
+    // 콤보 시스템
+    // =========================
+    int combo;
+    DWORD comboEffectStartTime;
 
+
+
+    void AddCombo();
+    void ResetCombo();
 
     void UpdateSliderFollowWindowGimmick(DWORD currentTime);
     void TriggerSliderFollowWindowGimmick(DWORD currentTime);

@@ -123,6 +123,9 @@ void RhythmMiniGame::Init(HWND hWnd)
    
     spawnedObjectCount = 0;
 
+    combo = 0;
+    comboEffectStartTime = 0;
+
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
@@ -312,9 +315,12 @@ void RhythmMiniGame::Update()
                 hitCircles[i].isJudged = true;
                 hitCircleCount--;
 
+                AddCombo();
+
                 judgeX = hitCircles[i].x;
                 judgeY = hitCircles[i].y;
                 lastJudge = JUDGE_MISS;
+                ResetCombo();
                 judgeDisplayStartTime = currentTime;
             }
         }
@@ -336,6 +342,8 @@ void RhythmMiniGame::Update()
                 sliderCount--;
 
                 lastJudge = JUDGE_MISS;
+                ResetCombo();
+
                 judgeX = sliders[i].startX;
                 judgeY = sliders[i].startY;
                 judgeDisplayStartTime = currentTime;
@@ -473,10 +481,12 @@ void RhythmMiniGame::Update()
                 {
                     lastJudge = JUDGE_PERFECT;
                     score += 300;
+                    AddCombo();
                 }
                 else
                 {
                     lastJudge = JUDGE_MISS;
+                    ResetCombo();
                 }
 
                 lastHitCircleSpawnTime = currentTime;
@@ -487,14 +497,33 @@ void RhythmMiniGame::Update()
 
 void RhythmMiniGame::Render(HDC hDC)
 {
-    // 임시 화면 확인용 텍스트
-    const wchar_t* title = L"Rhythm MiniGame";
-    TextOut(hDC, 50, 50, title, lstrlen(title));
+
+    back.Draw(hDC, 0, 0, 1920, 1080);
+ 
+    // =========================
+    // 점수 / 콤보 출력
+    // =========================
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, RGB(255, 255, 255));
 
     wchar_t scoreText[100];
     wsprintf(scoreText, L"Score : %d", score);
-    TextOut(hDC, 50, 90, scoreText, lstrlen(scoreText));
-    back.Draw(hDC, 0, 0, 1920, 1080);
+    TextOut(hDC, 50, 50, scoreText, lstrlen(scoreText));
+
+    wchar_t comboText[100];
+
+    if (combo > 0)
+    {
+        wsprintf(comboText, L"%d COMBO", combo);
+    }
+    else
+    {
+        wsprintf(comboText, L"");
+    }
+
+    TextOut(hDC, 50, 90, comboText, lstrlen(comboText));
+
+    
     // =========================
     // 슬라이더 그리기
     // =========================
@@ -1167,6 +1196,8 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
                 sliders[i].slideStartTime = currentTime;
 
                 sliders[i].isTrackingSuccess = true;
+
+                AddCombo();
 
                 judgeX = sliders[i].startX;
                 judgeY = sliders[i].startY;
@@ -2103,4 +2134,16 @@ void RhythmMiniGame::AddCursorTrailPoint(int x, int y, DWORD createTime)
     {
         cursorTrailIndex = 0;
     }
+}
+
+void RhythmMiniGame::AddCombo()
+{
+    combo++;
+    comboEffectStartTime = GetTickCount();
+}
+
+void RhythmMiniGame::ResetCombo()
+{
+    combo = 0;
+    comboEffectStartTime = GetTickCount();
 }
