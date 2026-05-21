@@ -23,6 +23,7 @@ void GameManager::Initialize(HWND hWnd)
     choiceScene.Initialize();
     resultScene.Reset();
     titleScene.Initialize();
+    endingScene.Initialize(storyData.GetEndingCredits());
 
     // 처음 시작 모드는 대사 모드다.
     RequestSceneChange(game_mode_info::Title);
@@ -211,6 +212,7 @@ void GameManager::OnMouseClick(int x, int y)
         // 엔딩 대사가 모두 끝나면 THE END 화면으로 이동한다.
         if (storyScene.IsFinished())
         {
+            endingScene.Reset();
             RequestSceneChange(game_mode_info::Ending);
 
         }
@@ -322,19 +324,7 @@ void GameManager::Render(HDC hDC)
 
     case game_mode_info::Ending:
     {
-        SetBkMode(hDC, TRANSPARENT);
-        SetTextColor(hDC, RGB(30, 30, 30));
-
-        RECT endingRect = { 0, 0, 1920, 1080 };
-
-        DrawTextW(
-            hDC,
-            L"THE END\n\n최종 결과 화면입니다.\n\n[처음으로 돌아가기]\n[종료하기]",
-            -1,
-            &endingRect,
-            DT_CENTER | DT_VCENTER | DT_WORDBREAK
-        );
-
+        endingScene.Render(hDC);
         break;
     }
     }
@@ -352,6 +342,7 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
     // 4회차를 모두 끝냈다면 엔딩으로 이동한다.
     if (currentStoryRound >= STORY_ROUND_COUNT)
     {
+        endingScene.Reset();
         RequestSceneChange(game_mode_info::Ending);
 
         return true;
@@ -585,6 +576,9 @@ void GameManager::OnTimer(HWND hWnd)
                 EnterResult(currentMiniGameIndex, convertedScore);
                 currentMiniGameIndex++;
             }
+            break;
+        case game_mode_info::Ending:
+            endingScene.Update();
             break;
         default:
             break;

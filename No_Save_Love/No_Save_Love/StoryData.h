@@ -18,6 +18,9 @@ public:
     //엔딩 스토리 반환
     const std::vector<DialogueLineInfo>& GetEndingStory(int endingType, int heroineIndex) const;
 
+    // 엔딩 크레딧을 반환한다.
+    const std::vector<std::wstring>& GetEndingCredits() const;
+
     // 최종 선택 화면 전에 보여줄 대사를 반환한다.
     const std::vector<DialogueLineInfo>& GetFinalChoiceIntroStory(int finalChoiceIndex) const;
 
@@ -31,6 +34,9 @@ private:
     // [엔딩종류][히로인번호]
     // 0 = Happy, 1 = Bad, 2 = Hidden
     std::vector<DialogueLineInfo> endingStories[ENDING_TYPE_COUNT][HEROINE_COUNT];
+
+    // 엔딩 화면에서 천천히 올라갈 크레딧 목록이다.
+    std::vector<std::wstring> endingCredits;
 
     // 인트로 대사 묶음이다.
     std::vector<DialogueLineInfo> introStory;

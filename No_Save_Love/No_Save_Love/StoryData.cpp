@@ -1117,9 +1117,7 @@ void StoryData::Initialize()
         { L"{PLAYER}", L"그런 규칙 들은 적 없는데.", L"school_day", L"" },
         { L"새누", L"히든 루트는 원래 설명 안 해줘.", L"school_day", L"" },
         { L"", L"칠판 위에 붉은 글씨가 떠올랐다.", L"school_day", L"" },
-        { L"칠판", L"GAME OVER?
-NO.
-NEW ROUTE.", L"school_day", L"" },
+        { L"칠판", L"GAME OVER?\nNO.\nNEW ROUTE.", L"school_day", L"" },
         { L"새누", L"축하해, 최윤서.", L"school_day", L"" },
         { L"새누", L"히로인 셋을 전부 놓친 대신……", L"school_day", L"" },
         { L"새누", L"이제 내 루트야.", L"school_day", L"" },
@@ -1156,9 +1154,7 @@ NEW ROUTE.", L"school_day", L"" },
         { L"{PLAYER}", L"그런 규칙 들은 적 없는데.", L"school_day", L"" },
         { L"새누", L"히든 루트는 원래 설명 안 해줘.", L"school_day", L"" },
         { L"", L"칠판 위에 붉은 글씨가 떠올랐다.", L"school_day", L"" },
-        { L"칠판", L"GAME OVER?
-NO.
-NEW ROUTE.", L"school_day", L"" },
+        { L"칠판", L"GAME OVER?\nNO.\nNEW ROUTE.", L"school_day", L"" },
         { L"새누", L"축하해, 최윤서.", L"school_day", L"" },
         { L"새누", L"히로인 셋을 전부 놓친 대신……", L"school_day", L"" },
         { L"새누", L"이제 내 루트야.", L"school_day", L"" },
@@ -1195,9 +1191,7 @@ NEW ROUTE.", L"school_day", L"" },
         { L"{PLAYER}", L"그런 규칙 들은 적 없는데.", L"school_day", L"" },
         { L"새누", L"히든 루트는 원래 설명 안 해줘.", L"school_day", L"" },
         { L"", L"칠판 위에 붉은 글씨가 떠올랐다.", L"school_day", L"" },
-        { L"칠판", L"GAME OVER?
-NO.
-NEW ROUTE.", L"school_day", L"" },
+        { L"칠판", L"GAME OVER?\nNO.\nNEW ROUTE.", L"school_day", L"" },
         { L"새누", L"축하해, 최윤서.", L"school_day", L"" },
         { L"새누", L"히로인 셋을 전부 놓친 대신……", L"school_day", L"" },
         { L"새누", L"이제 내 루트야.", L"school_day", L"" },
@@ -1208,6 +1202,35 @@ NEW ROUTE.", L"school_day", L"" },
         { L"엔딩 CG", L"검은 교실. 새누가 책상 위에 앉아 검은 노트를 들고 웃고 있다. 칠판에는 “NEW ROUTE”라는 붉은 글씨가 떠 있다.", L"school_day", L"" }
     };
 
+    endingCredits =
+    {
+        L"고백은 세이브 로드가 없다",
+        L"",
+        L"NO SAVE LOVE",
+        L"",
+        L"기획",
+        L"26_WinAPI_No_Save_Love_Project",
+        L"",
+        L"시나리오",
+        L"StoryData",
+        L"",
+        L"프로그래밍",
+        L"WinAPI Project Team",
+        L"",
+        L"캐릭터",
+        L"한세아",
+        L"유하린",
+        L"서이린",
+        L"새누",
+        L"",
+        L"미니게임",
+        L"라면 만들기",
+        L"PC방 아르바이트",
+        L"",
+        L"플레이해주셔서 감사합니다",
+        L"",
+        L"THE END"
+    };
 
 }
 
@@ -1257,4 +1280,9 @@ const std::vector<DialogueLineInfo>& StoryData::GetEndingStory(int endingType, i
     }
 
     return endingStories[endingType][heroineIndex];
+}
+
+const std::vector<std::wstring>& StoryData::GetEndingCredits() const
+{
+    return endingCredits;
 }

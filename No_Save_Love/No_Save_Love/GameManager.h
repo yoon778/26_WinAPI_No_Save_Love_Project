@@ -72,6 +72,7 @@ private:
     ChoiceScene choiceScene;
     StoryData storyData;
     FinalChoiceScene finalChoiceScene;
+    EndingScene endingScene;
 
     MiniGame1TutorialScene minigam1_tutorial1;
 
