@@ -154,6 +154,8 @@ void RhythmMiniGame::Init(HWND hWnd)
     combo = 0;
     comboEffectStartTime = 0;
 
+    noteSpawnBlockUntilTime = 0;
+
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
@@ -204,12 +206,18 @@ void RhythmMiniGame::Init(HWND hWnd)
     lastHitCircleSpawnTime = GetTickCount();
     hitCircleSpawnInterval = 1200;
 
+    PlayBGM();
+
+    bgmStartTime = GetTickCount();
+    currentBeatIndex = 0;
 }
 
 void RhythmMiniGame::Update()
 {
     DWORD currentTime = GetTickCount();
+
     UpdateComboAnimation(currentTime);
+
     UpdateWindowGimmick(currentTime);
     UpdateWindowJumpGimmick(currentTime);
     UpdateSliderFollowWindowGimmick(currentTime);
@@ -218,14 +226,17 @@ void RhythmMiniGame::Update()
     // =========================
     if (isSecondWindowGimmickWaiting == true)
     {
-        if (currentTime - secondWindowGimmickReserveTime >= SECOND_WINDOW_GIMMICK_DELAY)
+        if (currentTime - secondWindowGimmickReserveTime >=
+            SECOND_WINDOW_GIMMICK_DELAY_BEAT * BEAT_INTERVAL)
         {
             isSecondWindowGimmickWaiting = false;
 
-            // 다른 위치에서 작은 창 기믹 2차 실행
             TriggerWindowGimmick(currentTime, true);
         }
     }
+
+    // 창 기믹 처리가 전부 끝난 뒤에 박자 기반 노트 생성
+    UpdateBeatSpawn(currentTime);
 
     bool hasActiveSlider = false;
 
@@ -253,84 +264,7 @@ void RhythmMiniGame::Update()
         ? SMALL_WINDOW_SPAWN_INTERVAL
         : hitCircleSpawnInterval;
 
-    if (hasActiveSlider == false &&
-        currentTime - lastHitCircleSpawnTime >= currentSpawnInterval)
-    {
-        // =========================
-        // 작은 창 기믹 중
-        // 히트서클만 생성
-        // =========================
-        if (isWindowGimmickActive == true)
-        {
-            int marginX = 80;
-            int marginY = 70;
 
-            int randomX =
-                marginX + rand() % (screenWidth - marginX * 2);
-
-            int randomY =
-                marginY + rand() % (screenHeight - marginY * 2);
-
-            CreateHitCircle(randomX, randomY);
-        }
-
-        // =========================
-        // 평상시
-        // 히트서클 / 슬라이더 섞어서 생성
-        // =========================
-        else
-        {
-            spawnedObjectCount++;
-
-            int marginX = 300;
-            int marginY = 220;
-
-            if (spawnedObjectCount % 4 == 0)
-            {
-                int startX =
-                    marginX + rand() % (screenWidth - marginX * 2);
-
-                int startY =
-                    marginY + rand() % (screenHeight - marginY * 2);
-
-                int endX = startX;
-                int endY = startY;
-
-                while (true)
-                {
-                    endX =
-                        marginX + rand() % (screenWidth - marginX * 2);
-
-                    endY =
-                        marginY + rand() % (screenHeight - marginY * 2);
-
-                    int dx = endX - startX;
-                    int dy = endY - startY;
-
-                    int distanceSquared = dx * dx + dy * dy;
-
-                    if (distanceSquared >= 350 * 350)
-                    {
-                        break;
-                    }
-                }
-
-                CreateSlider(startX, startY, endX, endY);
-            }
-            else
-            {
-                int randomX =
-                    marginX + rand() % (screenWidth - marginX * 2);
-
-                int randomY =
-                    marginY + rand() % (screenHeight - marginY * 2);
-
-                CreateHitCircle(randomX, randomY);
-            }
-        }
-
-        lastHitCircleSpawnTime = currentTime;
-    }
 
 
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
@@ -343,9 +277,6 @@ void RhythmMiniGame::Update()
                 hitCircles[i].isActive = false;
                 hitCircles[i].isJudged = true;
                 hitCircleCount--;
-
-                AddCombo();
-                PlayHitSound();
 
                 judgeX = hitCircles[i].x;
                 judgeY = hitCircles[i].y;
@@ -1097,6 +1028,8 @@ void RhythmMiniGame::Release()
         if (!combo30Frames[i].IsNull())
             combo30Frames[i].Destroy();
     }
+
+    StopBGM();
 }
 
 void RhythmMiniGame::OnMouseDown(int x, int y)
@@ -1440,16 +1373,17 @@ void RhythmMiniGame::CreateSlider(
 
 void RhythmMiniGame::UpdateWindowGimmick(DWORD currentTime)
 {
-    DWORD elapsedGameTime = currentTime - gameStartTime;
+    int beatIndex =
+        (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
 
-    // 15초 뒤 한 번 발동
     if (hasWindowGimmickTriggered == false &&
         isWindowJumpGimmickActive == false &&
-        elapsedGameTime >= WINDOW_GIMMICK_TRIGGER_TIME)
+        beatIndex >= WINDOW_GIMMICK_TRIGGER_BEAT)
     {
         TriggerWindowGimmick(currentTime);
         hasWindowGimmickTriggered = true;
     }
+
 
     // 유지 시간이 끝나면 원래 창으로 복귀
     if (isWindowGimmickActive == true &&
@@ -1599,6 +1533,10 @@ void RhythmMiniGame::TriggerWindowGimmick(DWORD currentTime, bool isSecondRun)
     // 바뀐 창 크기 안에서 즉시 새 히트서클 생성
     CreateImmediateHitCircle();
 
+    // 창 변화 직후 박자 기반 생성이 바로 겹치지 않게 막기
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
+
     // 다음 자동 생성 시간이 꼬이지 않도록 기준 시간 갱신
     lastHitCircleSpawnTime = currentTime;
 
@@ -1642,6 +1580,8 @@ void RhythmMiniGame::RestoreOriginalWindow(DWORD currentTime)
     ClearAllNotes();
     CreateImmediateHitCircle();
 
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
     lastHitCircleSpawnTime = currentTime;
 
     InvalidateRect(gameHwnd, NULL, FALSE);
@@ -1840,6 +1780,9 @@ void RhythmMiniGame::MoveWindowJumpStep(int step, DWORD currentTime)
     // 새 창 기준으로 즉시 히트서클 하나 생성
     CreateImmediateHitCircle();
 
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
+
     // 다음 자동 생성 시간 기준 초기화
     lastHitCircleSpawnTime = currentTime;
 
@@ -1848,12 +1791,13 @@ void RhythmMiniGame::MoveWindowJumpStep(int step, DWORD currentTime)
 
 void RhythmMiniGame::UpdateSliderFollowWindowGimmick(DWORD currentTime)
 {
-    DWORD elapsedGameTime = currentTime - gameStartTime;
+    int beatIndex =
+        (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
 
     if (hasSliderFollowWindowGimmickTriggered == false &&
         isWindowGimmickActive == false &&
         isWindowJumpGimmickActive == false &&
-        elapsedGameTime >= WINDOW_SLIDER_FOLLOW_TRIGGER_TIME)
+        beatIndex >= WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT)
     {
         TriggerSliderFollowWindowGimmick(currentTime);
         hasSliderFollowWindowGimmickTriggered = true;
@@ -2309,4 +2253,243 @@ void RhythmMiniGame::PlayMissSound()
         NULL,
         SND_FILENAME | SND_ASYNC | SND_NODEFAULT
     );
+}
+
+void RhythmMiniGame::PlayBGM()
+{
+    mciSendString(L"close rhythmBGM", NULL, 0, NULL);
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\bgm.mp3\" type mpegvideo alias rhythmBGM",
+        NULL,
+        0,
+        NULL
+    );
+
+    wchar_t volumeCommand[100];
+    wsprintf(volumeCommand, L"setaudio rhythmBGM volume to %d", BGM_VOLUME);
+
+    mciSendString(
+        volumeCommand,
+        NULL,
+        0,
+        NULL
+    );
+
+    mciSendString(
+        L"play rhythmBGM",
+        NULL,
+        0,
+        NULL
+    );
+}
+
+void RhythmMiniGame::StopBGM()
+{
+    mciSendString(L"stop rhythmBGM", NULL, 0, NULL);
+    mciSendString(L"close rhythmBGM", NULL, 0, NULL);
+}
+
+void RhythmMiniGame::UpdateBeatSpawn(DWORD currentTime)
+{
+    if (currentTime < noteSpawnBlockUntilTime)
+        return;
+
+    // 슬라이더 창 이동 기믹 중에는 전용 슬라이더만 사용
+    if (isSliderFollowWindowGimmickActive == true)
+        return;
+
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    int beatIndex =
+        (int)(elapsedBgmTime / BEAT_INTERVAL);
+
+    // 아직 새 박자가 아님
+    if (beatIndex <= currentBeatIndex)
+        return;
+
+    // 현재 박자까지 처리한 것으로 기록
+    currentBeatIndex = beatIndex;
+
+    // 슬라이더가 진행 중이면 새 노트 생성하지 않음
+    bool hasActiveSlider = false;
+
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            hasActiveSlider = true;
+            break;
+        }
+    }
+
+    if (hasActiveSlider == true)
+        return;
+
+    // 2박자마다 노트 생성
+    if (beatIndex % NOTE_BEAT_STEP != 0)
+        return;
+
+    // 기믹 발동 직전에는 노드를 하나 덜 생성
+    if (ShouldSkipNoteBeforeGimmick(currentTime, beatIndex) == true)
+        return;
+
+    // =========================
+    // 작은 창 기믹 중
+    // 히트서클만 생성
+    // =========================
+    if (isWindowGimmickActive == true)
+    {
+        int marginX = 80;
+        int marginY = 70;
+
+        int randomX =
+            marginX + rand() % (screenWidth - marginX * 2);
+
+        int randomY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        CreateHitCircle(randomX, randomY);
+        return;
+    }
+
+    // =========================
+    // 일반 상태
+    // 히트서클 / 슬라이더 섞어서 생성
+    // =========================
+    spawnedObjectCount++;
+
+    int marginX = 300;
+    int marginY = 220;
+
+    // 4번째 노트마다 슬라이더
+    if (spawnedObjectCount % 4 == 0)
+    {
+        int startX =
+            marginX + rand() % (screenWidth - marginX * 2);
+
+        int startY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        int endX = startX;
+        int endY = startY;
+
+        int tryCount = 0;
+
+        while (true)
+        {
+            endX =
+                marginX + rand() % (screenWidth - marginX * 2);
+
+            endY =
+                marginY + rand() % (screenHeight - marginY * 2);
+
+            int dx = endX - startX;
+            int dy = endY - startY;
+
+            int distanceSquared = dx * dx + dy * dy;
+
+            if (distanceSquared >= 350 * 350)
+            {
+                break;
+            }
+
+            tryCount++;
+
+            if (tryCount > 30)
+            {
+                CreateHitCircle(startX, startY);
+                return;
+            }
+        }
+
+        CreateSlider(startX, startY, endX, endY);
+    }
+    else
+    {
+        int randomX =
+            marginX + rand() % (screenWidth - marginX * 2);
+
+        int randomY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        CreateHitCircle(randomX, randomY);
+    }
+}
+
+bool RhythmMiniGame::ShouldSkipNoteBeforeGimmick(DWORD currentTime, int beatIndex)
+{
+    // =========================
+    // 1번 작은 창 기믹 직전
+    // =========================
+    if (hasWindowGimmickTriggered == false)
+    {
+        int remainBeat =
+            WINDOW_GIMMICK_TRIGGER_BEAT - beatIndex;
+
+        if (remainBeat > 0 &&
+            remainBeat <= NOTE_BEAT_STEP)
+        {
+            return true;
+        }
+    }
+
+    // =========================
+    // 연속 창 점프 기믹 직전
+    // 현재 코드가 시간 기준이라 시간으로 검사
+    // =========================
+    if (hasWindowJumpGimmickTriggered == false)
+    {
+        DWORD elapsedGameTime =
+            currentTime - gameStartTime;
+
+        if (elapsedGameTime < WINDOW_JUMP_GIMMICK_TRIGGER_TIME)
+        {
+            DWORD remainTime =
+                WINDOW_JUMP_GIMMICK_TRIGGER_TIME - elapsedGameTime;
+
+            if (remainTime <= PRE_GIMMICK_NOTE_SKIP_TIME)
+            {
+                return true;
+            }
+        }
+    }
+
+    // =========================
+    // 슬라이더 창 이동 기믹 직전
+    // =========================
+    if (hasSliderFollowWindowGimmickTriggered == false)
+    {
+        int remainBeat =
+            WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT - beatIndex;
+
+        if (remainBeat > 0 &&
+            remainBeat <= NOTE_BEAT_STEP)
+        {
+            return true;
+        }
+    }
+
+    // =========================
+    // 두 번째 작은 창 기믹 예약 실행 직전
+    // =========================
+    if (isSecondWindowGimmickWaiting == true)
+    {
+        DWORD secondTriggerTime =
+            secondWindowGimmickReserveTime +
+            SECOND_WINDOW_GIMMICK_DELAY_BEAT * BEAT_INTERVAL;
+
+        if (currentTime < secondTriggerTime)
+        {
+            DWORD remainTime =
+                secondTriggerTime - currentTime;
+
+            if (remainTime <= PRE_GIMMICK_NOTE_SKIP_TIME)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }

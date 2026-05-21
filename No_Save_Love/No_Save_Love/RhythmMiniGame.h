@@ -10,7 +10,6 @@
 #define MAX_HIT_CIRCLES 30
 #define MAX_SLIDERS 10
 
-
 #define MAX_CURSOR_TRAIL 80
 #define CURSOR_TRAIL_LIFETIME 450
 
@@ -28,7 +27,7 @@
 #define SMALL_WINDOW_SPAWN_INTERVAL 800
 
 #define WINDOW_JUMP_GIMMICK_TRIGGER_TIME 35000
-#define WINDOW_JUMP_INTERVAL 1200
+#define WINDOW_JUMP_INTERVAL (BEAT_INTERVAL * 3)
 #define WINDOW_JUMP_COUNT 5
 
 #define WINDOW_SLIDER_FOLLOW_TRIGGER_TIME 55000
@@ -47,6 +46,29 @@
 #define COMBO_ANIMATION_FRAME_COUNT 6
 #define COMBO_ANIMATION_FRAME_INTERVAL 180
 #define COMBO_ANIMATION_DURATION 3000
+
+#define BGM_BPM 131
+#define BEAT_INTERVAL 458
+
+#define BGM_VOLUME 250
+
+#define BGM_BPM 131
+#define BEAT_INTERVAL 458
+
+#define NOTE_BEAT_STEP 2
+
+#define WINDOW_NOTE_SPAWN_BLOCK_TIME 700
+
+#define BEAT_INTERVAL 458
+
+#define WINDOW_GIMMICK_TRIGGER_BEAT 32          // 32박자  ≈ 14.6초  → 작은 창 기믹
+#define WINDOW_JUMP_GIMMICK_TRIGGER_BEAT 76     // 76박자  ≈ 34.8초  → 연속 창 점프 기믹
+#define WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT 120   // 120박자 ≈ 54.9초  → 슬라이더 창 이동 기믹
+
+#define SECOND_WINDOW_GIMMICK_DELAY_BEAT 16
+#define PRE_GIMMICK_NOTE_SKIP_TIME (NOTE_BEAT_STEP * BEAT_INTERVAL)
+
+#define WINDOW_JUMP_NOTE_DELAY 450
 
 enum ComboCharacterType
 {
@@ -199,6 +221,13 @@ private:
     Slider sliders[MAX_SLIDERS];
 
     // =========================
+    // BGM / 박자 기반 생성
+    // =========================
+    DWORD bgmStartTime;
+    int currentBeatIndex;
+    DWORD noteSpawnBlockUntilTime;
+
+    // =========================
     // 창 크기 변화 기믹
     // =========================
     HWND gameHwnd;
@@ -254,6 +283,12 @@ private:
     DWORD comboAnimationStartTime;
     int comboAnimationFrameIndex;
 
+    // =========================
+    // 2번째 창 점프 기믹 노트 지연 생성
+    // =========================
+    bool isWindowJumpNotePending;
+    DWORD windowJumpNoteSpawnTime;
+
 
 
 
@@ -297,6 +332,12 @@ private:
 
     void PlayHitSound();
     void PlayMissSound();
+
+    void PlayBGM();
+    void StopBGM();
+    void UpdateBeatSpawn(DWORD currentTime);
+    bool ShouldSkipNoteBeforeGimmick(DWORD currentTime, int beatIndex);
+
 public:
     RhythmMiniGame();
 
