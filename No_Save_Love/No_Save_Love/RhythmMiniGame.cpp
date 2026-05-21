@@ -73,6 +73,29 @@ void RhythmMiniGame::Init(HWND hWnd)
     cursorRotationAngle = 0.0f;
     back.Load(L"resource\\minigame2\\back.png");
 
+    wchar_t path[256];
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(path, L"resource\\minigame2\\combo\\combo10\\frame%d.png", i + 1);
+        combo10Frames[i].Load(path);
+        PremultiplyAlpha(combo10Frames[i]);
+    }
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(path, L"resource\\minigame2\\combo\\combo20\\frame%d.png", i + 1);
+        combo20Frames[i].Load(path);
+        PremultiplyAlpha(combo20Frames[i]);
+    }
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(path, L"resource\\minigame2\\combo\\combo30\\frame%d.png", i + 1);
+        combo30Frames[i].Load(path);
+        PremultiplyAlpha(combo30Frames[i]);
+    }
+
     PremultiplyAlpha(cursorImg);
     PremultiplyAlpha(cursorTrailImg);
 
@@ -110,6 +133,11 @@ void RhythmMiniGame::Init(HWND hWnd)
 
     score = 0;
     isGameOver = false;
+
+    isComboAnimationActive = false;
+    currentComboCharacterType = COMBO_CHARACTER_NONE;
+    comboAnimationStartTime = 0;
+    comboAnimationFrameIndex = 0;
 
     judgeX = 0;
     judgeY = 0;
@@ -181,6 +209,7 @@ void RhythmMiniGame::Init(HWND hWnd)
 void RhythmMiniGame::Update()
 {
     DWORD currentTime = GetTickCount();
+    UpdateComboAnimation(currentTime);
     UpdateWindowGimmick(currentTime);
     UpdateWindowJumpGimmick(currentTime);
     UpdateSliderFollowWindowGimmick(currentTime);
@@ -707,6 +736,7 @@ void RhythmMiniGame::Render(HDC hDC)
                 ballHeight
             );
         }
+
     }
 
     DWORD currentTime = GetTickCount();
@@ -954,8 +984,8 @@ void RhythmMiniGame::Render(HDC hDC)
             graphics.Restore(state);
         }
         // =========================
-// 회전하는 커서 본체
-// =========================
+        // 회전하는 커서 본체
+        // =========================
         if (cursorRotateImg != nullptr &&
             cursorRotateImg->GetLastStatus() == Gdiplus::Ok)
         {
@@ -989,6 +1019,8 @@ void RhythmMiniGame::Render(HDC hDC)
 
             graphics.Restore(state);
         }
+
+        RenderComboAnimation(hDC);
     
 }
 
@@ -1045,6 +1077,18 @@ void RhythmMiniGame::Release()
     {
         delete cursorRotateImg;
         cursorRotateImg = nullptr;
+    }
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        if (!combo10Frames[i].IsNull())
+            combo10Frames[i].Destroy();
+
+        if (!combo20Frames[i].IsNull())
+            combo20Frames[i].Destroy();
+
+        if (!combo30Frames[i].IsNull())
+            combo30Frames[i].Destroy();
     }
 }
 
@@ -2139,11 +2183,101 @@ void RhythmMiniGame::AddCursorTrailPoint(int x, int y, DWORD createTime)
 void RhythmMiniGame::AddCombo()
 {
     combo++;
-    comboEffectStartTime = GetTickCount();
+
+    // 10콤보마다 애니메이션 실행
+    if (combo % 10 == 0)
+    {
+        TriggerComboAnimation();
+    }
 }
 
 void RhythmMiniGame::ResetCombo()
 {
     combo = 0;
     comboEffectStartTime = GetTickCount();
+}
+
+void RhythmMiniGame::TriggerComboAnimation()
+{
+    int comboPattern = combo % 30;
+
+    if (comboPattern == 10)
+    {
+        currentComboCharacterType = COMBO_CHARACTER_10;
+    }
+    else if (comboPattern == 20)
+    {
+        currentComboCharacterType = COMBO_CHARACTER_20;
+    }
+    else
+    {
+        currentComboCharacterType = COMBO_CHARACTER_30;
+    }
+
+    isComboAnimationActive = true;
+    comboAnimationStartTime = GetTickCount();
+    comboAnimationFrameIndex = 0;
+}
+
+void RhythmMiniGame::UpdateComboAnimation(DWORD currentTime)
+{
+    if (isComboAnimationActive == false)
+        return;
+
+    DWORD elapsedTime = currentTime - comboAnimationStartTime;
+
+    if (elapsedTime >= COMBO_ANIMATION_DURATION)
+    {
+        isComboAnimationActive = false;
+        currentComboCharacterType = COMBO_CHARACTER_NONE;
+        comboAnimationFrameIndex = 0;
+        return;
+    }
+
+    comboAnimationFrameIndex =
+        (elapsedTime / COMBO_ANIMATION_FRAME_INTERVAL) %
+        COMBO_ANIMATION_FRAME_COUNT;
+}
+
+void RhythmMiniGame::RenderComboAnimation(HDC hDC)
+{
+    if (isComboAnimationActive == false)
+        return;
+
+    CImage* currentFrame = nullptr;
+
+    if (currentComboCharacterType == COMBO_CHARACTER_10)
+    {
+        currentFrame = &combo10Frames[comboAnimationFrameIndex];
+    }
+    else if (currentComboCharacterType == COMBO_CHARACTER_20)
+    {
+        currentFrame = &combo20Frames[comboAnimationFrameIndex];
+    }
+    else if (currentComboCharacterType == COMBO_CHARACTER_30)
+    {
+        currentFrame = &combo30Frames[comboAnimationFrameIndex];
+    }
+
+    if (currentFrame == nullptr || currentFrame->IsNull())
+        return;
+
+    int drawSize = screenHeight / 3;
+
+    if (drawSize > 320)
+        drawSize = 320;
+
+    if (drawSize < 180)
+        drawSize = 180;
+
+    int drawX = screenWidth - drawSize - 30;
+    int drawY = screenHeight - drawSize - 30;
+
+    currentFrame->Draw(
+        hDC,
+        drawX,
+        drawY,
+        drawSize,
+        drawSize
+    );
 }

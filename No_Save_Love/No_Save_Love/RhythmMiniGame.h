@@ -42,6 +42,18 @@
 
 #define CURSOR_TRAIL_POINT_SPACING 1
 
+#define COMBO_ANIMATION_FRAME_COUNT 6
+#define COMBO_ANIMATION_FRAME_INTERVAL 120
+#define COMBO_ANIMATION_DURATION 1500
+
+enum ComboCharacterType
+{
+    COMBO_CHARACTER_NONE,
+    COMBO_CHARACTER_10,
+    COMBO_CHARACTER_20,
+    COMBO_CHARACTER_30
+};
+
 struct CursorTrailPoint     // 마우스 커서 구조체
 {
     int x;
@@ -228,7 +240,24 @@ private:
     int combo;
     DWORD comboEffectStartTime;
 
+    // =========================
+    // 콤보 캐릭터 애니메이션
+    // =========================
+    CImage combo10Frames[COMBO_ANIMATION_FRAME_COUNT];
+    CImage combo20Frames[COMBO_ANIMATION_FRAME_COUNT];
+    CImage combo30Frames[COMBO_ANIMATION_FRAME_COUNT];
 
+    bool isComboAnimationActive;
+    ComboCharacterType currentComboCharacterType;
+    DWORD comboAnimationStartTime;
+    int comboAnimationFrameIndex;
+
+
+
+
+    void TriggerComboAnimation();
+    void UpdateComboAnimation(DWORD currentTime);
+    void RenderComboAnimation(HDC hDC);
 
     void AddCombo();
     void ResetCombo();
