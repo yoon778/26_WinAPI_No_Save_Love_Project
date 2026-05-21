@@ -351,6 +351,7 @@ void StoryScene::Render(HDC hDC)
 
     if (!dialogues.empty() && dialogues[currentDialogueIndex].speaker == L"노트")
     {
+        DrawBlurOverlay(hDC);
         DrawBookImage(hDC);
     }
 
@@ -476,6 +477,85 @@ void StoryScene::DrawBookImage(HDC hDC)
 
     // PNG 알파 채널을 그대로 살려서 검은 노트 이미지를 출력한다.
     book_image.Draw(hDC, drawX, drawY, drawWidth, drawHeight);
+}
+
+void StoryScene::DrawBlurOverlay(HDC hDC)
+{
+    const int screenWidth = 1920;
+    const int screenHeight = 1080;
+    const int smallWidth = 160;
+    const int smallHeight = 90;
+
+    HDC screenCopyDC = CreateCompatibleDC(hDC);
+    HDC smallDC = CreateCompatibleDC(hDC);
+
+    HBITMAP screenBitmap = CreateCompatibleBitmap(hDC, screenWidth, screenHeight);
+    HBITMAP smallBitmap = CreateCompatibleBitmap(hDC, smallWidth, smallHeight);
+
+    HBITMAP oldScreenBitmap = static_cast<HBITMAP>(SelectObject(screenCopyDC, screenBitmap));
+    HBITMAP oldSmallBitmap = static_cast<HBITMAP>(SelectObject(smallDC, smallBitmap));
+
+    BitBlt(screenCopyDC, 0, 0, screenWidth, screenHeight, hDC, 0, 0, SRCCOPY);
+
+    int oldSmallMode = SetStretchBltMode(smallDC, HALFTONE);
+    SetBrushOrgEx(smallDC, 0, 0, nullptr);
+    StretchBlt(
+        smallDC,
+        0,
+        0,
+        smallWidth,
+        smallHeight,
+        screenCopyDC,
+        0,
+        0,
+        screenWidth,
+        screenHeight,
+        SRCCOPY
+    );
+
+    int oldScreenMode = SetStretchBltMode(hDC, HALFTONE);
+    SetBrushOrgEx(hDC, 0, 0, nullptr);
+    StretchBlt(
+        hDC,
+        0,
+        0,
+        screenWidth,
+        screenHeight,
+        smallDC,
+        0,
+        0,
+        smallWidth,
+        smallHeight,
+        SRCCOPY
+    );
+
+    RECT overlayRect = { 0, 0, screenWidth, screenHeight };
+    HDC overlayDC = CreateCompatibleDC(hDC);
+    HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, screenWidth, screenHeight);
+    HBITMAP oldOverlayBitmap = static_cast<HBITMAP>(SelectObject(overlayDC, overlayBitmap));
+    HBRUSH overlayBrush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(overlayDC, &overlayRect, overlayBrush);
+
+    BLENDFUNCTION blend = {};
+    blend.BlendOp = AC_SRC_OVER;
+    blend.SourceConstantAlpha = 95;
+
+    AlphaBlend(hDC, 0, 0, screenWidth, screenHeight, overlayDC, 0, 0, screenWidth, screenHeight, blend);
+
+    SetStretchBltMode(smallDC, oldSmallMode);
+    SetStretchBltMode(hDC, oldScreenMode);
+
+    SelectObject(overlayDC, oldOverlayBitmap);
+    DeleteObject(overlayBrush);
+    DeleteObject(overlayBitmap);
+    DeleteDC(overlayDC);
+
+    SelectObject(smallDC, oldSmallBitmap);
+    SelectObject(screenCopyDC, oldScreenBitmap);
+    DeleteObject(smallBitmap);
+    DeleteObject(screenBitmap);
+    DeleteDC(smallDC);
+    DeleteDC(screenCopyDC);
 }
 
 void StoryScene::SetPlayerName(const std::wstring& playerName)

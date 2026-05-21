@@ -107,8 +107,8 @@ void GameManager::OnMouseClick(int x, int y)
             }
             else
             {
-                //최종 선택으로
-                RequestSceneChange(game_mode_info::FinalChoice);
+                // 최종 확인 화면 없이 바로 엔딩 대사로 들어간다.
+                EnterEndingStory();
             }
         }
 
@@ -435,8 +435,17 @@ void GameManager::EnterEndingStory()
     const std::vector<DialogueLineInfo>& endingDialogues =
         storyData.GetEndingStory(endingType, endingHeroineIndex);
 
+    endingScene.SetEndingImage(endingType, finalHeroineIndex);
+
+    // 엔딩은 짧게 한두 마디만 보여준 뒤 일러스트 화면으로 넘어간다.
+    std::vector<DialogueLineInfo> shortEndingDialogues;
+    for (int i = 0; i < static_cast<int>(endingDialogues.size()) && i < 2; i++)
+    {
+        shortEndingDialogues.push_back(endingDialogues[i]);
+    }
+
     // 엔딩 대사를 StoryScene에 넣는다.
-    storyScene.SetDialogues(endingDialogues);
+    storyScene.SetDialogues(shortEndingDialogues);
 
     // 이제 StoryScene으로 엔딩 대사를 출력한다.
     RequestSceneChange(game_mode_info::EndingDialogue);
