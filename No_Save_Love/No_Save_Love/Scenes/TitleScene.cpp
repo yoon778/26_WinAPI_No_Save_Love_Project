@@ -5,7 +5,13 @@ void TitleScene::Initialize() {
     {
         Title_paint.Destroy();
     }
+    if (!logo_image.IsNull())
+    {
+        logo_image.Destroy();
+    }
+
     Title_paint.Load(L"resource\\background\\Title화면.png");
+    logo_image.Load(L"resource\\background\\logo.png");
     startClicked = false;
 }
 
@@ -14,6 +20,10 @@ void TitleScene::Shutdown() {
     if (!Title_paint.IsNull())
     {
         Title_paint.Destroy();
+    }
+    if (!logo_image.IsNull())
+    {
+        logo_image.Destroy();
     }
 
 }
@@ -62,37 +72,10 @@ void TitleScene::Render(HDC hDC)
     // 텍스트 배경을 투명하게 만든다.
     SetBkMode(hDC, TRANSPARENT);
 
-    // 제목 출력
-    SetTextColor(hDC, RGB(230, 80, 130));
-
-    HFONT titleFont = CreateFontW(
-        72,
-        0,
-        0,
-        0,
-        FW_BOLD,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
-
-    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, titleFont));
-
-    RECT titleRect = { 0, 160, 1920, 280 };
-
-    DrawTextW(
-        hDC,
-        L"고백은 세이브 로드가 없다",
-        -1,
-        &titleRect,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE
-    );
+    if (!logo_image.IsNull())
+    {
+        logo_image.Draw(hDC, 410, 230, 1100, 367);
+    }
 
     // START 버튼 출력
     HBRUSH buttonBrush = CreateSolidBrush(RGB(235, 90, 140));
@@ -112,6 +95,25 @@ void TitleScene::Render(HDC hDC)
         80
     );
 
+    HFONT startFont = CreateFontW(
+        44,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, startFont));
+
     SetTextColor(hDC, RGB(255, 255, 255));
 
     DrawTextW(
@@ -123,11 +125,11 @@ void TitleScene::Render(HDC hDC)
     );
 
     // GDI 객체 복구 및 삭제
+    SelectObject(hDC, oldFont);
     SelectObject(hDC, oldPen);
     SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldFont);
 
     DeleteObject(buttonPen);
     DeleteObject(buttonBrush);
-    DeleteObject(titleFont);
+    DeleteObject(startFont);
 }

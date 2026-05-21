@@ -26,6 +26,7 @@ public:
 private:
 	
 	ATL::CImage Title_paint;
+	ATL::CImage logo_image;
 
 	RECT startButtonRect = { 760, 720, 1160, 800 }; // 시작 버튼 위치 
 

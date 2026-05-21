@@ -225,7 +225,13 @@ void GameManager::OnMouseClick(int x, int y)
 
     case game_mode_info::Ending:
     {
-        // 나중에 EndingScene을 만들 때 처리한다.
+        endingScene.OnMouseClick(x, y);
+
+        if (endingScene.IsExitRequested())
+        {
+            PostMessage(m_hWnd, WM_CLOSE, 0, 0);
+        }
+
         break;
     }
     }
@@ -437,15 +443,21 @@ void GameManager::EnterEndingStory()
 
     endingScene.SetEndingImage(endingType, finalHeroineIndex);
 
-    // 엔딩은 짧게 한두 마디만 보여준 뒤 일러스트 화면으로 넘어간다.
-    std::vector<DialogueLineInfo> shortEndingDialogues;
-    for (int i = 0; i < static_cast<int>(endingDialogues.size()) && i < 2; i++)
+    // StoryScene에서는 실제 대사만 출력하고, 엔딩 CG 설명 줄은 숨긴다.
+    std::vector<DialogueLineInfo> endingDialoguesForStory;
+    for (int i = 0; i < static_cast<int>(endingDialogues.size()); i++)
     {
-        shortEndingDialogues.push_back(endingDialogues[i]);
+        if (endingDialogues[i].speaker == L"엔딩 CG")
+        {
+            continue;
+        }
+
+        endingDialoguesForStory.push_back(endingDialogues[i]);
     }
 
     // 엔딩 대사를 StoryScene에 넣는다.
-    storyScene.SetDialogues(shortEndingDialogues);
+    storyScene.SetDialogues(endingDialoguesForStory);
+    storyScene.SetEndingIllustration(endingType, finalHeroineIndex);
 
     // 이제 StoryScene으로 엔딩 대사를 출력한다.
     RequestSceneChange(game_mode_info::EndingDialogue);

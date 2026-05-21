@@ -17,6 +17,8 @@ void EndingScene::Shutdown()
 void EndingScene::Reset()
 {
     scrollOffset = 0;
+    isFastScroll = false;
+    exitRequested = false;
 
     int totalHeight = static_cast<int>(creditLines.size()) * lineSpacing;
     stopOffset = startY + totalHeight - 520;
@@ -37,11 +39,34 @@ void EndingScene::SetEndingImage(int endingType, int heroineIndex)
     }
 }
 
+void EndingScene::OnMouseClick(int x, int y)
+{
+    POINT mousePoint = { x, y };
+
+    if (IsCreditFinished())
+    {
+        if (PtInRect(&exitButtonRect, mousePoint))
+        {
+            exitRequested = true;
+        }
+
+        return;
+    }
+
+    isFastScroll = true;
+}
+
+bool EndingScene::IsExitRequested() const
+{
+    return exitRequested;
+}
+
 void EndingScene::Update()
 {
     if (scrollOffset < stopOffset)
     {
-        scrollOffset += scrollSpeed;
+        int currentScrollSpeed = isFastScroll ? fastScrollSpeed : scrollSpeed;
+        scrollOffset += currentScrollSpeed;
 
         if (scrollOffset > stopOffset)
         {
@@ -66,6 +91,11 @@ void EndingScene::Render(HDC hDC)
         }
 
         DrawCreditLine(hDC, creditLines[i], y, i);
+    }
+
+    if (IsCreditFinished())
+    {
+        DrawExitButton(hDC);
     }
 }
 
@@ -128,7 +158,7 @@ void EndingScene::DrawBackground(HDC hDC)
     HBRUSH overlayBrush = CreateSolidBrush(RGB(0, 0, 0));
     BLENDFUNCTION blend = {};
     blend.BlendOp = AC_SRC_OVER;
-    blend.SourceConstantAlpha = 155;
+    blend.SourceConstantAlpha = 80;
 
     HDC memoryDC = CreateCompatibleDC(hDC);
     HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, 1920, 1080);
@@ -141,6 +171,68 @@ void EndingScene::DrawBackground(HDC hDC)
     DeleteObject(overlayBitmap);
     DeleteDC(memoryDC);
     DeleteObject(overlayBrush);
+}
+
+bool EndingScene::IsCreditFinished() const
+{
+    return scrollOffset >= stopOffset;
+}
+
+void EndingScene::DrawExitButton(HDC hDC)
+{
+    HBRUSH buttonBrush = CreateSolidBrush(RGB(20, 20, 28));
+    HPEN buttonPen = CreatePen(PS_SOLID, 2, RGB(245, 225, 245));
+
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, buttonBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, buttonPen));
+
+    RoundRect(
+        hDC,
+        exitButtonRect.left,
+        exitButtonRect.top,
+        exitButtonRect.right,
+        exitButtonRect.bottom,
+        18,
+        18
+    );
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+
+    DeleteObject(buttonBrush);
+    DeleteObject(buttonPen);
+
+    HFONT buttonFont = CreateFontW(
+        32,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"Malgun Gothic"
+    );
+
+    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, buttonFont));
+
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, RGB(245, 245, 250));
+    DrawTextW(
+        hDC,
+        L"게임 종료",
+        -1,
+        &exitButtonRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(buttonFont);
 }
 
 void EndingScene::DrawCreditLine(HDC hDC, const std::wstring& text, int y, int index)

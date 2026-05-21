@@ -28,6 +28,14 @@ void StoryScene::Initialize()
     normal_back_ground.Load(L"resource\\background\\choicescene_background.png");
     book_image.Load(L"resource\\background\\open_book.png");
 
+    if (bookGdiImage != nullptr)
+    {
+        delete bookGdiImage;
+        bookGdiImage = nullptr;
+    }
+
+    bookGdiImage = new Gdiplus::Image(L"resource\\background\\open_book.png");
+
     // =========================
     // 캐릭터 이미지는 GDI+ Image로 로드한다.
     // PNG 투명 알파 처리를 더 안정적으로 하기 위해 CImage 대신 사용한다.
@@ -104,6 +112,14 @@ void StoryScene::Shutdown()
         book_image.Destroy();
     }
 
+    if (bookGdiImage != nullptr)
+    {
+        delete bookGdiImage;
+        bookGdiImage = nullptr;
+    }
+
+    ClearEndingIllustration();
+
     // GDI+를 종료한다.
     if (isGdiPlusStarted)
     {
@@ -120,6 +136,8 @@ void StoryScene::Shutdown()
 
 void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 {
+    ClearEndingIllustration();
+
     // 새로운 대사 목록을 저장한다.
     dialogues = newDialogues;
 
@@ -142,6 +160,10 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
     currentCharacterKey = L"";
     nextBackgroundKey = L"";
     nextCharacterKey = L"";
+    characterAlpha = 255;
+    pendingCharacterFade = false;
+    bookAlpha = 0;
+    isBookShowing = false;
 
     // 대사가 없으면 바로 종료 상태로 만든다.
     if (dialogues.empty())
@@ -324,29 +346,40 @@ void StoryScene::Render(HDC hDC)
     // =========================
     //  배경 이미지 출력
     // =========================
-    CImage* backgroundImage = GetBackgroundImage(currentBackgroundKey);
-
-    if (backgroundImage != nullptr && !backgroundImage->IsNull())
+    bool drawEndingIllustration = ShouldDrawEndingIllustration();
+    if (drawEndingIllustration)
     {
-        backgroundImage->Draw(hDC, 0, 0, 1920, 1080);
+        endingIllustration.Draw(hDC, 0, 0, 1920, 1080);
     }
     else
     {
-        normal_back_ground.Draw(hDC, 0, 0, 1920, 1080);
+        CImage* backgroundImage = GetBackgroundImage(currentBackgroundKey);
+
+        if (backgroundImage != nullptr && !backgroundImage->IsNull())
+        {
+            backgroundImage->Draw(hDC, 0, 0, 1920, 1080);
+        }
+        else
+        {
+            normal_back_ground.Draw(hDC, 0, 0, 1920, 1080);
+        }
     }
 
     // =========================
     // 캐릭터 이미지 출력
     // =========================
-    Gdiplus::Image* characterImage = GetCharacterImage(currentCharacterKey);
-
-    if (characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
+    if (!drawEndingIllustration)
     {
-        int characterX = 725;
-        int characterY = 25;
+        Gdiplus::Image* characterImage = GetCharacterImage(currentCharacterKey);
 
-        // GDI+로 캐릭터 이미지를 출력한다.
-        DrawCharacterImage(hDC, characterImage, characterX, characterY);
+        if (characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
+        {
+            int characterX = 725;
+            int characterY = 25;
+
+            // GDI+로 캐릭터 이미지를 출력한다.
+            DrawCharacterImage(hDC, characterImage, characterX, characterY);
+        }
     }
 
     if (!dialogues.empty() && dialogues[currentDialogueIndex].speaker == L"노트")
@@ -464,7 +497,12 @@ void StoryScene::Render(HDC hDC)
 
 void StoryScene::DrawBookImage(HDC hDC)
 {
-    if (book_image.IsNull())
+    if (bookGdiImage == nullptr)
+    {
+        return;
+    }
+
+    if (bookGdiImage->GetLastStatus() != Gdiplus::Ok)
     {
         return;
     }
@@ -475,8 +513,8 @@ void StoryScene::DrawBookImage(HDC hDC)
     int drawX = (1920 - drawWidth) / 2;
     int drawY = 140;
 
-    // PNG 알파 채널을 그대로 살려서 검은 노트 이미지를 출력한다.
-    book_image.Draw(hDC, drawX, drawY, drawWidth, drawHeight);
+    // PNG 알파 채널에 등장 투명도를 더해서 서서히 출력한다.
+    DrawImageWithAlpha(hDC, bookGdiImage, drawX, drawY, drawWidth, drawHeight, bookAlpha);
 }
 
 void StoryScene::DrawBlurOverlay(HDC hDC)
@@ -571,6 +609,92 @@ void StoryScene::SetPlayerName(const std::wstring& playerName)
     m_playerName = playerName;
 }
 
+void StoryScene::SetEndingIllustration(int endingType, int heroineIndex)
+{
+    ClearEndingIllustration();
+
+    std::wstring imagePath = GetEndingIllustrationPath(endingType, heroineIndex);
+    if (imagePath.empty())
+    {
+        return;
+    }
+
+    endingIllustration.Load(imagePath.c_str());
+    hasEndingIllustration = !endingIllustration.IsNull();
+}
+
+void StoryScene::ClearEndingIllustration()
+{
+    if (!endingIllustration.IsNull())
+    {
+        endingIllustration.Destroy();
+    }
+
+    hasEndingIllustration = false;
+}
+
+std::wstring StoryScene::GetEndingIllustrationPath(int endingType, int heroineIndex) const
+{
+    if (endingType == 2)
+    {
+        return L"resource\\endingscene\\hidden_end.png";
+    }
+
+    if (endingType == 0)
+    {
+        if (heroineIndex == 0)
+        {
+            return L"resource\\endingscene\\hansea_happyend.png";
+        }
+        else if (heroineIndex == 1)
+        {
+            return L"resource\\endingscene\\harin_happyend.png";
+        }
+        else if (heroineIndex == 2)
+        {
+            return L"resource\\endingscene\\seoirin_happyend.png";
+        }
+    }
+    else if (endingType == 1)
+    {
+        if (heroineIndex == 0)
+        {
+            return L"resource\\endingscene\\hansea_badend.png";
+        }
+        else if (heroineIndex == 1)
+        {
+            return L"resource\\endingscene\\harin_badend.png";
+        }
+        else if (heroineIndex == 2)
+        {
+            return L"resource\\endingscene\\seoirin_badend.png";
+        }
+    }
+
+    return L"";
+}
+
+bool StoryScene::ShouldDrawEndingIllustration() const
+{
+    if (!hasEndingIllustration || dialogues.empty())
+    {
+        return false;
+    }
+
+    if (currentDialogueIndex < 0 || currentDialogueIndex >= static_cast<int>(dialogues.size()))
+    {
+        return false;
+    }
+
+    const std::wstring& speaker = dialogues[currentDialogueIndex].speaker;
+
+    return
+        speaker == L"한세아" ||
+        speaker == L"유하린" ||
+        speaker == L"서이린" ||
+        speaker == L"새누";
+}
+
 std::wstring StoryScene::ReplacePlayerNameToken(const std::wstring& text) const
 {
     std::wstring result = text;
@@ -616,10 +740,37 @@ std::wstring StoryScene::GetCurrentDisplayText() const
     return ReplacePlayerNameToken(originalText);
 }
 
+bool StoryScene::ShouldFadeCharacterChange(const std::wstring& newCharacterKey) const
+{
+    if (newCharacterKey.empty())
+    {
+        return false;
+    }
+
+    if (currentCharacterKey.empty())
+    {
+        return true;
+    }
+
+    size_t oldDivider = currentCharacterKey.find(L"_");
+    size_t newDivider = newCharacterKey.find(L"_");
+
+    std::wstring oldCharacter =
+        oldDivider == std::wstring::npos ? currentCharacterKey : currentCharacterKey.substr(0, oldDivider);
+
+    std::wstring newCharacter =
+        newDivider == std::wstring::npos ? newCharacterKey : newCharacterKey.substr(0, newDivider);
+
+    return oldCharacter != newCharacter;
+}
+
 void StoryScene::Update()
 {
     // 페이드 효과를 먼저 갱신한다.
     UpdateFade();
+
+    // 책과 캐릭터의 서서히 등장 효과를 갱신한다.
+    UpdateObjectFades();
 
     // 타이핑 효과를 갱신한다.
     UpdateTyping();
@@ -651,6 +802,61 @@ void StoryScene::UpdateTyping()
         isTypingFinished = true;
     }
 }
+
+void StoryScene::UpdateObjectFades()
+{
+    if (fadeState != FadeState::None)
+    {
+        return;
+    }
+
+    if (characterAlpha < 255)
+    {
+        characterAlpha += characterFadeSpeed;
+
+        if (characterAlpha > 255)
+        {
+            characterAlpha = 255;
+        }
+    }
+
+    if (isBookShowing && bookAlpha < 255)
+    {
+        bookAlpha += bookFadeSpeed;
+
+        if (bookAlpha > 255)
+        {
+            bookAlpha = 255;
+        }
+    }
+}
+
+void StoryScene::UpdateBookFadeState()
+{
+    bool shouldShowBook = false;
+
+    if (!dialogues.empty() &&
+        currentDialogueIndex >= 0 &&
+        currentDialogueIndex < static_cast<int>(dialogues.size()))
+    {
+        shouldShowBook = (dialogues[currentDialogueIndex].speaker == L"노트");
+    }
+
+    if (shouldShowBook)
+    {
+        if (!isBookShowing)
+        {
+            bookAlpha = 0;
+        }
+
+        isBookShowing = true;
+        return;
+    }
+
+    isBookShowing = false;
+    bookAlpha = 0;
+}
+
 void StoryScene::StartFadeTransition(
     const std::wstring& newBackgroundKey,
     const std::wstring& newCharacterKey)
@@ -660,6 +866,7 @@ void StoryScene::StartFadeTransition(
 
     // 다음에 적용할 캐릭터 key를 저장한다.
     nextCharacterKey = newCharacterKey;
+    pendingCharacterFade = ShouldFadeCharacterChange(newCharacterKey);
 
     // 현재 배경과 캐릭터가 모두 비어 있다면
     // 이것은 스토리의 첫 이미지 등장으로 본다. // 시작은 false
@@ -673,6 +880,8 @@ void StoryScene::StartFadeTransition(
         // 먼저 실제 출력할 이미지를 적용한다.
         currentBackgroundKey = newBackgroundKey;
         currentCharacterKey = newCharacterKey;
+        characterAlpha = pendingCharacterFade ? 0 : 255;
+        pendingCharacterFade = false;
 
         // 완전 검은 상태에서 시작한다.
         fadeAlpha = 255;
@@ -727,6 +936,9 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
     {
         currentBackgroundKey = newBackgroundKey;
         currentCharacterKey = newCharacterKey;
+        characterAlpha = 255;
+        pendingCharacterFade = false;
+        UpdateBookFadeState();
         return;
     }
 
@@ -740,15 +952,21 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
     if (isBackgroundChanged)
     {
         StartFadeTransition(newBackgroundKey, newCharacterKey);
+        UpdateBookFadeState();
         return;
     }
 
     // 배경은 그대로이고 캐릭터만 바뀌는 경우에는 즉시 변경한다.
     if (isCharacterChanged)
     {
+        bool shouldFadeCharacter = ShouldFadeCharacterChange(newCharacterKey);
         currentCharacterKey = newCharacterKey;
+        characterAlpha = shouldFadeCharacter ? 0 : 255;
+        UpdateBookFadeState();
         return;
     }
+
+    UpdateBookFadeState();
 }
 
 
@@ -830,6 +1048,33 @@ void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y
         return;
     }
 
+    int drawWidth = static_cast<int>(image->GetWidth());
+    int drawHeight = static_cast<int>(image->GetHeight());
+    DrawImageWithAlpha(hDC, image, x, y, drawWidth, drawHeight, characterAlpha);
+}
+
+void StoryScene::DrawImageWithAlpha(HDC hDC, Gdiplus::Image* image, int x, int y, int width, int height, int alpha)
+{
+    if (image == nullptr)
+    {
+        return;
+    }
+
+    if (image->GetLastStatus() != Gdiplus::Ok)
+    {
+        return;
+    }
+
+    if (alpha <= 0)
+    {
+        return;
+    }
+
+    if (alpha > 255)
+    {
+        alpha = 255;
+    }
+
     // HDC를 기반으로 GDI+ Graphics 객체를 만든다.
     Gdiplus::Graphics graphics(hDC);
 
@@ -847,8 +1092,40 @@ void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y
     graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
     graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHighQuality);
 
-    // 지정한 위치와 크기로 캐릭터를 출력한다.
-    graphics.DrawImage(image, x, y);
+    if (alpha >= 255)
+    {
+        graphics.DrawImage(image, x, y, width, height);
+        return;
+    }
+
+    float alphaRatio = static_cast<float>(alpha) / 255.0f;
+    Gdiplus::ColorMatrix colorMatrix =
+    {
+        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, alphaRatio, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    Gdiplus::ImageAttributes imageAttributes;
+    imageAttributes.SetColorMatrix(
+        &colorMatrix,
+        Gdiplus::ColorMatrixFlagsDefault,
+        Gdiplus::ColorAdjustTypeBitmap
+    );
+
+    Gdiplus::Rect drawRect(x, y, width, height);
+    graphics.DrawImage(
+        image,
+        drawRect,
+        0,
+        0,
+        image->GetWidth(),
+        image->GetHeight(),
+        Gdiplus::UnitPixel,
+        &imageAttributes
+    );
 }
 
 void StoryScene::UpdateFade()
@@ -872,6 +1149,8 @@ void StoryScene::UpdateFade()
             // 검은 화면으로 덮인 순간에 실제 이미지 key를 교체한다.
             currentBackgroundKey = nextBackgroundKey;
             currentCharacterKey = nextCharacterKey;
+            characterAlpha = pendingCharacterFade ? 0 : 255;
+            pendingCharacterFade = false;
 
             // 이제 다시 밝아지는 단계로 넘어간다.
             fadeState = FadeState::FadeIn;
