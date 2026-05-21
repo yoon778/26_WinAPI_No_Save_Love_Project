@@ -3,6 +3,8 @@
 #include <atlimage.h>
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
+#include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
 
 // 화면에 동시에 존재할 수 있는 최대 개수
 #define MAX_HIT_CIRCLES 30
@@ -43,7 +45,7 @@
 #define CURSOR_TRAIL_POINT_SPACING 1
 
 #define COMBO_ANIMATION_FRAME_COUNT 6
-#define COMBO_ANIMATION_FRAME_INTERVAL 120
+#define COMBO_ANIMATION_FRAME_INTERVAL 180
 #define COMBO_ANIMATION_DURATION 3000
 
 enum ComboCharacterType
@@ -293,6 +295,8 @@ private:
     void MoveSliderFollowWindowToRandomPosition();
     void AddCursorTrailPoint(int x, int y, DWORD createTime);
 
+    void PlayHitSound();
+    void PlayMissSound();
 public:
     RhythmMiniGame();
 

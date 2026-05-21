@@ -345,11 +345,13 @@ void RhythmMiniGame::Update()
                 hitCircleCount--;
 
                 AddCombo();
+                PlayHitSound();
 
                 judgeX = hitCircles[i].x;
                 judgeY = hitCircles[i].y;
                 lastJudge = JUDGE_MISS;
                 ResetCombo();
+                PlayMissSound();
                 judgeDisplayStartTime = currentTime;
             }
         }
@@ -372,6 +374,7 @@ void RhythmMiniGame::Update()
 
                 lastJudge = JUDGE_MISS;
                 ResetCombo();
+                PlayMissSound();
 
                 judgeX = sliders[i].startX;
                 judgeY = sliders[i].startY;
@@ -511,11 +514,13 @@ void RhythmMiniGame::Update()
                     lastJudge = JUDGE_PERFECT;
                     score += 300;
                     AddCombo();
+                    PlayHitSound();
                 }
                 else
                 {
                     lastJudge = JUDGE_MISS;
                     ResetCombo();
+                    PlayMissSound();
                 }
 
                 lastHitCircleSpawnTime = currentTime;
@@ -1183,6 +1188,7 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
         hitCircleCount--;
         
         AddCombo();
+        PlayHitSound();
 
         judgeX = hitCircles[i].x;
         judgeY = hitCircles[i].y;
@@ -1246,6 +1252,7 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
                 sliders[i].isTrackingSuccess = true;
 
                 AddCombo();
+                PlayHitSound();
 
                 judgeX = sliders[i].startX;
                 judgeY = sliders[i].startY;
@@ -2283,5 +2290,23 @@ void RhythmMiniGame::RenderComboAnimation(HDC hDC)
         drawY,
         drawSize,
         drawSize
+    );
+}
+
+void RhythmMiniGame::PlayHitSound()
+{
+    PlaySound(
+        L"resource\\minigame2\\sound\\hit.wav",
+        NULL,
+        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
+    );
+}
+
+void RhythmMiniGame::PlayMissSound()
+{
+    PlaySound(
+        L"resource\\minigame2\\sound\\miss.wav",
+        NULL,
+        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
     );
 }
