@@ -95,9 +95,9 @@ void GameManager::OnMouseClick(int x, int y)
         {
             if (currentMiniGameIndex < 4)
             {
-                // 현재는 미니게임 1을 반복 사용하므로, 매 회차 튜토리얼 상태를 새로 준비한다.
-                minigam1_tutorial1.Initialize();
-                RequestSceneChange(game_mode_info::MiniGameTutor1);
+                // 현재 회차 번호에 맞는 미니게임 튜토리얼로 이동한다.
+                // 지금은 1~4번 슬롯 모두 미니게임 1 튜토리얼을 임시로 사용한다.
+                EnterCurrentMiniGameTutorial();
             }
             else if (!m_finalChoiceIntroShown)
             {
@@ -117,38 +117,25 @@ void GameManager::OnMouseClick(int x, int y)
     }
 
     case game_mode_info::MiniGameTutor1: 
+    case game_mode_info::MiniGameTutor2:
+    case game_mode_info::MiniGameTutor3:
+    case game_mode_info::MiniGameTutor4:
     {
         minigam1_tutorial1.OnMouseClick(x, y);
-        if (minigam1_tutorial1.IsFinished()) {
+        if (minigam1_tutorial1.IsFinished())
+        {
             minigam1_tutorial1.Shutdown();
-            minigame1.Release(); // 이전 미니게임 리소스가 남아 있으면 새로 시작하기 전에 정리한다.
-            minigame1.Init(); // 미니게임 초기화
-            RequestSceneChange(game_mode_info::MiniGame1);
+            StartCurrentMiniGame();
         }
         break;
     }
     case game_mode_info::MiniGame1: 
+    case game_mode_info::MiniGame2:
+    case game_mode_info::MiniGame3:
+    case game_mode_info::MiniGame4:
     {
-        minigame1.MOUSE(x, y);
-        if (minigame1.isfinished()) {
-            // 미니게임 1 결과
-            int rawScore = minigame1.getscore();
-            if (rawScore <= 0)
-            {
-                rawScore = 0;
-            }
-            // 1500점을 100점 만점 기준으로 환산한다.
-            int convertedScore = rawScore * 100 / 1000;
-
-            // 100점을 넘으면 100점으로 고정한다.
-            if (convertedScore > 100)
-            {
-                convertedScore = 100;
-            }
-            EnterResult(currentMiniGameIndex, convertedScore); // 점수 넘기고 result로 넘어가기
-            // 다음 미니게임 번호로 증가시킨다.
-            currentMiniGameIndex++;
-        }
+        HandleCurrentMiniGameMouse(x, y);
+        FinishCurrentMiniGameIfNeeded();
         break;
     }
     case game_mode_info::Result:
@@ -258,6 +245,136 @@ void GameManager::EnterResult(int whichGame, int score)
 
 }
 
+void GameManager::EnterCurrentMiniGameTutorial()
+{
+    // 지금은 1~4번 미니게임 튜토리얼 모두 미니게임 1 튜토리얼 화면을 임시로 사용한다.
+    // 나중에 MiniGame2TutorialScene 같은 클래스가 생기면 여기에서 번호별로 바꾸면 된다.
+    minigam1_tutorial1.Initialize();
+    RequestSceneChange(GetTutorialModeByIndex(currentMiniGameIndex));
+}
+
+void GameManager::StartCurrentMiniGame()
+{
+    // 지금은 1~4번 미니게임 슬롯 모두 PCroomgame을 임시로 사용한다.
+    // 실제 미니게임 2, 3, 4가 생기면 currentMiniGameIndex별로 Init 함수를 나누면 된다.
+    minigame1.Release();
+    minigame1.Init();
+
+    RequestSceneChange(GetMiniGameModeByIndex(currentMiniGameIndex));
+}
+
+void GameManager::DebugEnterMiniGameByIndex(int miniGameIndex)
+{
+    // 잘못된 번호가 들어오면 아무것도 하지 않는다.
+    if (miniGameIndex < 0 || miniGameIndex >= 4)
+    {
+        return;
+    }
+
+    // F1~F4는 앞부분 진행을 건너뛰고 원하는 미니게임 슬롯으로 바로 들어간다.
+    currentMiniGameIndex = miniGameIndex;
+    StartCurrentMiniGame();
+}
+
+GameManager::game_mode_info GameManager::GetTutorialModeByIndex(int miniGameIndex) const
+{
+    // 미니게임 번호를 튜토리얼 Scene 모드로 변환한다.
+    switch (miniGameIndex)
+    {
+    case 0:
+        return game_mode_info::MiniGameTutor1;
+
+    case 1:
+        return game_mode_info::MiniGameTutor2;
+
+    case 2:
+        return game_mode_info::MiniGameTutor3;
+
+    case 3:
+        return game_mode_info::MiniGameTutor4;
+
+    default:
+        return game_mode_info::MiniGameTutor1;
+    }
+}
+
+GameManager::game_mode_info GameManager::GetMiniGameModeByIndex(int miniGameIndex) const
+{
+    // 미니게임 번호를 실제 게임 Scene 모드로 변환한다.
+    switch (miniGameIndex)
+    {
+    case 0:
+        return game_mode_info::MiniGame1;
+
+    case 1:
+        return game_mode_info::MiniGame2;
+
+    case 2:
+        return game_mode_info::MiniGame3;
+
+    case 3:
+        return game_mode_info::MiniGame4;
+
+    default:
+        return game_mode_info::MiniGame1;
+    }
+}
+
+void GameManager::HandleCurrentMiniGameMouse(int x, int y)
+{
+    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 마우스 처리를 사용한다.
+    // 실제 미니게임을 붙일 때는 currentMiniGameIndex switch로 각 게임의 입력 함수를 호출하면 된다.
+    minigame1.MOUSE(x, y);
+}
+
+void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
+{
+    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 키 입력 처리를 사용한다.
+    minigame1.KEYDOWN(inputChar);
+}
+
+void GameManager::UpdateCurrentMiniGame()
+{
+    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 Update를 사용한다.
+    minigame1.Update();
+}
+
+void GameManager::RenderCurrentMiniGame(HDC hDC)
+{
+    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 화면 출력을 사용한다.
+    minigame1.PAINT(hDC);
+}
+
+void GameManager::FinishCurrentMiniGameIfNeeded()
+{
+    // 임시 연결된 미니게임 1이 끝나지 않았으면 Result로 이동하지 않는다.
+    if (!minigame1.isfinished())
+    {
+        return;
+    }
+
+    int rawScore = minigame1.getscore();
+    if (rawScore <= 0)
+    {
+        rawScore = 0;
+    }
+
+    // 현재 PCroomgame 점수를 100점 만점으로 환산한다.
+    // 실제 미니게임 2, 3, 4는 각 게임의 점수 기준에 맞게 여기에서 분기하면 된다.
+    int convertedScore = rawScore * 100 / 2000;
+
+    if (convertedScore > 100)
+    {
+        convertedScore = 100;
+    }
+
+    // currentMiniGameIndex는 ResultScene에 몇 번째 미니게임인지 알려주는 값이다.
+    EnterResult(currentMiniGameIndex, convertedScore);
+
+    // Result 이후 Choice와 Story를 거쳐 다음 미니게임 슬롯으로 넘어가게 한다.
+    currentMiniGameIndex++;
+}
+
 void GameManager::ApplyStatGain(const Player_state& plusState)
 {
     // ResultScene이 계산한 상승량을 실제 player 스탯에 더한다.
@@ -299,13 +416,19 @@ void GameManager::Render(HDC hDC)
         break;
     }
     case game_mode_info::MiniGameTutor1:
+    case game_mode_info::MiniGameTutor2:
+    case game_mode_info::MiniGameTutor3:
+    case game_mode_info::MiniGameTutor4:
     {
         minigam1_tutorial1.Render(hDC);
         break;
     }
     case game_mode_info::MiniGame1:
+    case game_mode_info::MiniGame2:
+    case game_mode_info::MiniGame3:
+    case game_mode_info::MiniGame4:
     {
-        minigame1.PAINT(hDC);
+        RenderCurrentMiniGame(hDC);
         break;
     }
 
@@ -554,8 +677,12 @@ void GameManager::OnChar(wchar_t inputChar)
             break;
         }
         
-        case game_mode_info::MiniGame1: {
-            minigame1.KEYDOWN(inputChar);
+        case game_mode_info::MiniGame1:
+        case game_mode_info::MiniGame2:
+        case game_mode_info::MiniGame3:
+        case game_mode_info::MiniGame4:
+        {
+            HandleCurrentMiniGameKey(inputChar);
             break;
         }
 
@@ -565,6 +692,39 @@ void GameManager::OnChar(wchar_t inputChar)
         }
     }
 
+}
+
+void GameManager::OnKeyDown(WPARAM wParam)
+{
+    // 페이드 전환 중에는 중복 Scene 이동을 막는다.
+    if (sceneTransition.IsActive())
+    {
+        return;
+    }
+
+    // F1~F4는 테스트용 바로가기다.
+    // F1 = 미니게임 1, F2 = 미니게임 2, F3 = 미니게임 3, F4 = 미니게임 4.
+    switch (wParam)
+    {
+    case VK_F1:
+        DebugEnterMiniGameByIndex(0);
+        break;
+
+    case VK_F2:
+        DebugEnterMiniGameByIndex(1);
+        break;
+
+    case VK_F3:
+        DebugEnterMiniGameByIndex(2);
+        break;
+
+    case VK_F4:
+        DebugEnterMiniGameByIndex(3);
+        break;
+
+    default:
+        break;
+    }
 }
 
 void GameManager::OnTimer(HWND hWnd)
@@ -583,26 +743,11 @@ void GameManager::OnTimer(HWND hWnd)
             break;
 
         case game_mode_info::MiniGame1:
-            minigame1.Update();
-
-            if (minigame1.isfinished())
-            {
-                int rawScore = minigame1.getscore();
-                if (rawScore <= 0)
-                {
-                    rawScore = 0;
-                }
-
-                int convertedScore = rawScore * 100 / 2000;
-
-                if (convertedScore > 100)
-                {
-                    convertedScore = 100;
-                }
-
-                EnterResult(currentMiniGameIndex, convertedScore);
-                currentMiniGameIndex++;
-            }
+        case game_mode_info::MiniGame2:
+        case game_mode_info::MiniGame3:
+        case game_mode_info::MiniGame4:
+            UpdateCurrentMiniGame();
+            FinishCurrentMiniGameIfNeeded();
             break;
         case game_mode_info::Ending:
             endingScene.Update();

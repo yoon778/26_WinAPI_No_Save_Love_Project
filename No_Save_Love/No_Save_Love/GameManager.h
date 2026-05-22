@@ -37,6 +37,7 @@ public:
     void OnMouseClick(int x, int y);
     void Render(HDC hdc);
     void OnChar(wchar_t inputChar);
+    void OnKeyDown(WPARAM wParam);
     void OnTimer(HWND hWnd);
 
 private:
@@ -130,6 +131,36 @@ private:
 
     // 미니게임 결과 화면으로 들어간다.
     void EnterResult(int whichGame, int score);
+
+    // 현재 미니게임 번호에 맞는 튜토리얼 모드로 들어간다.
+    void EnterCurrentMiniGameTutorial();
+
+    // 현재 미니게임 번호에 맞는 실제 게임 모드로 들어간다.
+    void StartCurrentMiniGame();
+
+    // F1~F4 디버그 입력으로 원하는 미니게임에 바로 들어간다.
+    void DebugEnterMiniGameByIndex(int miniGameIndex);
+
+    // 현재 미니게임 번호에 맞는 튜토리얼 모드를 반환한다.
+    game_mode_info GetTutorialModeByIndex(int miniGameIndex) const;
+
+    // 현재 미니게임 번호에 맞는 실제 게임 모드를 반환한다.
+    game_mode_info GetMiniGameModeByIndex(int miniGameIndex) const;
+
+    // 현재 실행 중인 미니게임의 마우스 입력을 처리한다.
+    void HandleCurrentMiniGameMouse(int x, int y);
+
+    // 현재 실행 중인 미니게임의 키보드 입력을 처리한다.
+    void HandleCurrentMiniGameKey(wchar_t inputChar);
+
+    // 현재 실행 중인 미니게임을 갱신한다.
+    void UpdateCurrentMiniGame();
+
+    // 현재 실행 중인 미니게임을 출력한다.
+    void RenderCurrentMiniGame(HDC hDC);
+
+    // 미니게임이 끝났을 때 점수를 계산하고 ResultScene으로 이동한다.
+    void FinishCurrentMiniGameIfNeeded();
 
     // ResultScene이 계산한 상승 스탯을 실제 player에 반영한다.
     void ApplyStatGain(const Player_state& plusState);

@@ -73,6 +73,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
         return 0;
     }
+    case WM_KEYDOWN:
+    {
+        // F1~F4 같은 특수 키 입력을 GameManager로 넘긴다.
+        g_gameManager.OnKeyDown(wParam);
+
+        // 화면을 다시 그리게 한다.
+        InvalidateRect(hWnd, NULL, FALSE);
+
+        return 0;
+    }
     case WM_LBUTTONDOWN:
     {
         int mouseX = LOWORD(lParam);

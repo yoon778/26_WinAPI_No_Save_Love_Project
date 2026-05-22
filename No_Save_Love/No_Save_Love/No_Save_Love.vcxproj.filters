@@ -25,11 +25,17 @@
     <Filter Include="헤더 파일\data">
       <UniqueIdentifier>{13af5e2b-4c2f-4f8f-a20f-b85798c7b452}</UniqueIdentifier>
     </Filter>
+    <Filter Include="헤더 파일\minigame1">
+      <UniqueIdentifier>{d1b41c9c-1bcf-41d6-b7f4-92161c369c66}</UniqueIdentifier>
+    </Filter>
     <Filter Include="소스 파일\minigame1">
       <UniqueIdentifier>{a70668f6-1f59-4e01-948c-9b5192e79173}</UniqueIdentifier>
     </Filter>
-    <Filter Include="헤더 파일\minigame1">
-      <UniqueIdentifier>{d1b41c9c-1bcf-41d6-b7f4-92161c369c66}</UniqueIdentifier>
+    <Filter Include="소스 파일\minigame4">
+      <UniqueIdentifier>{d89df1de-18bc-440a-b79b-aba4510c776d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\minigame4">
+      <UniqueIdentifier>{3dbe6dc3-8d15-497d-994b-fdcd05104235}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -75,6 +81,9 @@
     <ClCompile Include="minigame1\ramen.cpp">
       <Filter>소스 파일\minigame1</Filter>
     </ClCompile>
+    <ClCompile Include="minigame4\avoidgame.cpp">
+      <Filter>소스 파일\minigame4</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
@@ -115,6 +124,9 @@
     </ClInclude>
     <ClInclude Include="minigame1\ramen.h">
       <Filter>헤더 파일\minigame1</Filter>
+    </ClInclude>
+    <ClInclude Include="minigame4\avoidgame.h">
+      <Filter>헤더 파일\minigame4</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
