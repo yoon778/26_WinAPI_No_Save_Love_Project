@@ -234,6 +234,9 @@ void RhythmMiniGame::Init(HWND hWnd)
     finalAnimationStartTime = 0;
     finalAnimationFrameIndex = 0;
 
+    InitFinalSparkles();
+    lastFinalCountdownSecond = -1;
+
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
@@ -326,6 +329,9 @@ void RhythmMiniGame::Update()
 
     UpdateComboAnimation(currentTime);
     UpdateMissReaction(currentTime);
+    UpdateFinalAnimation(currentTime);
+    UpdateFinalSparkles(currentTime);
+    UpdateFinalCountdownEffect(currentTime);
     UpdateScreenFlash(currentTime);
     UpdateFinalAnimation(currentTime);
     UpdateWindowGimmick(currentTime);
@@ -975,6 +981,7 @@ void RhythmMiniGame::Render(HDC hDC)
     RenderComboAnimation(hDC);
     RenderMissReaction(hDC);
     RenderFinalAnimation(hDC);
+    RenderFinalSparkles(hDC);
     RenderFinalTimer(hDC);
     RenderScreenFlash(hDC);
     RenderClearEffect(hDC);
@@ -2889,6 +2896,9 @@ void RhythmMiniGame::StartFinalEffect(DWORD currentTime)
     isFinalEffectActive = true;
     finalEffectStartTime = currentTime;
 
+    InitFinalSparkles();
+    lastFinalCountdownSecond = -1;
+
     hasFinalLastHitPosition = false;
     finalLastHitX = screenWidth / 2;
     finalLastHitY = screenHeight / 2;
@@ -3074,7 +3084,14 @@ void RhythmMiniGame::RenderFinalTimer(HDC hDC)
 
     if (remainingSec <= 3.0)
     {
-        fontSize = 130;
+        DWORD pulseTime =
+            (GetTickCount() - finalEffectStartTime) % 300;
+
+        double pulse =
+            1.0 - (double)pulseTime / 300.0;
+
+        fontSize =
+            140 + (int)(35 * pulse);
     }
 
     HFONT timerFont = CreateFontW(
@@ -3110,7 +3127,15 @@ void RhythmMiniGame::RenderFinalTimer(HDC hDC)
     TextOut(hDC, centerX, drawY + 3, timerText, lstrlen(timerText));
 
     // 실제 흰색 숫자
-    SetTextColor(hDC, RGB(255, 255, 255));
+    if (remainingSec <= 3.0)
+    {
+        SetTextColor(hDC, RGB(255, 230, 80));
+    }
+    else
+    {
+        SetTextColor(hDC, RGB(255, 255, 255));
+    }
+
     TextOut(hDC, centerX, drawY, timerText, lstrlen(timerText));
 
     SetTextAlign(hDC, TA_LEFT);
@@ -3350,4 +3375,208 @@ int RhythmMiniGame::GetResultScore100() const
 int RhythmMiniGame::GetFinalScore() const
 {
     return finalScore;
+}
+
+void RhythmMiniGame::InitFinalSparkles()
+{
+    lastFinalSparkleSpawnTime = 0;
+    finalSparkleIndex = 0;
+
+    for (int i = 0; i < FINAL_SPARKLE_COUNT; i++)
+    {
+        finalSparkles[i].x = 0;
+        finalSparkles[i].y = 0;
+        finalSparkles[i].size = 0;
+        finalSparkles[i].createTime = 0;
+        finalSparkles[i].lifeTime = 0;
+        finalSparkles[i].isActive = false;
+    }
+}
+
+void RhythmMiniGame::SpawnFinalSparkle(DWORD currentTime)
+{
+    int edge = rand() % 4;
+
+    int x = 0;
+    int y = 0;
+
+    int margin = 35;
+
+    switch (edge)
+    {
+    case 0:
+        // 위쪽 가장자리
+        x = rand() % screenWidth;
+        y = margin + rand() % 40;
+        break;
+
+    case 1:
+        // 아래쪽 가장자리
+        x = rand() % screenWidth;
+        y = screenHeight - margin - rand() % 40;
+        break;
+
+    case 2:
+        // 왼쪽 가장자리
+        x = margin + rand() % 40;
+        y = rand() % screenHeight;
+        break;
+
+    case 3:
+        // 오른쪽 가장자리
+        x = screenWidth - margin - rand() % 40;
+        y = rand() % screenHeight;
+        break;
+    }
+
+    finalSparkles[finalSparkleIndex].x = x;
+    finalSparkles[finalSparkleIndex].y = y;
+    finalSparkles[finalSparkleIndex].size = 4 + rand() % 8;
+    finalSparkles[finalSparkleIndex].createTime = currentTime;
+    finalSparkles[finalSparkleIndex].lifeTime =
+        FINAL_SPARKLE_LIFETIME + rand() % 300;
+    finalSparkles[finalSparkleIndex].isActive = true;
+
+    finalSparkleIndex++;
+
+    if (finalSparkleIndex >= FINAL_SPARKLE_COUNT)
+    {
+        finalSparkleIndex = 0;
+    }
+}
+
+void RhythmMiniGame::UpdateFinalSparkles(DWORD currentTime)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    if (currentTime - lastFinalSparkleSpawnTime >= FINAL_SPARKLE_SPAWN_INTERVAL)
+    {
+        // 한 번에 2개씩 생성해서 더 화려하게
+        SpawnFinalSparkle(currentTime);
+        SpawnFinalSparkle(currentTime);
+
+        lastFinalSparkleSpawnTime = currentTime;
+    }
+
+    for (int i = 0; i < FINAL_SPARKLE_COUNT; i++)
+    {
+        if (finalSparkles[i].isActive == true)
+        {
+            DWORD elapsedTime =
+                currentTime - finalSparkles[i].createTime;
+
+            if (elapsedTime >= finalSparkles[i].lifeTime)
+            {
+                finalSparkles[i].isActive = false;
+            }
+        }
+    }
+}
+
+void RhythmMiniGame::RenderFinalSparkles(HDC hDC)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+
+    for (int i = 0; i < FINAL_SPARKLE_COUNT; i++)
+    {
+        if (finalSparkles[i].isActive == false)
+            continue;
+
+        DWORD elapsedTime =
+            currentTime - finalSparkles[i].createTime;
+
+        double progress =
+            (double)elapsedTime / finalSparkles[i].lifeTime;
+
+        if (progress > 1.0)
+            progress = 1.0;
+
+        int alpha = (int)(220 * (1.0 - progress));
+
+        if (alpha < 0)
+            alpha = 0;
+
+        int size =
+            finalSparkles[i].size +
+            (int)(finalSparkles[i].size * progress);
+
+        int x = finalSparkles[i].x - size / 2;
+        int y = finalSparkles[i].y - size / 2;
+
+        Gdiplus::SolidBrush brush(
+            Gdiplus::Color(
+                alpha,
+                255,
+                245,
+                150
+            )
+        );
+
+        graphics.FillEllipse(
+            &brush,
+            x,
+            y,
+            size,
+            size
+        );
+
+        // 십자 반짝이 느낌
+        Gdiplus::Pen pen(
+            Gdiplus::Color(alpha, 255, 255, 220),
+            2.0f
+        );
+
+        graphics.DrawLine(
+            &pen,
+            finalSparkles[i].x - size,
+            finalSparkles[i].y,
+            finalSparkles[i].x + size,
+            finalSparkles[i].y
+        );
+
+        graphics.DrawLine(
+            &pen,
+            finalSparkles[i].x,
+            finalSparkles[i].y - size,
+            finalSparkles[i].x,
+            finalSparkles[i].y + size
+        );
+    }
+}
+
+void RhythmMiniGame::UpdateFinalCountdownEffect(DWORD currentTime)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    if (isGameOver == true)
+        return;
+
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    int remainingMs =
+        (int)RHYTHM_GAME_DURATION - (int)elapsedBgmTime;
+
+    if (remainingMs < 0)
+        remainingMs = 0;
+
+    if (remainingMs > FINAL_COUNTDOWN_STRONG_TIME)
+        return;
+
+    int currentSecond =
+        (remainingMs + 999) / 1000;
+
+    if (currentSecond != lastFinalCountdownSecond)
+    {
+        lastFinalCountdownSecond = currentSecond;
+
+        TriggerScreenFlash(150, 180);
+    }
 }

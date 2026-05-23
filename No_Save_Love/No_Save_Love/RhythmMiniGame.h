@@ -109,6 +109,13 @@
 #define GRADE_B_SCORE 20000
 #define GRADE_C_SCORE 16000
 
+#define FINAL_SPARKLE_COUNT 80
+#define FINAL_SPARKLE_SPAWN_INTERVAL 35
+#define FINAL_SPARKLE_LIFETIME 650
+
+#define FINAL_COUNTDOWN_STRONG_TIME 3000
+
+
 enum ComboCharacterType
 {
     COMBO_CHARACTER_NONE,
@@ -123,6 +130,16 @@ struct CursorTrailPoint     // 마우스 커서 구조체
     int y;
     bool isActive;
     DWORD createTime;
+};
+
+struct FinalSparkle
+{
+    int x;
+    int y;
+    int size;
+    DWORD createTime;
+    DWORD lifeTime;
+    bool isActive;
 };
 
 enum HitJudge           // 클릭판정
@@ -390,7 +407,26 @@ private:
     int resultScore100;
     bool isResultCalculated;
 
+    // =========================
+    // 마지막 15초 반짝이 효과
+    // =========================
+    FinalSparkle finalSparkles[FINAL_SPARKLE_COUNT];
+    DWORD lastFinalSparkleSpawnTime;
+    int finalSparkleIndex;
 
+    // =========================
+    // 마지막 3초 카운트다운 강조
+    // =========================
+    int lastFinalCountdownSecond;
+
+
+
+    void InitFinalSparkles();
+    void SpawnFinalSparkle(DWORD currentTime);
+    void UpdateFinalSparkles(DWORD currentTime);
+    void RenderFinalSparkles(HDC hDC);
+
+    void UpdateFinalCountdownEffect(DWORD currentTime);
 
     void CalculateResult();
     const wchar_t* GetGradeText() const;
