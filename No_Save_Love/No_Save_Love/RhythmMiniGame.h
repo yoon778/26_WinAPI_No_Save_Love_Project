@@ -298,6 +298,7 @@ private:
 
     int originalClientWidth;
     int originalClientHeight;
+
     // =========================
     // 슬라이더 볼 따라 창 이동 기믹
     // =========================
@@ -420,6 +421,8 @@ private:
     int lastFinalCountdownSecond;
 
 
+    void PlayWindowSound();
+    void PlayImpactSound();
 
     void InitFinalSparkles();
     void SpawnFinalSparkle(DWORD currentTime);

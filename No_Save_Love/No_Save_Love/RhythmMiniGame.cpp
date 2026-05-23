@@ -2015,6 +2015,8 @@ void RhythmMiniGame::TriggerSliderFollowWindowGimmick(DWORD currentTime)
         SWP_NOZORDER | SWP_NOACTIVATE
     );
 
+    PlayWindowSound();
+
     // 바뀐 창 크기 반영
     RECT clientRect;
     GetClientRect(gameHwnd, &clientRect);
@@ -2273,6 +2275,8 @@ void RhythmMiniGame::MoveSliderFollowWindowToRandomPosition()
         0,
         SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
     );
+
+    PlayWindowSound();
 
     // 이후 슬라이더 볼을 따라 움직일 기준 위치 갱신
     GetWindowRect(gameHwnd, &sliderFollowBaseWindowRect);
@@ -2874,14 +2878,19 @@ void RhythmMiniGame::UpdateWindowShake(DWORD currentTime)
 
 void RhythmMiniGame::TriggerGimmickImpact(DWORD currentTime)
 {
+    // 창이 바뀌는 느낌
+    PlayWindowSound();
+
     TriggerScreenFlash(
         GIMMICK_FLASH_ALPHA,
         GIMMICK_FLASH_DURATION
     );
 
-    // 슬라이더 따라 창 이동 중에는 흔들림이 추적 판정과 충돌할 수 있으니 제외
+    // 흔들림이 있는 기믹은 충격음도 같이
     if (isSliderFollowWindowGimmickActive == false)
     {
+        PlayImpactSound();
+
         StartWindowShake(
             currentTime,
             WINDOW_SHAKE_DURATION,
@@ -3579,4 +3588,22 @@ void RhythmMiniGame::UpdateFinalCountdownEffect(DWORD currentTime)
 
         TriggerScreenFlash(150, 180);
     }
+}
+
+void RhythmMiniGame::PlayWindowSound()
+{
+    PlaySound(
+        L"resource\\minigame2\\sound\\window.wav",
+        NULL,
+        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
+    );
+}
+
+void RhythmMiniGame::PlayImpactSound()
+{
+    PlaySound(
+        L"resource\\minigame2\\sound\\impact.wav",
+        NULL,
+        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
+    );
 }
