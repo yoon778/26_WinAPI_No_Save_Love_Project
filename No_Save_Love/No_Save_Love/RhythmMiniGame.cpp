@@ -71,7 +71,18 @@ void RhythmMiniGame::Init(HWND hWnd)
         );
 
     cursorRotationAngle = 0.0f;
-    back.Load(L"resource\\minigame2\\back.png");
+    wchar_t bgPath[256];
+
+    for (int i = 0; i < BACKGROUND_COUNT; i++)
+    {
+        wsprintf(
+            bgPath,
+            L"resource\\minigame2\\background\\bg%d.png",
+            i + 1
+        );
+
+        backgrounds[i].Load(bgPath);
+    }
 
     wchar_t path[256];
 
@@ -230,6 +241,13 @@ void RhythmMiniGame::Init(HWND hWnd)
     finalLastHitY = 0;
     hasFinalLastHitPosition = false;
 
+    currentBackgroundIndex = 0;
+    nextBackgroundIndex = 0;
+
+    isBackgroundTransitionActive = false;
+    backgroundTransitionStartTime = 0;
+    hasBackgroundSwapped = false;
+
     isFinalAnimationActive = false;
     finalAnimationStartTime = 0;
     finalAnimationFrameIndex = 0;
@@ -334,6 +352,7 @@ void RhythmMiniGame::Update()
     UpdateFinalSparkles(currentTime);
     UpdateFinalCountdownEffect(currentTime);
     UpdateScreenFlash(currentTime);
+    UpdateBackgroundTransition(currentTime);
     UpdateFinalAnimation(currentTime);
     UpdateWindowGimmick(currentTime);
     UpdateWindowJumpGimmick(currentTime);
@@ -594,7 +613,7 @@ void RhythmMiniGame::Update()
 void RhythmMiniGame::Render(HDC hDC)
 {
 
-    back.Draw(hDC, 0, 0, 1920, 1080);
+    RenderBackground(hDC);
  
     // =========================
     // 점수 / 콤보 출력
@@ -1180,6 +1199,11 @@ void RhythmMiniGame::Release()
         if (!finalRightAnimationFrames[i].IsNull())
             finalRightAnimationFrames[i].Destroy();
     }
+    for (int i = 0; i < BACKGROUND_COUNT; i++)
+    {
+        if (!backgrounds[i].IsNull())
+            backgrounds[i].Destroy();
+    }
 
     CloseEffectSounds();
     StopBGM();
@@ -1737,6 +1761,8 @@ void RhythmMiniGame::RestoreOriginalWindow(DWORD currentTime)
     currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
     noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
     lastHitCircleSpawnTime = currentTime;
+
+    StartBackgroundTransition();
 
     InvalidateRect(gameHwnd, NULL, FALSE);
 }
@@ -3644,4 +3670,110 @@ void RhythmMiniGame::PlayEffectSound(const wchar_t* aliasName)
 
     wsprintf(command, L"play %s", aliasName);
     mciSendString(command, NULL, 0, NULL);
+}
+
+void RhythmMiniGame::StartBackgroundTransition()
+{
+    if (BACKGROUND_COUNT <= 1)
+        return;
+
+    // 이미 배경 전환 중이면 중복 실행 방지
+    if (isBackgroundTransitionActive == true)
+        return;
+
+    // 다음 배경을 순서대로 선택
+    nextBackgroundIndex = currentBackgroundIndex + 1;
+
+    if (nextBackgroundIndex >= BACKGROUND_COUNT)
+    {
+        nextBackgroundIndex = 0;
+    }
+
+    isBackgroundTransitionActive = true;
+    backgroundTransitionStartTime = GetTickCount();
+    hasBackgroundSwapped = false;
+}
+
+void RhythmMiniGame::UpdateBackgroundTransition(DWORD currentTime)
+{
+    if (isBackgroundTransitionActive == false)
+        return;
+
+    DWORD elapsedTime =
+        currentTime - backgroundTransitionStartTime;
+
+    if (elapsedTime >= BACKGROUND_TRANSITION_DURATION)
+    {
+        currentBackgroundIndex = nextBackgroundIndex;
+        isBackgroundTransitionActive = false;
+        hasBackgroundSwapped = false;
+        return;
+    }
+
+    // 전환 시간의 절반이 지나면 배경 교체
+    if (hasBackgroundSwapped == false &&
+        elapsedTime >= BACKGROUND_TRANSITION_DURATION / 2)
+    {
+        currentBackgroundIndex = nextBackgroundIndex;
+        hasBackgroundSwapped = true;
+    }
+}
+
+void RhythmMiniGame::RenderBackground(HDC hDC)
+{
+    if (backgrounds[currentBackgroundIndex].IsNull() == false)
+    {
+        backgrounds[currentBackgroundIndex].Draw(
+            hDC,
+            0,
+            0,
+            screenWidth,
+            screenHeight
+        );
+    }
+
+    if (isBackgroundTransitionActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedTime =
+        currentTime - backgroundTransitionStartTime;
+
+    if (elapsedTime > BACKGROUND_TRANSITION_DURATION)
+        elapsedTime = BACKGROUND_TRANSITION_DURATION;
+
+    int halfDuration = BACKGROUND_TRANSITION_DURATION / 2;
+    int alpha = 0;
+
+    if (elapsedTime <= (DWORD)halfDuration)
+    {
+        // 어두워지는 구간
+        double t = (double)elapsedTime / halfDuration;
+        alpha = (int)(220 * t);
+    }
+    else
+    {
+        // 밝아지는 구간
+        double t = (double)(elapsedTime - halfDuration) / halfDuration;
+        alpha = (int)(220 * (1.0 - t));
+    }
+
+    if (alpha < 0)
+        alpha = 0;
+
+    if (alpha > 220)
+        alpha = 220;
+
+    Gdiplus::Graphics graphics(hDC);
+    Gdiplus::SolidBrush brush(
+        Gdiplus::Color(alpha, 0, 0, 0)
+    );
+
+    graphics.FillRectangle(
+        &brush,
+        0,
+        0,
+        screenWidth,
+        screenHeight
+    );
 }

@@ -114,7 +114,8 @@
 #define FINAL_SPARKLE_LIFETIME 650
 
 #define FINAL_COUNTDOWN_STRONG_TIME 3000
-
+#define BACKGROUND_COUNT 5
+#define BACKGROUND_TRANSITION_DURATION 1200
 
 enum ComboCharacterType
 {
@@ -419,8 +420,23 @@ private:
     // 마지막 3초 카운트다운 강조
     // =========================
     int lastFinalCountdownSecond;
+    // =========================
+    // 배경 전환
+    // =========================
+    CImage backgrounds[BACKGROUND_COUNT];
+
+    int currentBackgroundIndex;
+    int nextBackgroundIndex;
+
+    bool isBackgroundTransitionActive;
+    DWORD backgroundTransitionStartTime;
+    bool hasBackgroundSwapped;
 
 
+
+    void StartBackgroundTransition();
+    void UpdateBackgroundTransition(DWORD currentTime);
+    void RenderBackground(HDC hDC);
 
     void LoadEffectSounds();
     void CloseEffectSounds();
