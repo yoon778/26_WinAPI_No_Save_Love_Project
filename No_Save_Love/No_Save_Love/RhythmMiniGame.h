@@ -72,6 +72,25 @@
 
 #define RHYTHM_GAME_DURATION 88000
 
+#define MISS_REACTION_FRAME_COUNT 3
+#define MISS_REACTION_FRAME_INTERVAL 120
+#define MISS_REACTION_DURATION 1400
+
+#define COMBO_FLASH_DURATION 180
+#define COMBO_FLASH_ALPHA 90
+
+#define GIMMICK_FLASH_DURATION 160
+#define GIMMICK_FLASH_ALPHA 120
+
+#define WINDOW_SHAKE_DURATION 220
+#define WINDOW_SHAKE_POWER 10
+
+#define FINAL_EFFECT_START_TIME (RHYTHM_GAME_DURATION - 5000)
+
+#define FINAL_HITCIRCLE_MOVE_RANGE 260
+#define FINAL_HITCIRCLE_MARGIN_X 160
+#define FINAL_HITCIRCLE_MARGIN_Y 130
+
 enum ComboCharacterType
 {
     COMBO_CHARACTER_NONE,
@@ -291,7 +310,62 @@ private:
     bool isWindowJumpNotePending;
     DWORD windowJumpNoteSpawnTime;
 
+    // =========================
+// Miss 캐릭터 반응
+// =========================
+    CImage missReactionFrames[MISS_REACTION_FRAME_COUNT];
 
+    bool isMissReactionActive;
+    DWORD missReactionStartTime;
+    int missReactionFrameIndex;
+
+
+    // =========================
+    // 화면 플래시
+    // =========================
+    bool isScreenFlashActive;
+    DWORD screenFlashStartTime;
+    DWORD screenFlashDuration;
+    int screenFlashMaxAlpha;
+
+
+    // =========================
+    // 창 흔들림
+    // =========================
+    bool isWindowShakeActive;
+    DWORD windowShakeStartTime;
+    DWORD windowShakeDuration;
+    int windowShakePower;
+    RECT windowShakeBaseRect;
+
+
+    // =========================
+    // 마지막 5초 연출
+    // =========================
+    bool hasFinalEffectStarted;
+    bool isFinalEffectActive;
+    DWORD finalEffectStartTime;
+    int finalLastHitX;
+    int finalLastHitY;
+    bool hasFinalLastHitPosition;
+
+
+
+    void CreateFinalHitCircle();
+    void TriggerMissReaction();
+    void UpdateMissReaction(DWORD currentTime);
+    void RenderMissReaction(HDC hDC);
+
+    void TriggerScreenFlash(int maxAlpha, DWORD duration);
+    void UpdateScreenFlash(DWORD currentTime);
+    void RenderScreenFlash(HDC hDC);
+
+    void StartWindowShake(DWORD currentTime, DWORD duration, int power);
+    void UpdateWindowShake(DWORD currentTime);
+
+    void TriggerGimmickImpact(DWORD currentTime);
+
+    void StartFinalEffect(DWORD currentTime);
 
     void TriggerComboAnimation();
     void UpdateComboAnimation(DWORD currentTime);

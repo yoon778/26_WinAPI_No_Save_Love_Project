@@ -96,6 +96,20 @@ void RhythmMiniGame::Init(HWND hWnd)
         PremultiplyAlpha(combo30Frames[i]);
     }
 
+    wchar_t missPath[256];
+
+    for (int i = 0; i < MISS_REACTION_FRAME_COUNT; i++)
+    {
+        wsprintf(
+            missPath,
+            L"resource\\minigame2\\miss\\frame%d.png",
+            i + 1
+        );
+
+        missReactionFrames[i].Load(missPath);
+        PremultiplyAlpha(missReactionFrames[i]);
+    }
+
     PremultiplyAlpha(cursorImg);
     PremultiplyAlpha(cursorTrailImg);
 
@@ -159,6 +173,29 @@ void RhythmMiniGame::Init(HWND hWnd)
     isWindowJumpNotePending = false;
     windowJumpNoteSpawnTime = 0;
 
+    isMissReactionActive = false;
+    missReactionStartTime = 0;
+    missReactionFrameIndex = 0;
+
+    isScreenFlashActive = false;
+    screenFlashStartTime = 0;
+    screenFlashDuration = 0;
+    screenFlashMaxAlpha = 0;
+
+    isWindowShakeActive = false;
+    windowShakeStartTime = 0;
+    windowShakeDuration = 0;
+    windowShakePower = 0;
+    windowShakeBaseRect = { 0, 0, 0, 0 };
+
+    hasFinalEffectStarted = false;
+    isFinalEffectActive = false;
+    finalEffectStartTime = 0;
+
+    finalLastHitX = 0;
+    finalLastHitY = 0;
+    hasFinalLastHitPosition = false;
+
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
@@ -221,6 +258,12 @@ void RhythmMiniGame::Update()
 
     DWORD elapsedBgmTime = currentTime - bgmStartTime;
 
+    if (hasFinalEffectStarted == false &&
+        elapsedBgmTime >= FINAL_EFFECT_START_TIME)
+    {
+        StartFinalEffect(currentTime);
+    }
+
     if (elapsedBgmTime >= RHYTHM_GAME_DURATION)
     {
         if (isGameOver == false)
@@ -235,11 +278,17 @@ void RhythmMiniGame::Update()
     }
 
     UpdateComboAnimation(currentTime);
+    UpdateMissReaction(currentTime);
+    UpdateScreenFlash(currentTime);
 
     UpdateWindowGimmick(currentTime);
     UpdateWindowJumpGimmick(currentTime);
     UpdateSliderFollowWindowGimmick(currentTime);
     UpdateWindowJumpDelayedNote(currentTime);
+    UpdateWindowShake(currentTime);
+    // 창 기믹 처리가 전부 끝난 뒤에 박자 기반 노트 생성
+    UpdateBeatSpawn(currentTime);
+
     // =========================
     // 두 번째 작은 창 기믹 예약 실행
     // =========================
@@ -254,8 +303,6 @@ void RhythmMiniGame::Update()
         }
     }
 
-    // 창 기믹 처리가 전부 끝난 뒤에 박자 기반 노트 생성
-    UpdateBeatSpawn(currentTime);
 
     bool hasActiveSlider = false;
 
@@ -879,6 +926,8 @@ void RhythmMiniGame::Render(HDC hDC)
     }
 
     RenderComboAnimation(hDC);
+    RenderMissReaction(hDC);
+    RenderScreenFlash(hDC);
 
     // =========================
     // 커서 궤적 그리기
@@ -1057,6 +1106,12 @@ void RhythmMiniGame::Release()
 
         if (!combo30Frames[i].IsNull())
             combo30Frames[i].Destroy();
+    }
+
+    for (int i = 0; i < MISS_REACTION_FRAME_COUNT; i++)
+    {
+        if (!missReactionFrames[i].IsNull())
+            missReactionFrames[i].Destroy();
     }
 
     StopBGM();
@@ -1573,6 +1628,8 @@ void RhythmMiniGame::TriggerWindowGimmick(DWORD currentTime, bool isSecondRun)
     windowGimmickStartTime = currentTime;
     isWindowGimmickActive = true;
 
+    TriggerGimmickImpact(currentTime);
+
     InvalidateRect(gameHwnd, NULL, FALSE);
 }
 
@@ -1820,6 +1877,8 @@ void RhythmMiniGame::MoveWindowJumpStep(int step, DWORD currentTime)
 
     lastHitCircleSpawnTime = currentTime;
 
+    TriggerGimmickImpact(currentTime);
+
     InvalidateRect(gameHwnd, NULL, FALSE);
 }
 
@@ -1915,6 +1974,11 @@ MoveSliderFollowWindowToRandomPosition();
 CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
 
 lastHitCircleSpawnTime = currentTime;
+
+TriggerScreenFlash(
+    GIMMICK_FLASH_ALPHA,
+    GIMMICK_FLASH_DURATION
+);
 
 InvalidateRect(gameHwnd, NULL, FALSE);
 }
@@ -2183,7 +2247,7 @@ void RhythmMiniGame::AddCombo()
 void RhythmMiniGame::ResetCombo()
 {
     combo = 0;
-    comboEffectStartTime = GetTickCount();
+    TriggerMissReaction();
 }
 
 void RhythmMiniGame::TriggerComboAnimation()
@@ -2203,6 +2267,8 @@ void RhythmMiniGame::TriggerComboAnimation()
         currentComboCharacterType = COMBO_CHARACTER_30;
     }
 
+    TriggerScreenFlash(COMBO_FLASH_ALPHA, COMBO_FLASH_DURATION);
+    
     isComboAnimationActive = true;
     comboAnimationStartTime = GetTickCount();
     comboAnimationFrameIndex = 0;
@@ -2369,7 +2435,10 @@ void RhythmMiniGame::UpdateBeatSpawn(DWORD currentTime)
         return;
 
     // 2박자마다 노트 생성
-    if (beatIndex % NOTE_BEAT_STEP != 0)
+    int currentNoteBeatStep =
+        isFinalEffectActive ? 1 : NOTE_BEAT_STEP;
+
+    if (beatIndex % currentNoteBeatStep != 0)
         return;
 
     // 기믹 발동 직전에는 노드를 하나 덜 생성
@@ -2392,6 +2461,12 @@ void RhythmMiniGame::UpdateBeatSpawn(DWORD currentTime)
             marginY + rand() % (screenHeight - marginY * 2);
 
         CreateHitCircle(randomX, randomY);
+        return;
+    }
+
+    if (isFinalEffectActive == true)
+    {
+        CreateFinalHitCircle();
         return;
     }
 
@@ -2553,4 +2628,263 @@ void RhythmMiniGame::UpdateWindowJumpDelayedNote(DWORD currentTime)
     currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
     noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
     lastHitCircleSpawnTime = currentTime;
+}
+
+void RhythmMiniGame::TriggerMissReaction()
+{
+    isMissReactionActive = true;
+    missReactionStartTime = GetTickCount();
+    missReactionFrameIndex = 0;
+}
+
+void RhythmMiniGame::UpdateMissReaction(DWORD currentTime)
+{
+    if (isMissReactionActive == false)
+        return;
+
+    DWORD elapsedTime = currentTime - missReactionStartTime;
+
+    if (elapsedTime >= MISS_REACTION_DURATION)
+    {
+        isMissReactionActive = false;
+        missReactionFrameIndex = 0;
+        return;
+    }
+
+    missReactionFrameIndex =
+        (elapsedTime / MISS_REACTION_FRAME_INTERVAL) %
+        MISS_REACTION_FRAME_COUNT;
+}
+
+void RhythmMiniGame::RenderMissReaction(HDC hDC)
+{
+    if (isMissReactionActive == false)
+        return;
+
+    CImage* currentFrame =
+        &missReactionFrames[missReactionFrameIndex];
+
+    if (currentFrame->IsNull())
+        return;
+
+    int drawSize = screenHeight / 4;
+
+    if (drawSize > 260)
+        drawSize = 260;
+
+    if (drawSize < 150)
+        drawSize = 150;
+
+    int drawX = 30;
+    int drawY = screenHeight - drawSize - 30;
+
+    currentFrame->Draw(
+        hDC,
+        drawX,
+        drawY,
+        drawSize,
+        drawSize
+    );
+}
+
+void RhythmMiniGame::TriggerScreenFlash(int maxAlpha, DWORD duration)
+{
+    isScreenFlashActive = true;
+    screenFlashStartTime = GetTickCount();
+    screenFlashDuration = duration;
+    screenFlashMaxAlpha = maxAlpha;
+}
+
+void RhythmMiniGame::UpdateScreenFlash(DWORD currentTime)
+{
+    if (isScreenFlashActive == false)
+        return;
+
+    DWORD elapsedTime = currentTime - screenFlashStartTime;
+
+    if (elapsedTime >= screenFlashDuration)
+    {
+        isScreenFlashActive = false;
+    }
+}
+
+void RhythmMiniGame::RenderScreenFlash(HDC hDC)
+{
+    if (isScreenFlashActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedTime = currentTime - screenFlashStartTime;
+
+    if (elapsedTime >= screenFlashDuration)
+        return;
+
+    double progress =
+        (double)elapsedTime / screenFlashDuration;
+
+    int alpha =
+        (int)(screenFlashMaxAlpha * (1.0 - progress));
+
+    if (alpha < 0)
+        alpha = 0;
+
+    Gdiplus::Graphics graphics(hDC);
+
+    Gdiplus::SolidBrush brush(
+        Gdiplus::Color(
+            alpha,
+            255,
+            255,
+            255
+        )
+    );
+
+    graphics.FillRectangle(
+        &brush,
+        0,
+        0,
+        screenWidth,
+        screenHeight
+    );
+}
+
+void RhythmMiniGame::StartWindowShake(
+    DWORD currentTime,
+    DWORD duration,
+    int power
+)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    GetWindowRect(gameHwnd, &windowShakeBaseRect);
+
+    isWindowShakeActive = true;
+    windowShakeStartTime = currentTime;
+    windowShakeDuration = duration;
+    windowShakePower = power;
+}
+
+void RhythmMiniGame::UpdateWindowShake(DWORD currentTime)
+{
+    if (isWindowShakeActive == false)
+        return;
+
+    DWORD elapsedTime =
+        currentTime - windowShakeStartTime;
+
+    if (elapsedTime >= windowShakeDuration)
+    {
+        SetWindowPos(
+            gameHwnd,
+            NULL,
+            windowShakeBaseRect.left,
+            windowShakeBaseRect.top,
+            0,
+            0,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
+        );
+
+        isWindowShakeActive = false;
+        return;
+    }
+
+    int offsetX =
+        (rand() % (windowShakePower * 2 + 1)) - windowShakePower;
+
+    int offsetY =
+        (rand() % (windowShakePower * 2 + 1)) - windowShakePower;
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        windowShakeBaseRect.left + offsetX,
+        windowShakeBaseRect.top + offsetY,
+        0,
+        0,
+        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
+    );
+}
+
+void RhythmMiniGame::TriggerGimmickImpact(DWORD currentTime)
+{
+    TriggerScreenFlash(
+        GIMMICK_FLASH_ALPHA,
+        GIMMICK_FLASH_DURATION
+    );
+
+    // 슬라이더 따라 창 이동 중에는 흔들림이 추적 판정과 충돌할 수 있으니 제외
+    if (isSliderFollowWindowGimmickActive == false)
+    {
+        StartWindowShake(
+            currentTime,
+            WINDOW_SHAKE_DURATION,
+            WINDOW_SHAKE_POWER
+        );
+    }
+}
+
+void RhythmMiniGame::StartFinalEffect(DWORD currentTime)
+{
+    hasFinalEffectStarted = true;
+    isFinalEffectActive = true;
+    finalEffectStartTime = currentTime;
+
+    hasFinalLastHitPosition = false;
+    finalLastHitX = screenWidth / 2;
+    finalLastHitY = screenHeight / 2;
+
+    // 마지막 응원 느낌
+    currentComboCharacterType = COMBO_CHARACTER_10;
+    isComboAnimationActive = true;
+    comboAnimationStartTime = currentTime;
+    comboAnimationFrameIndex = 0;
+
+    TriggerScreenFlash(130, 300);
+}
+
+void RhythmMiniGame::CreateFinalHitCircle()
+{
+    int x;
+    int y;
+
+    // 마지막 5초 첫 노트는 화면 중앙 근처에서 시작
+    if (hasFinalLastHitPosition == false)
+    {
+        x = screenWidth / 2;
+        y = screenHeight / 2;
+
+        hasFinalLastHitPosition = true;
+    }
+    else
+    {
+        int offsetX =
+            -FINAL_HITCIRCLE_MOVE_RANGE +
+            rand() % (FINAL_HITCIRCLE_MOVE_RANGE * 2 + 1);
+
+        int offsetY =
+            -FINAL_HITCIRCLE_MOVE_RANGE +
+            rand() % (FINAL_HITCIRCLE_MOVE_RANGE * 2 + 1);
+
+        x = finalLastHitX + offsetX;
+        y = finalLastHitY + offsetY;
+    }
+
+    // 화면 밖으로 나가지 않게 보정
+    if (x < FINAL_HITCIRCLE_MARGIN_X)
+        x = FINAL_HITCIRCLE_MARGIN_X;
+
+    if (x > screenWidth - FINAL_HITCIRCLE_MARGIN_X)
+        x = screenWidth - FINAL_HITCIRCLE_MARGIN_X;
+
+    if (y < FINAL_HITCIRCLE_MARGIN_Y)
+        y = FINAL_HITCIRCLE_MARGIN_Y;
+
+    if (y > screenHeight - FINAL_HITCIRCLE_MARGIN_Y)
+        y = screenHeight - FINAL_HITCIRCLE_MARGIN_Y;
+
+    CreateHitCircle(x, y);
+
+    finalLastHitX = x;
+    finalLastHitY = y;
 }
