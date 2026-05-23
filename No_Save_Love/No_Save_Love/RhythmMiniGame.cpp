@@ -110,6 +110,32 @@ void RhythmMiniGame::Init(HWND hWnd)
         PremultiplyAlpha(missReactionFrames[i]);
     }
 
+    wchar_t finalPath[256];
+
+    for (int i = 0; i < FINAL_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(
+            finalPath,
+            L"resource\\minigame2\\final\\left\\frame%d.png",
+            i + 1
+        );
+
+        finalLeftAnimationFrames[i].Load(finalPath);
+        PremultiplyAlpha(finalLeftAnimationFrames[i]);
+    }
+
+    for (int i = 0; i < FINAL_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(
+            finalPath,
+            L"resource\\minigame2\\final\\right\\frame%d.png",
+            i + 1
+        );
+
+        finalRightAnimationFrames[i].Load(finalPath);
+        PremultiplyAlpha(finalRightAnimationFrames[i]);
+    }
+
     PremultiplyAlpha(cursorImg);
     PremultiplyAlpha(cursorTrailImg);
 
@@ -196,6 +222,10 @@ void RhythmMiniGame::Init(HWND hWnd)
     finalLastHitY = 0;
     hasFinalLastHitPosition = false;
 
+    isFinalAnimationActive = false;
+    finalAnimationStartTime = 0;
+    finalAnimationFrameIndex = 0;
+
     // 히트서클 초기화
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
@@ -280,7 +310,7 @@ void RhythmMiniGame::Update()
     UpdateComboAnimation(currentTime);
     UpdateMissReaction(currentTime);
     UpdateScreenFlash(currentTime);
-
+    UpdateFinalAnimation(currentTime);
     UpdateWindowGimmick(currentTime);
     UpdateWindowJumpGimmick(currentTime);
     UpdateSliderFollowWindowGimmick(currentTime);
@@ -927,6 +957,7 @@ void RhythmMiniGame::Render(HDC hDC)
 
     RenderComboAnimation(hDC);
     RenderMissReaction(hDC);
+    RenderFinalAnimation(hDC);
     RenderScreenFlash(hDC);
 
     // =========================
@@ -1112,6 +1143,15 @@ void RhythmMiniGame::Release()
     {
         if (!missReactionFrames[i].IsNull())
             missReactionFrames[i].Destroy();
+    }
+
+    for (int i = 0; i < FINAL_ANIMATION_FRAME_COUNT; i++)
+    {
+        if (!finalLeftAnimationFrames[i].IsNull())
+            finalLeftAnimationFrames[i].Destroy();
+
+        if (!finalRightAnimationFrames[i].IsNull())
+            finalRightAnimationFrames[i].Destroy();
     }
 
     StopBGM();
@@ -2835,10 +2875,9 @@ void RhythmMiniGame::StartFinalEffect(DWORD currentTime)
     finalLastHitY = screenHeight / 2;
 
     // 마지막 응원 느낌
-    currentComboCharacterType = COMBO_CHARACTER_10;
-    isComboAnimationActive = true;
-    comboAnimationStartTime = currentTime;
-    comboAnimationFrameIndex = 0;
+    isFinalAnimationActive = true;
+    finalAnimationStartTime = currentTime;
+    finalAnimationFrameIndex = 0;
 
     TriggerScreenFlash(130, 300);
 }
@@ -2887,4 +2926,82 @@ void RhythmMiniGame::CreateFinalHitCircle()
 
     finalLastHitX = x;
     finalLastHitY = y;
+}
+
+void RhythmMiniGame::UpdateFinalAnimation(DWORD currentTime)
+{
+    if (isFinalAnimationActive == false)
+        return;
+
+    finalAnimationFrameIndex =
+        ((currentTime - finalAnimationStartTime) / FINAL_ANIMATION_FRAME_INTERVAL)
+        % FINAL_ANIMATION_FRAME_COUNT;
+}
+
+void RhythmMiniGame::RenderFinalAnimation(HDC hDC)
+{
+    if (isFinalAnimationActive == false)
+        return;
+
+    CImage* leftFrame =
+        &finalLeftAnimationFrames[finalAnimationFrameIndex];
+
+    CImage* rightFrame =
+        &finalRightAnimationFrames[finalAnimationFrameIndex];
+
+    int targetHeight = screenHeight * 3 / 4;
+
+    if (targetHeight > 720)
+        targetHeight = 720;
+
+    if (targetHeight < 300)
+        targetHeight = 300;
+
+    // =========================
+    // 왼쪽 애니메이션
+    // =========================
+    if (!leftFrame->IsNull())
+    {
+        int originalWidth = leftFrame->GetWidth();
+        int originalHeight = leftFrame->GetHeight();
+
+        int drawHeight = targetHeight;
+        int drawWidth =
+            originalWidth * drawHeight / originalHeight;
+
+        int drawX = 30;
+        int drawY = screenHeight - drawHeight - 20;
+
+        leftFrame->Draw(
+            hDC,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight
+        );
+    }
+
+    // =========================
+    // 오른쪽 애니메이션
+    // =========================
+    if (!rightFrame->IsNull())
+    {
+        int originalWidth = rightFrame->GetWidth();
+        int originalHeight = rightFrame->GetHeight();
+
+        int drawHeight = targetHeight;
+        int drawWidth =
+            originalWidth * drawHeight / originalHeight;
+
+        int drawX = screenWidth - drawWidth - 30;
+        int drawY = screenHeight - drawHeight - 20;
+
+        rightFrame->Draw(
+            hDC,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight
+        );
+    }
 }

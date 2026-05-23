@@ -63,9 +63,9 @@
 
 #define WINDOW_GIMMICK_TRIGGER_BEAT 32          // 32박자  ≈ 14.6초  → 작은 창 기믹
 #define WINDOW_JUMP_GIMMICK_TRIGGER_BEAT 76     // 76박자  ≈ 34.8초  → 연속 창 점프 기믹
-#define WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT 120   // 120박자 ≈ 54.9초  → 슬라이더 창 이동 기믹
+#define WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT 104   // 120박자 ≈ 54.9초  → 슬라이더 창 이동 기믹
 
-#define SECOND_WINDOW_GIMMICK_DELAY_BEAT 16
+#define SECOND_WINDOW_GIMMICK_DELAY_BEAT 8
 #define PRE_GIMMICK_NOTE_SKIP_TIME (NOTE_BEAT_STEP * BEAT_INTERVAL)
 
 #define WINDOW_JUMP_NOTE_DELAY 450
@@ -85,11 +85,14 @@
 #define WINDOW_SHAKE_DURATION 220
 #define WINDOW_SHAKE_POWER 10
 
-#define FINAL_EFFECT_START_TIME (RHYTHM_GAME_DURATION - 5000)
+#define FINAL_EFFECT_START_TIME (RHYTHM_GAME_DURATION - 10000)
 
 #define FINAL_HITCIRCLE_MOVE_RANGE 260
 #define FINAL_HITCIRCLE_MARGIN_X 160
 #define FINAL_HITCIRCLE_MARGIN_Y 130
+
+#define FINAL_ANIMATION_FRAME_COUNT 8
+#define FINAL_ANIMATION_FRAME_INTERVAL 150
 
 enum ComboCharacterType
 {
@@ -349,7 +352,19 @@ private:
     int finalLastHitY;
     bool hasFinalLastHitPosition;
 
+    // =========================
+    // 마지막 5초 전용 응원 애니메이션
+    // =========================
+    CImage finalLeftAnimationFrames[FINAL_ANIMATION_FRAME_COUNT];
+    CImage finalRightAnimationFrames[FINAL_ANIMATION_FRAME_COUNT];
+    bool isFinalAnimationActive;
+    DWORD finalAnimationStartTime;
+    int finalAnimationFrameIndex;
 
+
+
+    void UpdateFinalAnimation(DWORD currentTime);
+    void RenderFinalAnimation(HDC hDC);
 
     void CreateFinalHitCircle();
     void TriggerMissReaction();
