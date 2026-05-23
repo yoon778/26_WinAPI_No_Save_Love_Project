@@ -208,6 +208,11 @@ void RhythmMiniGame::Init(HWND hWnd)
     screenFlashDuration = 0;
     screenFlashMaxAlpha = 0;
 
+    maxCombo = 0;
+    finalScore = 0;
+    resultScore100 = 0;
+    isResultCalculated = false;
+
     isWindowShakeActive = false;
     windowShakeStartTime = 0;
     windowShakeDuration = 0;
@@ -217,6 +222,9 @@ void RhythmMiniGame::Init(HWND hWnd)
     hasFinalEffectStarted = false;
     isFinalEffectActive = false;
     finalEffectStartTime = 0;
+
+    isClearEffectActive = false;
+    clearEffectStartTime = 0;
 
     finalLastHitX = 0;
     finalLastHitY = 0;
@@ -302,6 +310,15 @@ void RhythmMiniGame::Update()
 
             StopBGM();
             ClearAllNotes();
+
+            isFinalEffectActive = false;
+            isFinalAnimationActive = false;
+
+            CalculateResult();
+
+            // 클리어 연출 시작
+            isClearEffectActive = true;
+            clearEffectStartTime = currentTime;
         }
 
         return;
@@ -958,7 +975,9 @@ void RhythmMiniGame::Render(HDC hDC)
     RenderComboAnimation(hDC);
     RenderMissReaction(hDC);
     RenderFinalAnimation(hDC);
+    RenderFinalTimer(hDC);
     RenderScreenFlash(hDC);
+    RenderClearEffect(hDC);
 
     // =========================
     // 커서 궤적 그리기
@@ -1380,10 +1399,6 @@ bool RhythmMiniGame::IsGameOver() const
     return isGameOver;
 }
 
-int RhythmMiniGame::GetScore() const
-{
-    return score;
-}
 
 void RhythmMiniGame::CreateHitCircle(int x, int y)
 {
@@ -1400,7 +1415,7 @@ void RhythmMiniGame::CreateHitCircle(int x, int y)
             hitCircles[i].y = y;
 
             hitCircles[i].spawnTime = currentTime;
-            hitCircles[i].hitTime = currentTime + 1000;
+            hitCircles[i].hitTime = currentTime + HIT_APPROACH_TIME;
 
             hitCircleCount++;
 
@@ -1466,7 +1481,7 @@ void RhythmMiniGame::CreateSlider(
             sliders[i].endY = endY;
 
             sliders[i].spawnTime = currentTime;
-            sliders[i].hitTime = currentTime + 1000;
+            sliders[i].hitTime = currentTime + HIT_APPROACH_TIME;
             sliders[i].isTrackingSuccess = false;
             sliders[i].isWindowFollowTarget = isWindowFollowTarget;
 
@@ -2277,7 +2292,11 @@ void RhythmMiniGame::AddCombo()
 {
     combo++;
 
-    // 10콤보마다 애니메이션 실행
+    if (combo > maxCombo)
+    {
+        maxCombo = combo;
+    }
+
     if (combo % 10 == 0)
     {
         TriggerComboAnimation();
@@ -2887,11 +2906,31 @@ void RhythmMiniGame::CreateFinalHitCircle()
     int x;
     int y;
 
-    // 마지막 5초 첫 노트는 화면 중앙 근처에서 시작
+    // 마지막 15초 전용 안전 플레이 영역
+    int safeLeft = screenWidth * FINAL_PLAY_AREA_LEFT_RATIO / 100;
+    int safeRight = screenWidth * FINAL_PLAY_AREA_RIGHT_RATIO / 100;
+
+    int safeTop = FINAL_PLAY_AREA_TOP_MARGIN;
+    int safeBottom = screenHeight - FINAL_PLAY_AREA_BOTTOM_MARGIN;
+
+    // 화면이 너무 작을 때 안전 처리
+    if (safeRight <= safeLeft)
+    {
+        safeLeft = 160;
+        safeRight = screenWidth - 160;
+    }
+
+    if (safeBottom <= safeTop)
+    {
+        safeTop = 130;
+        safeBottom = screenHeight - 130;
+    }
+
+    // 마지막 구간 첫 노트는 중앙 안전 영역에서 시작
     if (hasFinalLastHitPosition == false)
     {
-        x = screenWidth / 2;
-        y = screenHeight / 2;
+        x = (safeLeft + safeRight) / 2;
+        y = (safeTop + safeBottom) / 2;
 
         hasFinalLastHitPosition = true;
     }
@@ -2909,18 +2948,18 @@ void RhythmMiniGame::CreateFinalHitCircle()
         y = finalLastHitY + offsetY;
     }
 
-    // 화면 밖으로 나가지 않게 보정
-    if (x < FINAL_HITCIRCLE_MARGIN_X)
-        x = FINAL_HITCIRCLE_MARGIN_X;
+    // 안전 영역 밖으로 나가지 않게 보정
+    if (x < safeLeft)
+        x = safeLeft;
 
-    if (x > screenWidth - FINAL_HITCIRCLE_MARGIN_X)
-        x = screenWidth - FINAL_HITCIRCLE_MARGIN_X;
+    if (x > safeRight)
+        x = safeRight;
 
-    if (y < FINAL_HITCIRCLE_MARGIN_Y)
-        y = FINAL_HITCIRCLE_MARGIN_Y;
+    if (y < safeTop)
+        y = safeTop;
 
-    if (y > screenHeight - FINAL_HITCIRCLE_MARGIN_Y)
-        y = screenHeight - FINAL_HITCIRCLE_MARGIN_Y;
+    if (y > safeBottom)
+        y = safeBottom;
 
     CreateHitCircle(x, y);
 
@@ -3004,4 +3043,311 @@ void RhythmMiniGame::RenderFinalAnimation(HDC hDC)
             drawHeight
         );
     }
+}
+void RhythmMiniGame::RenderFinalTimer(HDC hDC)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    // 게임이 끝났으면 타이머를 더 이상 출력하지 않음
+    if (isGameOver == true)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    int remainingMs =
+        (int)RHYTHM_GAME_DURATION - (int)elapsedBgmTime;
+
+    if (remainingMs < 0)
+        remainingMs = 0;
+
+    double remainingSec =
+        remainingMs / 1000.0;
+
+    wchar_t timerText[50];
+
+    // wsprintf는 소수점 출력이 안 좋으니 swprintf_s 사용
+    swprintf_s(timerText, 50, L"%.1f", remainingSec);
+
+    int fontSize = 90;
+
+    if (remainingSec <= 3.0)
+    {
+        fontSize = 130;
+    }
+
+    HFONT timerFont = CreateFontW(
+        fontSize,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    HFONT oldFont = (HFONT)SelectObject(hDC, timerFont);
+
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextAlign(hDC, TA_CENTER);
+
+    int centerX = screenWidth / 2;
+    int drawY = 60;
+
+    // 검은색 외곽선 느낌
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 3, drawY, timerText, lstrlen(timerText));
+    TextOut(hDC, centerX + 3, drawY, timerText, lstrlen(timerText));
+    TextOut(hDC, centerX, drawY - 3, timerText, lstrlen(timerText));
+    TextOut(hDC, centerX, drawY + 3, timerText, lstrlen(timerText));
+
+    // 실제 흰색 숫자
+    SetTextColor(hDC, RGB(255, 255, 255));
+    TextOut(hDC, centerX, drawY, timerText, lstrlen(timerText));
+
+    SetTextAlign(hDC, TA_LEFT);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(timerFont);
+}
+
+void RhythmMiniGame::RenderClearEffect(HDC hDC)
+{
+    if (isClearEffectActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedTime = currentTime - clearEffectStartTime;
+
+    // 살짝 커졌다 작아지는 느낌
+    int titleFontSize = 120;
+
+    if ((elapsedTime / 300) % 2 == 0)
+    {
+        titleFontSize = 135;
+    }
+
+    HFONT titleFont = CreateFontW(
+        titleFontSize,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    HFONT oldFont = (HFONT)SelectObject(hDC, titleFont);
+
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextAlign(hDC, TA_CENTER);
+
+    int centerX = screenWidth / 2;
+    int centerY = screenHeight / 2 - 90;
+
+    const wchar_t* clearText = L"CLEAR!";
+
+    // 외곽선
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 4, centerY, clearText, lstrlen(clearText));
+    TextOut(hDC, centerX + 4, centerY, clearText, lstrlen(clearText));
+    TextOut(hDC, centerX, centerY - 4, clearText, lstrlen(clearText));
+    TextOut(hDC, centerX, centerY + 4, clearText, lstrlen(clearText));
+
+    // 본문
+    SetTextColor(hDC, RGB(255, 255, 255));
+    TextOut(hDC, centerX, centerY, clearText, lstrlen(clearText));
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(titleFont);
+
+    // =========================
+    // 최종 점수 출력
+    // =========================
+    HFONT scoreFont = CreateFontW(
+        48,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    // =========================
+// 등급 출력
+// =========================
+    HFONT gradeFont = CreateFontW(
+        90,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    oldFont = (HFONT)SelectObject(hDC, gradeFont);
+
+    wchar_t gradeText[100];
+    wsprintf(gradeText, L"RANK : %s", GetGradeText());
+
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 3, centerY + 180, gradeText, lstrlen(gradeText));
+    TextOut(hDC, centerX + 3, centerY + 180, gradeText, lstrlen(gradeText));
+    TextOut(hDC, centerX, centerY + 177, gradeText, lstrlen(gradeText));
+    TextOut(hDC, centerX, centerY + 183, gradeText, lstrlen(gradeText));
+
+    SetTextColor(hDC, RGB(255, 220, 80));
+    TextOut(hDC, centerX, centerY + 180, gradeText, lstrlen(gradeText));
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(gradeFont);
+
+    HFONT bonusFont = CreateFontW(
+        36,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    oldFont = (HFONT)SelectObject(hDC, bonusFont);
+
+    wchar_t comboText[100];
+
+    if (maxCombo >= MAX_COMBO_TARGET)
+    {
+        wsprintf(
+            comboText,
+            L"Max Combo Bonus!  +%d",
+            MAX_COMBO_BONUS_SCORE
+        );
+    }
+    else
+    {
+        wsprintf(
+            comboText,
+            L"Max Combo : %d / %d",
+            maxCombo,
+            MAX_COMBO_TARGET
+        );
+    }
+
+    SetTextColor(hDC, RGB(255, 255, 255));
+    TextOut(hDC, centerX, centerY + 250, comboText, lstrlen(comboText));
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(bonusFont);
+
+    oldFont = (HFONT)SelectObject(hDC, scoreFont);
+
+    wchar_t scoreText[100];
+    wsprintf(scoreText, L"Final Score : %d", score);
+
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 2, centerY + 110, scoreText, lstrlen(scoreText));
+    TextOut(hDC, centerX + 2, centerY + 110, scoreText, lstrlen(scoreText));
+    TextOut(hDC, centerX, centerY + 108, scoreText, lstrlen(scoreText));
+    TextOut(hDC, centerX, centerY + 112, scoreText, lstrlen(scoreText));
+
+    SetTextColor(hDC, RGB(255, 240, 120));
+    TextOut(hDC, centerX, centerY + 110, scoreText, lstrlen(scoreText));
+
+    SetTextAlign(hDC, TA_LEFT);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(scoreFont);
+}
+
+void RhythmMiniGame::CalculateResult()
+{
+    if (isResultCalculated == true)
+        return;
+
+    finalScore = score;
+
+    // 최대 콤보 달성 보너스
+    if (maxCombo >= MAX_COMBO_TARGET)
+    {
+        finalScore += MAX_COMBO_BONUS_SCORE;
+    }
+
+    // 윤서에게 넘길 0~100 점수
+    resultScore100 = finalScore * 100 / GRADE_S_SCORE;
+
+    if (resultScore100 > 100)
+        resultScore100 = 100;
+
+    if (resultScore100 < 0)
+        resultScore100 = 0;
+
+    isResultCalculated = true;
+}
+
+const wchar_t* RhythmMiniGame::GetGradeText() const
+{
+    if (finalScore >= GRADE_S_SCORE)
+        return L"S";
+
+    if (finalScore >= GRADE_A_SCORE)
+        return L"A";
+
+    if (finalScore >= GRADE_B_SCORE)
+        return L"B";
+
+    if (finalScore >= GRADE_C_SCORE)
+        return L"C";
+
+    return L"D";
+}
+
+
+
+int RhythmMiniGame::GetResultScore100() const
+{
+    return resultScore100;
+}
+
+int RhythmMiniGame::GetFinalScore() const
+{
+    return finalScore;
 }

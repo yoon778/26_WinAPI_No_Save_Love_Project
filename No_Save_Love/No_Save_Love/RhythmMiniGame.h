@@ -60,17 +60,18 @@
 #define WINDOW_NOTE_SPAWN_BLOCK_TIME 700
 
 #define BEAT_INTERVAL 458
+#define HIT_APPROACH_TIME (BEAT_INTERVAL * 2)
 
 #define WINDOW_GIMMICK_TRIGGER_BEAT 32          // 32박자  ≈ 14.6초  → 작은 창 기믹
 #define WINDOW_JUMP_GIMMICK_TRIGGER_BEAT 76     // 76박자  ≈ 34.8초  → 연속 창 점프 기믹
-#define WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT 104   // 120박자 ≈ 54.9초  → 슬라이더 창 이동 기믹
+#define WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT 120   // 120박자 ≈ 54.9초  → 슬라이더 창 이동 기믹
 
-#define SECOND_WINDOW_GIMMICK_DELAY_BEAT 8
+#define SECOND_WINDOW_GIMMICK_DELAY_BEAT 12
 #define PRE_GIMMICK_NOTE_SKIP_TIME (NOTE_BEAT_STEP * BEAT_INTERVAL)
 
 #define WINDOW_JUMP_NOTE_DELAY 450
 
-#define RHYTHM_GAME_DURATION 88000
+#define RHYTHM_GAME_DURATION 108000
 
 #define MISS_REACTION_FRAME_COUNT 3
 #define MISS_REACTION_FRAME_INTERVAL 120
@@ -85,7 +86,7 @@
 #define WINDOW_SHAKE_DURATION 220
 #define WINDOW_SHAKE_POWER 10
 
-#define FINAL_EFFECT_START_TIME (RHYTHM_GAME_DURATION - 10000)
+#define FINAL_EFFECT_START_TIME (RHYTHM_GAME_DURATION - 15000)
 
 #define FINAL_HITCIRCLE_MOVE_RANGE 260
 #define FINAL_HITCIRCLE_MARGIN_X 160
@@ -93,6 +94,20 @@
 
 #define FINAL_ANIMATION_FRAME_COUNT 8
 #define FINAL_ANIMATION_FRAME_INTERVAL 150
+
+#define FINAL_PLAY_AREA_LEFT_RATIO 32
+#define FINAL_PLAY_AREA_RIGHT_RATIO 68
+
+#define FINAL_PLAY_AREA_TOP_MARGIN 170
+#define FINAL_PLAY_AREA_BOTTOM_MARGIN 140
+
+#define MAX_COMBO_TARGET 112
+#define MAX_COMBO_BONUS_SCORE 2000
+
+#define GRADE_S_SCORE 28000
+#define GRADE_A_SCORE 24000
+#define GRADE_B_SCORE 20000
+#define GRADE_C_SCORE 16000
 
 enum ComboCharacterType
 {
@@ -314,8 +329,8 @@ private:
     DWORD windowJumpNoteSpawnTime;
 
     // =========================
-// Miss 캐릭터 반응
-// =========================
+    // Miss 캐릭터 반응
+    // =========================
     CImage missReactionFrames[MISS_REACTION_FRAME_COUNT];
 
     bool isMissReactionActive;
@@ -361,8 +376,27 @@ private:
     DWORD finalAnimationStartTime;
     int finalAnimationFrameIndex;
 
+    // =========================
+    // 게임 종료 / 클리어 연출
+    // =========================
+    bool isClearEffectActive;
+    DWORD clearEffectStartTime;
+
+    // =========================
+    // 결과 / 등급
+    // =========================
+    int maxCombo;
+    int finalScore;
+    int resultScore100;
+    bool isResultCalculated;
 
 
+
+    void CalculateResult();
+    const wchar_t* GetGradeText() const;
+    void RenderClearEffect(HDC hDC);
+
+    void RenderFinalTimer(HDC hDC);
     void UpdateFinalAnimation(DWORD currentTime);
     void RenderFinalAnimation(HDC hDC);
 
@@ -442,5 +476,6 @@ public:
     void OnMouseMove(int x, int y);
 
     bool IsGameOver() const;
-    int GetScore() const;
+    int GetResultScore100() const;
+    int GetFinalScore() const;
 };
