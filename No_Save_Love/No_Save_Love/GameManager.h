@@ -28,6 +28,7 @@
 // 미니 게임
 #include"Scenes/MiniGame1TutorialScene.h"
 #include "minigame1/PCroomgame.h" // 피시방 미니게임 헤더파일
+#include "minigame4/avoidgame.h" // 유혹 피하기 미니게임 헤더파일
 
 class GameManager
 {
@@ -38,6 +39,7 @@ public:
     void Render(HDC hdc);
     void OnChar(wchar_t inputChar);
     void OnKeyDown(WPARAM wParam);
+    void OnKeyUp(WPARAM wParam);
     void OnTimer(HWND hWnd);
 
 private:
@@ -78,6 +80,7 @@ private:
     MiniGame1TutorialScene minigam1_tutorial1;
 
     PCroomgame minigame1;
+    avoidgame minigame4;
 private:
     static const int HEROINE_COUNT = 3;
     static const int STORY_ROUND_COUNT = 4;

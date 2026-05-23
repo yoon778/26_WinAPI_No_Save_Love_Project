@@ -54,7 +54,7 @@ GameManager g_gameManager;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { 
     HDC hDC, mDC;
-    HBITMAP hBitmap;
+    HBITMAP hBitmap, oldBitmap;
     RECT rt;
     switch (uMsg) {
     case WM_CREATE: {
@@ -83,6 +83,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
         return 0;
     }
+    case WM_KEYUP:
+    {
+        // 방향키를 떼는 입력을 GameManager로 넘긴다.
+        g_gameManager.OnKeyUp(wParam);
+
+        // 화면을 다시 그리게 한다.
+        InvalidateRect(hWnd, NULL, FALSE);
+
+        return 0;
+    }
     case WM_LBUTTONDOWN:
     {
         int mouseX = LOWORD(lParam);
@@ -105,7 +115,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         hDC = BeginPaint(hWnd, &ps);
         mDC = CreateCompatibleDC(hDC);
         hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom);
-        SelectObject(mDC, (HBITMAP)hBitmap);
+        oldBitmap = (HBITMAP)SelectObject(mDC, (HBITMAP)hBitmap);
 
         // 배경 흰색으로 지우기
         FillRect(mDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
@@ -115,6 +125,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 
         BitBlt(hDC, 0, 0, rt.right, rt.bottom, mDC, 0, 0, SRCCOPY);
+        SelectObject(mDC, oldBitmap);
         DeleteDC(mDC);
         DeleteObject(hBitmap);
         EndPaint(hWnd, &ps);

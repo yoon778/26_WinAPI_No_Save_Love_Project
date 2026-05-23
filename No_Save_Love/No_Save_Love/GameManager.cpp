@@ -255,10 +255,18 @@ void GameManager::EnterCurrentMiniGameTutorial()
 
 void GameManager::StartCurrentMiniGame()
 {
-    // 지금은 1~4번 미니게임 슬롯 모두 PCroomgame을 임시로 사용한다.
-    // 실제 미니게임 2, 3, 4가 생기면 currentMiniGameIndex별로 Init 함수를 나누면 된다.
-    minigame1.Release();
-    minigame1.Init();
+    // 미니게임 4는 실제 avoidgame을 사용한다.
+    if (currentMiniGameIndex == 3)
+    {
+        minigame4.Initialize();
+    }
+    else
+    {
+        // 지금은 1~3번 미니게임 슬롯 모두 PCroomgame을 임시로 사용한다.
+        // 실제 미니게임 2, 3이 생기면 currentMiniGameIndex별로 Init 함수를 나누면 된다.
+        minigame1.Release();
+        minigame1.Init();
+    }
 
     RequestSceneChange(GetMiniGameModeByIndex(currentMiniGameIndex));
 }
@@ -322,31 +330,75 @@ GameManager::game_mode_info GameManager::GetMiniGameModeByIndex(int miniGameInde
 
 void GameManager::HandleCurrentMiniGameMouse(int x, int y)
 {
-    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 마우스 처리를 사용한다.
-    // 실제 미니게임을 붙일 때는 currentMiniGameIndex switch로 각 게임의 입력 함수를 호출하면 된다.
+    // 미니게임 4는 아직 마우스 입력을 사용하지 않는다.
+    // 현재 실행 화면 기준으로 판단해야 Result 전환 페이드 중에도 다른 미니게임으로 잘못 빠지지 않는다.
+    if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        return;
+    }
+
+    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 마우스 처리를 사용한다.
     minigame1.MOUSE(x, y);
 }
 
 void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
 {
-    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 키 입력 처리를 사용한다.
+    // 미니게임 4는 방향키를 WM_KEYDOWN/WM_KEYUP에서 따로 처리한다.
+    // 현재 실행 화면 기준으로 판단해야 Result 전환 페이드 중에도 다른 미니게임으로 잘못 빠지지 않는다.
+    if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        return;
+    }
+
+    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 키 입력 처리를 사용한다.
     minigame1.KEYDOWN(inputChar);
 }
 
 void GameManager::UpdateCurrentMiniGame()
 {
-    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 Update를 사용한다.
+    // 미니게임 4는 avoidgame의 Update를 사용한다.
+    // 현재 실행 화면 기준으로 판단해야 currentMiniGameIndex가 증가한 뒤에도 안전하다.
+    if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        minigame4.Update();
+        return;
+    }
+
+    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 Update를 사용한다.
     minigame1.Update();
 }
 
 void GameManager::RenderCurrentMiniGame(HDC hDC)
 {
-    // 임시 연결: 모든 미니게임 슬롯에서 미니게임 1의 화면 출력을 사용한다.
+    // 미니게임 4는 avoidgame의 Render를 사용한다.
+    // avoidgame 종료 직후 currentMiniGameIndex가 4로 증가해도,
+    // 페이드가 끝나기 전 화면은 아직 MiniGame4이므로 now_game_mode로 판단한다.
+    if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        minigame4.Render(hDC);
+        return;
+    }
+
+    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 화면 출력을 사용한다.
     minigame1.PAINT(hDC);
 }
 
 void GameManager::FinishCurrentMiniGameIfNeeded()
 {
+    // 미니게임 4는 avoidgame의 종료 여부와 점수를 사용한다.
+    // 결과 처리도 현재 실행 화면 기준으로 판단한다.
+    if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        if (!minigame4.IsFinished())
+        {
+            return;
+        }
+
+        EnterResult(3, minigame4.GetScore());
+        currentMiniGameIndex++;
+        return;
+    }
+
     // 임시 연결된 미니게임 1이 끝나지 않았으면 Result로 이동하지 않는다.
     if (!minigame1.isfinished())
     {
@@ -708,22 +760,43 @@ void GameManager::OnKeyDown(WPARAM wParam)
     {
     case VK_F1:
         DebugEnterMiniGameByIndex(0);
-        break;
+        return;
 
     case VK_F2:
         DebugEnterMiniGameByIndex(1);
-        break;
+        return;
 
     case VK_F3:
         DebugEnterMiniGameByIndex(2);
-        break;
+        return;
 
     case VK_F4:
         DebugEnterMiniGameByIndex(3);
-        break;
+        return;
 
     default:
         break;
+    }
+
+    // 미니게임 4는 방향키를 사용하므로 특수 키 입력을 직접 전달한다.
+    if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        minigame4.OnKeyDown(wParam);
+    }
+}
+
+void GameManager::OnKeyUp(WPARAM wParam)
+{
+    // 페이드 전환 중에는 입력 상태를 바꾸지 않는다.
+    if (sceneTransition.IsActive())
+    {
+        return;
+    }
+
+    // 미니게임 4는 키를 누르는 동안 계속 이동하므로, 키를 뗄 때도 전달해야 한다.
+    if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        minigame4.OnKeyUp(wParam);
     }
 }
 
