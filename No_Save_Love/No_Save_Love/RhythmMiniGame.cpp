@@ -3294,9 +3294,9 @@ void RhythmMiniGame::RenderClearEffect(HDC hDC)
     {
         wsprintf(
             comboText,
-            L"Max Combo : %d / %d",
+            L"Max Combo : %d / %d+",
             maxCombo,
-            MAX_COMBO_TARGET
+            MAX_COMBO_TARGET 
         );
     }
 
@@ -3333,8 +3333,7 @@ void RhythmMiniGame::CalculateResult()
 
     finalScore = score;
 
-    // 최대 콤보 달성 보너스
-    if (maxCombo >= MAX_COMBO_TARGET)
+    if (maxCombo > MAX_COMBO_TARGET)
     {
         finalScore += MAX_COMBO_BONUS_SCORE;
     }
