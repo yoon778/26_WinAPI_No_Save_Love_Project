@@ -421,6 +421,12 @@ private:
     int lastFinalCountdownSecond;
 
 
+
+    void LoadEffectSounds();
+    void CloseEffectSounds();
+
+    void PlayEffectSound(const wchar_t* aliasName);
+
     void PlayWindowSound();
     void PlayImpactSound();
 

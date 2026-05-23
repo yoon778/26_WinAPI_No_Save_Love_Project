@@ -288,6 +288,7 @@ void RhythmMiniGame::Init(HWND hWnd)
     hitCircleSpawnInterval = 1200;
 
     PlayBGM();
+    LoadEffectSounds();
 
     bgmStartTime = GetTickCount();
     currentBeatIndex = 0;
@@ -1180,6 +1181,7 @@ void RhythmMiniGame::Release()
             finalRightAnimationFrames[i].Destroy();
     }
 
+    CloseEffectSounds();
     StopBGM();
 }
 
@@ -2409,20 +2411,12 @@ void RhythmMiniGame::RenderComboAnimation(HDC hDC)
 
 void RhythmMiniGame::PlayHitSound()
 {
-    PlaySound(
-        L"resource\\minigame2\\sound\\hit.wav",
-        NULL,
-        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
-    );
+    PlayEffectSound(L"hitSound");
 }
 
 void RhythmMiniGame::PlayMissSound()
 {
-    PlaySound(
-        L"resource\\minigame2\\sound\\miss.wav",
-        NULL,
-        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
-    );
+    PlayEffectSound(L"missSound");
 }
 
 void RhythmMiniGame::PlayBGM()
@@ -3592,18 +3586,63 @@ void RhythmMiniGame::UpdateFinalCountdownEffect(DWORD currentTime)
 
 void RhythmMiniGame::PlayWindowSound()
 {
-    PlaySound(
-        L"resource\\minigame2\\sound\\window.wav",
-        NULL,
-        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
-    );
+    PlayEffectSound(L"windowSound");
 }
 
 void RhythmMiniGame::PlayImpactSound()
 {
-    PlaySound(
-        L"resource\\minigame2\\sound\\impact.wav",
+    PlayEffectSound(L"impactSound");
+}
+
+void RhythmMiniGame::LoadEffectSounds()
+{
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\hit.wav\" type waveaudio alias hitSound",
         NULL,
-        SND_FILENAME | SND_ASYNC | SND_NODEFAULT
+        0,
+        NULL
     );
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\miss.wav\" type waveaudio alias missSound",
+        NULL,
+        0,
+        NULL
+    );
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\window.wav\" type waveaudio alias windowSound",
+        NULL,
+        0,
+        NULL
+    );
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\impact.wav\" type waveaudio alias impactSound",
+        NULL,
+        0,
+        NULL
+    );
+}
+
+void RhythmMiniGame::CloseEffectSounds()
+{
+    mciSendString(L"close hitSound", NULL, 0, NULL);
+    mciSendString(L"close missSound", NULL, 0, NULL);
+    mciSendString(L"close windowSound", NULL, 0, NULL);
+    mciSendString(L"close impactSound", NULL, 0, NULL);
+}
+
+void RhythmMiniGame::PlayEffectSound(const wchar_t* aliasName)
+{
+    wchar_t command[100];
+
+    wsprintf(command, L"stop %s", aliasName);
+    mciSendString(command, NULL, 0, NULL);
+
+    wsprintf(command, L"seek %s to start", aliasName);
+    mciSendString(command, NULL, 0, NULL);
+
+    wsprintf(command, L"play %s", aliasName);
+    mciSendString(command, NULL, 0, NULL);
 }
