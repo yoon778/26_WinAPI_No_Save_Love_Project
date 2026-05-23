@@ -35,7 +35,7 @@
 #define WINDOW_SLIDER_FOLLOW_CLIENT_WIDTH 760
 #define WINDOW_SLIDER_FOLLOW_CLIENT_HEIGHT 460
 
-#define WINDOW_SLIDER_FOLLOW_POWER 0.8
+#define WINDOW_SLIDER_FOLLOW_POWER 0.95
 
 #define WINDOW_SLIDER_FOLLOW_PATTERN_COUNT 5
 
@@ -512,7 +512,7 @@ private:
     void TriggerWindowJumpGimmick(DWORD currentTime);
     void CreateSliderFollowPattern(int patternIndex, DWORD currentTime);
 
-    void MoveSliderFollowWindowToRandomPosition();
+    void MoveSliderFollowWindowToPatternPosition(int patternIndex);
     void AddCursorTrailPoint(int x, int y, DWORD createTime);
 
     void PlayHitSound();

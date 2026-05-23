@@ -459,7 +459,7 @@ void RhythmMiniGame::Update()
                     if (sliderFollowPatternStep < WINDOW_SLIDER_FOLLOW_PATTERN_COUNT)
                     {
                         // 다음 방향으로 바뀌기 전에 창을 랜덤 위치에 다시 생성
-                        MoveSliderFollowWindowToRandomPosition();
+                        MoveSliderFollowWindowToPatternPosition(sliderFollowPatternStep);
                         CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
                     }
                     // 5개를 전부 끝냈다면 원래 창으로 복귀
@@ -592,7 +592,7 @@ void RhythmMiniGame::Update()
 
                     if (sliderFollowPatternStep < WINDOW_SLIDER_FOLLOW_PATTERN_COUNT)
                     {
-                        MoveSliderFollowWindowToRandomPosition();
+                        MoveSliderFollowWindowToPatternPosition(sliderFollowPatternStep);
                         CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
                     }
                     else
@@ -2062,7 +2062,7 @@ isSliderFollowWindowGimmickActive = true;
 sliderFollowPatternStep = 0;
 
 // 첫 번째 패턴 슬라이더 생성
-MoveSliderFollowWindowToRandomPosition();
+MoveSliderFollowWindowToPatternPosition(sliderFollowPatternStep);
 CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
 
 lastHitCircleSpawnTime = currentTime;
@@ -2265,7 +2265,7 @@ void RhythmMiniGame::CreateSliderFollowPattern(int patternIndex, DWORD currentTi
     lastHitCircleSpawnTime = currentTime;
 }
 
-void RhythmMiniGame::MoveSliderFollowWindowToRandomPosition()
+void RhythmMiniGame::MoveSliderFollowWindowToPatternPosition(int patternIndex)
 {
     if (gameHwnd == NULL)
         return;
@@ -2291,23 +2291,75 @@ void RhythmMiniGame::MoveSliderFollowWindowToRandomPosition()
     if (maxY < 0)
         maxY = 0;
 
-    int randomX = rand() % (maxX + 1);
-    int randomY = rand() % (maxY + 1);
+    int targetX = 0;
+    int targetY = 0;
+
+    int margin = 40;
+
+    switch (patternIndex)
+    {
+    case 0:
+        // 좌하단 -> 우상단 대각선
+        // 창은 왼쪽 아래에서 시작해야 오른쪽 위로 많이 움직임
+        targetX = margin;
+        targetY = maxY - margin;
+        break;
+
+    case 1:
+        // 좌상단 -> 우하단 대각선
+        // 창은 왼쪽 위에서 시작해야 오른쪽 아래로 많이 움직임
+        targetX = margin;
+        targetY = margin;
+        break;
+
+    case 2:
+        // 위 -> 아래
+        // 창은 위쪽에서 시작해야 아래로 많이 움직임
+        targetX = maxX / 2;
+        targetY = margin;
+        break;
+
+    case 3:
+        // 아래 -> 위
+        // 창은 아래쪽에서 시작해야 위로 많이 움직임
+        targetX = maxX / 2;
+        targetY = maxY - margin;
+        break;
+
+    case 4:
+        // 왼쪽 -> 오른쪽
+        // 창은 왼쪽에서 시작해야 오른쪽으로 많이 움직임
+        targetX = margin;
+        targetY = maxY / 2;
+        break;
+    }
+
+    if (targetX < 0)
+        targetX = 0;
+
+    if (targetY < 0)
+        targetY = 0;
+
+    if (targetX > maxX)
+        targetX = maxX;
+
+    if (targetY > maxY)
+        targetY = maxY;
 
     SetWindowPos(
         gameHwnd,
         NULL,
-        randomX,
-        randomY,
+        targetX,
+        targetY,
         0,
         0,
         SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
     );
 
-    PlayWindowSound();
-
-    // 이후 슬라이더 볼을 따라 움직일 기준 위치 갱신
+    // 슬라이더 볼을 따라 움직일 기준 위치 갱신
     GetWindowRect(gameHwnd, &sliderFollowBaseWindowRect);
+
+    PlayWindowSound();
 
     InvalidateRect(gameHwnd, NULL, FALSE);
 }
