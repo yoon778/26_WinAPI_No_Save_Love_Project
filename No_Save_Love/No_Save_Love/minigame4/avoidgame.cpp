@@ -84,9 +84,11 @@ void avoidgame::Update()
 void avoidgame::Render(HDC hDC)
 {
     RenderMap(hDC);
-    DrawAttacks(hDC);
+    DrawKakaoMole(hDC);
     DrawBlackhole(hDC);
+    DrawAttacks(hDC);
     DrawFoodDrops(hDC);
+    RenderPlatforms(hDC);
     RenderPlayer(hDC);
     RenderHud(hDC);
 
@@ -334,6 +336,11 @@ void avoidgame::RenderMap(HDC hDC)
     FillRect(hDC, &floorRect, floorBrush);
     DeleteObject(floorBrush);
 
+    RenderPlatforms(hDC);
+}
+
+void avoidgame::RenderPlatforms(HDC hDC)
+{
     // 흰색 발판
     HPEN platformPen = CreatePen(PS_SOLID, 4, RGB(255, 255, 255));
     HGDIOBJ oldPen = SelectObject(hDC, platformPen);
@@ -390,6 +397,13 @@ void avoidgame::ResetPatterns()
 
     m_kakao.comboTimer = 0.0f;
     m_kakao.comboCount = 0;
+    m_kakao.moleWarningRect = RECT{ 0, 0, 0, 0 };
+    m_kakao.moleWarningTimer = 0.0f;
+    m_kakao.moleX = static_cast<float>((SCREEN_WIDTH - KAKAO_MOLE_WIDTH) / 2);
+    m_kakao.moleY = static_cast<float>(SCREEN_HEIGHT);
+    m_kakao.isMoleWarning = false;
+    m_kakao.isMoleActive = false;
+    m_kakao.isMoleGoingUp = false;
 
     m_foodPattern.spawnTimer = 0.0f;
     m_foodPattern.patternTimer = 0.0f;
@@ -454,7 +468,7 @@ void avoidgame::FinishPatternIfEmpty()
 
     if (m_pattern.currentPattern == PATTERN_KAKAO)
     {
-        if (m_kakao.comboCount <= 0 && m_attacks.empty())
+        if (m_kakao.comboCount <= 0 && m_attacks.empty() && !m_kakao.isMoleWarning && !m_kakao.isMoleActive)
         {
             m_pattern.currentPattern = PATTERN_NONE;
             m_pattern.waitTimer = PATTERN_DELAY;
@@ -492,6 +506,7 @@ void avoidgame::StartKakaoCombo()
     m_pattern.currentPattern = PATTERN_KAKAO;
     m_kakao.comboCount = KAKAO_COMBO_COUNT;
     m_kakao.comboTimer = 0.0f;
+    StartKakaoMole();
 }
 
 void avoidgame::UpdateKakaoCombo()
@@ -499,6 +514,7 @@ void avoidgame::UpdateKakaoCombo()
     // 카톡 연타 생성
     if (m_kakao.comboCount <= 0)
     {
+        UpdateKakaoMole();
         return;
     }
 
@@ -509,6 +525,8 @@ void avoidgame::UpdateKakaoCombo()
         m_kakao.comboCount--;
         m_kakao.comboTimer = KAKAO_COMBO_INTERVAL;
     }
+
+    UpdateKakaoMole();
 }
 
 void avoidgame::SpawnKakaoAttack()
@@ -546,6 +564,142 @@ void avoidgame::SpawnKakaoAttack()
     attack.attackType = ATTACK_TYPE_KAKAO;
 
     m_attacks.push_back(attack);
+}
+
+void avoidgame::StartKakaoMole()
+{
+    // 하단 절반 경고
+    m_kakao.moleWarningRect = RECT
+    {
+        0,
+        SCREEN_HEIGHT / 2,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT - FLOOR_HEIGHT
+    };
+    m_kakao.moleWarningTimer = KAKAO_MOLE_WARNING_DURATION;
+    m_kakao.moleX = static_cast<float>(rand() % (SCREEN_WIDTH - KAKAO_MOLE_WIDTH));
+    m_kakao.moleY = static_cast<float>(SCREEN_HEIGHT);
+    m_kakao.isMoleWarning = true;
+    m_kakao.isMoleActive = false;
+    m_kakao.isMoleGoingUp = true;
+}
+
+void avoidgame::UpdateKakaoMole()
+{
+    // 경고 후 상승
+    if (m_kakao.isMoleWarning)
+    {
+        m_kakao.moleWarningTimer -= UPDATE_DELTA_SECONDS;
+        if (m_kakao.moleWarningTimer <= 0.0f)
+        {
+            m_kakao.moleWarningTimer = 0.0f;
+            m_kakao.isMoleWarning = false;
+            m_kakao.isMoleActive = true;
+            m_kakao.isMoleGoingUp = true;
+        }
+
+        return;
+    }
+
+    if (!m_kakao.isMoleActive)
+    {
+        return;
+    }
+
+    const float targetY = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - KAKAO_MOLE_HEIGHT);
+    const float hiddenY = static_cast<float>(SCREEN_HEIGHT);
+
+    if (m_kakao.isMoleGoingUp)
+    {
+        m_kakao.moleY -= KAKAO_MOLE_SPEED;
+        if (m_kakao.moleY <= targetY)
+        {
+            m_kakao.moleY = targetY;
+            m_kakao.isMoleGoingUp = false;
+        }
+    }
+    else
+    {
+        m_kakao.moleY += KAKAO_MOLE_SPEED;
+        if (m_kakao.moleY >= hiddenY)
+        {
+            m_kakao.moleY = hiddenY;
+            m_kakao.isMoleActive = false;
+        }
+    }
+
+    if (IsRectOverlap(GetPlayerRect(), GetKakaoMoleRect()))
+    {
+        DamagePlayer();
+    }
+}
+
+void avoidgame::DrawKakaoMole(HDC hDC)
+{
+    // 두더지 경고
+    if (m_kakao.isMoleWarning)
+    {
+        HBRUSH warningBrush = CreateSolidBrush(RGB(80, 0, 0));
+        HPEN warningPen = CreatePen(PS_SOLID, 5, RGB(255, 60, 60));
+
+        HGDIOBJ oldBrush = SelectObject(hDC, warningBrush);
+        HGDIOBJ oldPen = SelectObject(hDC, warningPen);
+
+        Rectangle(hDC, m_kakao.moleWarningRect.left, m_kakao.moleWarningRect.top, m_kakao.moleWarningRect.right, m_kakao.moleWarningRect.bottom);
+
+        SetBkMode(hDC, TRANSPARENT);
+        SetTextColor(hDC, RGB(255, 150, 150));
+        const wchar_t* warningText = L"카톡이 아래에서 올라옵니다";
+        TextOutW(hDC, 720, (SCREEN_HEIGHT / 2) + 40, warningText, lstrlenW(warningText));
+
+        SelectObject(hDC, oldBrush);
+        SelectObject(hDC, oldPen);
+        DeleteObject(warningBrush);
+        DeleteObject(warningPen);
+        return;
+    }
+
+    if (!m_kakao.isMoleActive)
+    {
+        return;
+    }
+
+    // 두더지 카톡 판넬
+    RECT moleRect = GetKakaoMoleRect();
+    HBRUSH moleBrush = CreateSolidBrush(RGB(255, 245, 120));
+    HPEN molePen = CreatePen(PS_SOLID, 5, RGB(255, 80, 80));
+
+    HGDIOBJ oldBrush = SelectObject(hDC, moleBrush);
+    HGDIOBJ oldPen = SelectObject(hDC, molePen);
+
+    RoundRect(hDC, moleRect.left, moleRect.top, moleRect.right, moleRect.bottom, 28, 28);
+
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, RGB(30, 30, 30));
+    const wchar_t* titleText = L"KakaoTalk";
+    const wchar_t* bodyText = L"답장 안 해?";
+    TextOutW(hDC, moleRect.left + 36, moleRect.top + 40, titleText, lstrlenW(titleText));
+    TextOutW(hDC, moleRect.left + 36, moleRect.top + 120, bodyText, lstrlenW(bodyText));
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+    DeleteObject(moleBrush);
+    DeleteObject(molePen);
+}
+
+RECT avoidgame::GetKakaoMoleRect() const
+{
+    // 두더지 충돌 영역
+    const int left = static_cast<int>(m_kakao.moleX);
+    RECT rc =
+    {
+        left,
+        static_cast<LONG>(m_kakao.moleY),
+        left + KAKAO_MOLE_WIDTH,
+        static_cast<LONG>(m_kakao.moleY + KAKAO_MOLE_HEIGHT)
+    };
+
+    return rc;
 }
 
 void avoidgame::StartReelsPattern()
@@ -716,9 +870,9 @@ void avoidgame::StartBlackholePattern()
     m_blackhole.warningRect = RECT
     {
         0,
-        BLACKHOLE_TEXT_MIN_Y,
-        BLACKHOLE_WARNING_WIDTH,
-        BLACKHOLE_TEXT_MAX_Y + BLACKHOLE_TEXT_HEIGHT
+        0,
+        SCREEN_WIDTH / 2,
+        SCREEN_HEIGHT - FLOOR_HEIGHT
     };
 
     m_blackhole.coreRect = RECT
@@ -1035,24 +1189,36 @@ void avoidgame::DrawAttacks(HDC hDC)
         L"알고리즘 추천"
     };
 
+    // 경고 먼저 출력
+    for (int i = 0; i < static_cast<int>(m_attacks.size()); i++)
+    {
+        const AttackWarning& attack = m_attacks[i];
+        if (attack.isAttackActive)
+        {
+            continue;
+        }
+
+        HBRUSH warningBrush = CreateSolidBrush(RGB(80, 0, 0));
+        HPEN warningPen = CreatePen(PS_SOLID, 4, RGB(255, 60, 60));
+
+        HGDIOBJ oldBrush = SelectObject(hDC, warningBrush);
+        HGDIOBJ oldPen = SelectObject(hDC, warningPen);
+
+        Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
+
+        SelectObject(hDC, oldBrush);
+        SelectObject(hDC, oldPen);
+        DeleteObject(warningBrush);
+        DeleteObject(warningPen);
+    }
+
+    // 활성 장판은 경고 위에 출력
     for (int i = 0; i < static_cast<int>(m_attacks.size()); i++)
     {
         const AttackWarning& attack = m_attacks[i];
 
         if (!attack.isAttackActive)
         {
-            HBRUSH warningBrush = CreateSolidBrush(RGB(80, 0, 0));
-            HPEN warningPen = CreatePen(PS_SOLID, 4, RGB(255, 60, 60));
-
-            HGDIOBJ oldBrush = SelectObject(hDC, warningBrush);
-            HGDIOBJ oldPen = SelectObject(hDC, warningPen);
-
-            Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
-
-            SelectObject(hDC, oldBrush);
-            SelectObject(hDC, oldPen);
-            DeleteObject(warningBrush);
-            DeleteObject(warningPen);
             continue;
         }
 

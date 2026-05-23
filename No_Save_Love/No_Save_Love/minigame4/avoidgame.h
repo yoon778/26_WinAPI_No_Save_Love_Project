@@ -59,6 +59,13 @@ private:
     {
         float comboTimer; // 연타 간격
         int comboCount; // 남은 연타
+        RECT moleWarningRect; // 두더지 경고 영역
+        float moleWarningTimer; // 두더지 경고 시간
+        float moleX; // 두더지 X 위치
+        float moleY; // 두더지 현재 위치
+        bool isMoleWarning; // 두더지 경고 중
+        bool isMoleActive; // 두더지 활성 중
+        bool isMoleGoingUp; // 상승 중
     };
 
     struct FoodPatternState
@@ -116,7 +123,7 @@ private:
     static const int MAX_JUMP_COUNT = 2; // 최대 점프
 
     static constexpr float UPDATE_DELTA_SECONDS = 0.06f; // 타이머 간격
-    static constexpr float GAME_TIME_LIMIT = 40.0f; // 제한 시간
+    static constexpr float GAME_TIME_LIMIT = 60.0f; // 제한 시간
     static constexpr float INVINCIBLE_DURATION = 1.0f; // 무적 지속
 
     static const int PATTERN_NONE = 0; // 패턴 없음
@@ -133,6 +140,10 @@ private:
 
     static const int KAKAO_COMBO_COUNT = 5; // 카톡 연타
     static constexpr float KAKAO_COMBO_INTERVAL = 0.45f; // 카톡 간격
+    static constexpr float KAKAO_MOLE_WARNING_DURATION = 2.2f; // [조절값] 두더지 경고
+    static constexpr float KAKAO_MOLE_SPEED = 42.0f; // [조절값] 두더지 속도
+    static const int KAKAO_MOLE_WIDTH = 520; // [조절값] 두더지 가로
+    static const int KAKAO_MOLE_HEIGHT = SCREEN_HEIGHT / 2; // [조절값] 두더지 높이
 
     static constexpr float REELS_WARNING_DURATION = 1.8f; // 릴스 경고
     static constexpr float REELS_ATTACK_DURATION = 3.2f; // 릴스 공격
@@ -142,16 +153,16 @@ private:
 
     static constexpr float BLACKHOLE_WARNING_DURATION = 1.6f; // [조절값] 블랙홀 경고
     static constexpr float BLACKHOLE_ACTIVE_DURATION = 8.8f; // [조절값] 블랙홀 지속
-    static constexpr float BLACKHOLE_PULL_FORCE = 14.0f; // [조절값] 기본 끌림
-    static constexpr float BLACKHOLE_RESIST_PULL_FORCE = 13.0f; // [조절값] 반대 입력 끌림
-    static constexpr float BLACKHOLE_VERTICAL_PULL_FORCE = 5.0f; // [조절값] 세로 끌림
+    static constexpr float BLACKHOLE_PULL_FORCE = 12.0f; // [조절값] 기본 끌림
+    static constexpr float BLACKHOLE_RESIST_PULL_FORCE = 10.0f; // [조절값] 반대 입력 끌림
+    static constexpr float BLACKHOLE_VERTICAL_PULL_FORCE = 4.5f; // [조절값] 세로 끌림
     static constexpr float BLACKHOLE_TEXT_SPEED = 34.0f; // [조절값] 텍스트 속도
     static constexpr float BLACKHOLE_TEXT_SPAWN_INTERVAL = 0.9f; // [조절값] 텍스트 간격
     static const int BLACKHOLE_TEXT_COUNT = 7; // [조절값] 텍스트 생성 수
-    static const int BLACKHOLE_TEXT_WIDTH = 120; // [조절값] 텍스트 가로
-    static const int BLACKHOLE_TEXT_HEIGHT = PLAYER_HEIGHT * 3 / 2; // [조절값] 캐릭터 높이 1.5배
+    static const int BLACKHOLE_TEXT_WIDTH = 70; // [조절값] 텍스트 가로
+    static const int BLACKHOLE_TEXT_HEIGHT = PLAYER_HEIGHT ; // [조절값] 캐릭터 높이 1.5배
     static const int BLACKHOLE_TEXT_MIN_Y = 140; // [조절값] 생성 최소 Y
-    static const int BLACKHOLE_TEXT_MAX_Y = SCREEN_HEIGHT; // [조절값] 생성 최대 Y
+    static const int BLACKHOLE_TEXT_MAX_Y = SCREEN_HEIGHT - BLACKHOLE_TEXT_HEIGHT; // [조절값] 생성 최대 Y
     static const int BLACKHOLE_SIZE = 130; // [조절값] 중심 크기
     static const int BLACKHOLE_RIGHT_MARGIN = 160; // [조절값] 오른쪽 여백
     static const int BLACKHOLE_WARNING_WIDTH = 420; // [조절값] 왼쪽 경고 폭
@@ -180,6 +191,7 @@ private:
 
     void CreatePlatforms(); // 발판 생성
     void RenderMap(HDC hDC); // 맵 출력
+    void RenderPlatforms(HDC hDC); // 발판 출력
     void RenderHud(HDC hDC); // UI 출력
 
     void ResetPatterns(); // 패턴 초기화
@@ -189,6 +201,10 @@ private:
     void StartKakaoCombo(); // 카톡 시작
     void UpdateKakaoCombo(); // 카톡 갱신
     void SpawnKakaoAttack(); // 카톡 생성
+    void StartKakaoMole(); // 두더지 시작
+    void UpdateKakaoMole(); // 두더지 갱신
+    void DrawKakaoMole(HDC hDC); // 두더지 출력
+    RECT GetKakaoMoleRect() const; // 두더지 영역
 
     void StartReelsPattern(); // 릴스 시작
     void SpawnReelsAttack(); // 릴스 생성
