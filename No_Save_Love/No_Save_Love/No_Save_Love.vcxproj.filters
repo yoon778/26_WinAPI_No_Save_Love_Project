@@ -37,6 +37,12 @@
     <Filter Include="헤더 파일\minigame4">
       <UniqueIdentifier>{3dbe6dc3-8d15-497d-994b-fdcd05104235}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\minigame2">
+      <UniqueIdentifier>{699a8315-1c03-49b4-94d5-a8721ed8792c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\minigame2">
+      <UniqueIdentifier>{1a4a804f-429e-495d-b501-af223daf4353}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
