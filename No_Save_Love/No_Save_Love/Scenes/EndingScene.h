@@ -1,0 +1,40 @@
+#pragma once
+
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <atlimage.h>
+
+class EndingScene
+{
+public:
+    void Initialize(const std::vector<std::wstring>& credits);
+    void Shutdown();
+    void Reset();
+    void SetEndingImage(int endingType, int heroineIndex);
+    void OnMouseClick(int x, int y);
+    bool IsExitRequested() const;
+    void Update();
+    void Render(HDC hDC);
+
+private:
+    std::wstring GetEndingImagePath(int endingType, int heroineIndex) const;
+    void DrawBackground(HDC hDC);
+    void DrawCreditLine(HDC hDC, const std::wstring& text, int y, int index);
+    void DrawExitButton(HDC hDC);
+    bool IsCreditFinished() const;
+
+private:
+    std::vector<std::wstring> creditLines;
+    CImage endingImage;
+
+    int scrollOffset = 0;
+    int scrollSpeed = 2;
+    int fastScrollSpeed = 8;
+    int lineSpacing = 68;
+    int startY = 1120;
+    int stopOffset = 0;
+    bool isFastScroll = false;
+    bool exitRequested = false;
+    RECT exitButtonRect = { 810, 910, 1110, 990 };
+};

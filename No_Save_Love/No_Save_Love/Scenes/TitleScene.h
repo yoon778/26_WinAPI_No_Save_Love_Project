@@ -25,11 +25,19 @@ public:
 
 private:
 	
-	ATL::CImage Title_paint;
+	// 포토샵/포토피아 등에서 미리 블러 처리해 둔 타이틀 배경 이미지다.
+	ATL::CImage titleBackgroundImage;
 
-	RECT startButtonRect = { 760, 720, 1160, 800 }; // 시작 버튼 위치 
+	// 투명 배경의 게임 제목 로고 이미지다.
+	ATL::CImage titleLogoImage;
+
+	RECT startButtonRect = { 760, 680, 1160, 770 }; // 시작 버튼 위치 
 
 	// START 버튼이 눌렸는지 저장
 	bool startClicked = false;
+
+private:
+	// 타이틀 배경 위에 아주 약한 밝은 반투명 레이어를 얹는다.
+	void DrawSoftOverlay(HDC hDC);
 };
 

@@ -166,4 +166,5 @@ public:
 	void Update();		// 게임이 진행되면 자동으로 바뀌는 것을 처리하는 함수(ex: timer)
 	int getscore();
 	bool isfinished();
+	void Release();		// 미니게임에서 사용한 리소스 자원 정리하는 함수(WM_DESTORY에 들어가는거)
 };

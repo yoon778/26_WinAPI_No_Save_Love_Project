@@ -46,6 +46,12 @@ public:
     //플레이어 이름 저장한다.
     void SetPlayerName(const std::wstring& playerName);
 
+    // 엔딩 대사 중 히로인/새누 대사에 같이 보여줄 일러스트를 설정한다.
+    void SetEndingIllustration(int endingType, int heroineIndex);
+
+    // 일반 스토리로 돌아갈 때 엔딩 일러스트를 끈다.
+    void ClearEndingIllustration();
+
     // 마우스 클릭 시 다음 대사로 이동한다.
     void OnMouseClick(int x, int y);
 
@@ -62,7 +68,13 @@ public:
     // immediateApply가 true면 페이드 없이 바로 적용한다.
     void ApplyCurrentLineVisualInfo(bool immediateApply);
 
+    // SKIP 버튼을 그린다.
+    void DrawSkipButton(HDC hDC);
 
+
+
+    CImage normal_back_ground;
+    CImage book_image;
 
     // 현재 배경 key에 맞는 배경 이미지를 반환한다. (복사 하지 않기 위해 포인터 사용)
     CImage* GetBackgroundImage(const std::wstring& backgroundKey);
@@ -86,8 +98,29 @@ private:
 // PNG 알파 채널과 외곽선을 더 자연스럽게 처리하기 위한 함수이다.
     void DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y);
 
+    // GDI+ 이미지에 전체 투명도를 적용해서 그린다.
+    void DrawImageWithAlpha(HDC hDC, Gdiplus::Image* image, int x, int y, int width, int height, int alpha);
+
+    // 책/캐릭터 등장 투명도를 갱신한다.
+    void UpdateObjectFades();
+
+    // 현재 줄이 노트인지 보고 책 등장 fade 상태를 맞춘다.
+    void UpdateBookFadeState();
+
     // GDI+가 정상적으로 시작되었는지 확인하는 값이다.
     bool isGdiPlusStarted = false;
+
+    // 노트 대사일 때 검은 노트 이미지를 화면 중앙에 출력한다.
+    void DrawBookImage(HDC hDC);
+
+    // 노트가 등장할 때 배경과 캐릭터를 흐리게 만든다.
+    void DrawBlurOverlay(HDC hDC);
+
+    // 엔딩 종류와 히로인 번호에 맞는 일러스트 경로를 반환한다.
+    std::wstring GetEndingIllustrationPath(int endingType, int heroineIndex) const;
+
+    // 현재 대사에서 엔딩 일러스트를 보여줄지 확인한다.
+    bool ShouldDrawEndingIllustration() const;
 
     struct SpeakerStyle
     {
@@ -102,7 +135,10 @@ private:
         // GDI+ 이미지 포인터이다.
         // PNG 알파 채널을 더 안정적으로 출력하기 위해 CImage 대신 GDI+ Image를 사용한다.
         Gdiplus::Image* normal = nullptr;
+        Gdiplus::Image* smile = nullptr;
     };
+
+
 
 private:
     // 화자 이름에 맞는 색상 스타일을 가져온다.
@@ -117,8 +153,16 @@ private:
     // 현재 대사의 본문을 {PLAYER} 치환까지 적용해서 반환한다.
     std::wstring GetCurrentDisplayText() const;
 
+    // 새 캐릭터 key가 기존 캐릭터와 다른 인물인지 확인한다.
+    bool ShouldFadeCharacterChange(const std::wstring& newCharacterKey) const;
+
 private:
-    CImage story_background_image[3];
+    CImage story_background_image[7];
+
+    CImage endingIllustration;
+    bool hasEndingIllustration = false;
+
+    Gdiplus::Image* bookGdiImage = nullptr;
 
     heroine_image hansea;
     heroine_image seoirin;
@@ -135,6 +179,14 @@ private:
 
     // 다음에 바꿀 캐릭터 key
     std::wstring nextCharacterKey;
+
+    int characterAlpha = 255;
+    int characterFadeSpeed = 25;
+    bool pendingCharacterFade = false;
+
+    int bookAlpha = 0;
+    int bookFadeSpeed = 18;
+    bool isBookShowing = false;
 
     // 현재 페이드 상태
     FadeState fadeState = FadeState::None;
@@ -198,5 +250,10 @@ private:
 
     // 플레이어가 입력한 이름
     std::wstring m_playerName = L"윤서"; // 기본은 윤서
+
+
+    // 오른쪽 위 SKIP 버튼 영역
+    RECT skipButtonRect = { 1700, 40, 1860, 100 };
+
 
 };

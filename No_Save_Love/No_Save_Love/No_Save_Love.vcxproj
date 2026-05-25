@@ -129,30 +129,34 @@
   <ItemGroup>
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="PCroomgame.cpp" />
-    <ClCompile Include="ramen.cpp" />
-    <ClCompile Include="RhythmMiniGame.cpp" />
+    <ClCompile Include="minigame1\PCroomgame.cpp" />
+    <ClCompile Include="minigame1\ramen.cpp" />
+    <ClCompile Include="minigame4\avoidgame.cpp" />
     <ClCompile Include="Scenes\ChoiceScene.cpp" />
     <ClCompile Include="Scenes\EndingScene.cpp" />
     <ClCompile Include="Scenes\FinalChoiceScene.cpp" />
+    <ClCompile Include="Scenes\MiniGame1TutorialScene.cpp" />
     <ClCompile Include="Scenes\NameInputScene.cpp" />
     <ClCompile Include="Scenes\ResultScene.cpp" />
     <ClCompile Include="Scenes\StoryScene.cpp" />
     <ClCompile Include="Scenes\TitleScene.cpp" />
+    <ClCompile Include="SceneTransition.cpp" />
     <ClCompile Include="StoryData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h" />
-    <ClInclude Include="PCroomgame.h" />
-    <ClInclude Include="ramen.h" />
-    <ClInclude Include="RhythmMiniGame.h" />
+    <ClInclude Include="minigame1\PCroomgame.h" />
+    <ClInclude Include="minigame1\ramen.h" />
+    <ClInclude Include="minigame4\avoidgame.h" />
     <ClInclude Include="Scenes\ChoiceScene.h" />
     <ClInclude Include="Scenes\EndingScene.h" />
     <ClInclude Include="Scenes\FinalChoiceScene.h" />
+    <ClInclude Include="Scenes\MiniGame1TutorialScene.h" />
     <ClInclude Include="Scenes\NameInputScene.h" />
     <ClInclude Include="Scenes\ResultScene.h" />
     <ClInclude Include="Scenes\StoryScene.h" />
     <ClInclude Include="Scenes\TitleScene.h" />
+    <ClInclude Include="SceneTransition.h" />
     <ClInclude Include="StoryData.h" />
   </ItemGroup>
   <ItemGroup>

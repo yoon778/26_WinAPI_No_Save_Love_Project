@@ -36,7 +36,7 @@ PCroomgame::PCroomgame() {
 	animDelay = 3;
 
 	score = 0;
-	timer = 180.0;
+	timer = 50.0;
 	finished = false;
 
 	playerPos = { 1495, 1000 };
@@ -125,7 +125,7 @@ void PCroomgame::DrawTextW(HDC hDC, int x, int y, std::wstring text)
 
 void PCroomgame::Init() {
 	score = 0;
-	timer = 180.0;
+	timer = 50.0;
 	finished = false;
 
 	hudImg.Load(L"resource/minigame1/TIMER.png");
@@ -1471,4 +1471,44 @@ void PCroomgame::DrawHudNumber(HDC hDC, RECT rc, std::wstring text, COLORREF col
 	);
 
 	SelectObject(hDC, oldFont);
+}
+
+void PCroomgame::Release()
+{
+	if (hudFont != NULL)
+	{
+		DeleteObject(hudFont);
+		hudFont = NULL;
+	}
+
+	RemoveFontResourceExW(L"Jalnan2TTF.ttf", FR_PRIVATE, 0);
+
+	if (!hudImg.IsNull()) hudImg.Destroy();
+	if (!background.IsNull()) background.Destroy();
+	if (!player.IsNull()) player.Destroy();
+	if (!playerReturn.IsNull()) playerReturn.Destroy();
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (!customerImg[i].IsNull())
+			customerImg[i].Destroy();
+	}
+
+	if (!ingredientImg.IsNull()) ingredientImg.Destroy();
+	if (!waterImg.IsNull()) waterImg.Destroy();
+	if (!resetBtnImg.IsNull()) resetBtnImg.Destroy();
+
+	if (!boilingWaterImg.IsNull()) boilingWaterImg.Destroy();
+
+	if (!addWaterImg.IsNull()) addWaterImg.Destroy();
+	if (!addNoodleImg.IsNull()) addNoodleImg.Destroy();
+	if (!addSoupImg.IsNull()) addSoupImg.Destroy();
+	if (!addCheeseImg.IsNull()) addCheeseImg.Destroy();
+	if (!addDumplingImg.IsNull()) addDumplingImg.Destroy();
+	if (!addEggImg.IsNull()) addEggImg.Destroy();
+
+	if (!boilingNoodleImg.IsNull()) boilingNoodleImg.Destroy();
+	if (!boilingCheeseImg.IsNull()) boilingCheeseImg.Destroy();
+	if (!boilingDumplingImg.IsNull()) boilingDumplingImg.Destroy();
+	if (!boilingEggImg.IsNull()) boilingEggImg.Destroy();
 }
