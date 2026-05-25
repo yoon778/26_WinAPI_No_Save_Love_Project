@@ -117,6 +117,8 @@
 #define BACKGROUND_COUNT 5
 #define BACKGROUND_TRANSITION_DURATION 1200
 
+#define RESULT_SCREEN_DURATION 5000
+
 enum ComboCharacterType
 {
     COMBO_CHARACTER_NONE,
@@ -431,6 +433,11 @@ private:
     bool isBackgroundTransitionActive;
     DWORD backgroundTransitionStartTime;
     bool hasBackgroundSwapped;
+    // =========================
+    // 결과창 표시 상태
+    // =========================
+    bool isResultScreenActive;
+    DWORD resultScreenStartTime;
 
 
 

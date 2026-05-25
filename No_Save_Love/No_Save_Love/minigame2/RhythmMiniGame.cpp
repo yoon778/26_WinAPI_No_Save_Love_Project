@@ -211,6 +211,11 @@ void RhythmMiniGame::Init(HWND hWnd)
 
     noteSpawnBlockUntilTime = 0;
 
+    isGameOver = false;
+
+    isResultScreenActive = false;
+    resultScreenStartTime = 0;
+
     isWindowJumpNotePending = false;
     windowJumpNoteSpawnTime = 0;
 
@@ -330,9 +335,11 @@ void RhythmMiniGame::Update()
 
     if (elapsedBgmTime >= RHYTHM_GAME_DURATION)
     {
-        if (isGameOver == false)
+        // BGM이 끝난 첫 순간: 결과창 시작
+        if (isResultScreenActive == false)
         {
-            isGameOver = true;
+            isResultScreenActive = true;
+            resultScreenStartTime = currentTime;
 
             StopBGM();
             ClearAllNotes();
@@ -342,9 +349,15 @@ void RhythmMiniGame::Update()
 
             CalculateResult();
 
-            // 클리어 연출 시작
             isClearEffectActive = true;
             clearEffectStartTime = currentTime;
+        }
+
+        // 결과창을 일정 시간 보여준 뒤에만 진짜 게임 종료 처리
+        if (isGameOver == false &&
+            currentTime - resultScreenStartTime >= RESULT_SCREEN_DURATION)
+        {
+            isGameOver = true;
         }
 
         return;
