@@ -292,6 +292,7 @@ void GameManager::StartCurrentMiniGame()
         // 미니게임 2는 리듬게임을 사용한다.
         minigame2.Release();
         minigame2.Init(m_hWnd);
+        ShowCursor(FALSE);
         m_isMiniGame2Initialized = true;
     }
     else if (currentMiniGameIndex == 3)
@@ -459,7 +460,8 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
         }
 
         EnterResult(1, minigame2.GetResultScore100());
-        //minigame2.Release();
+        ShowCursor(TRUE);
+        minigame2.Release();
         m_isMiniGame2Initialized = false;
         currentMiniGameIndex++;
         return;
