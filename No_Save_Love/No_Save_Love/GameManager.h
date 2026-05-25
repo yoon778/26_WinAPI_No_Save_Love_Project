@@ -73,7 +73,9 @@ private:
     {
         PendingMiniGameReleaseNone,
         PendingMiniGameRelease1,
-        PendingMiniGameRelease2
+        PendingMiniGameRelease2,
+        PendingMiniGameRelease3,
+        PendingMiniGameRelease4
     };
 
     game_mode_info now_game_mode = game_mode_info::Story;
