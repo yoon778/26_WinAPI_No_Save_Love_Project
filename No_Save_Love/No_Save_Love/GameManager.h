@@ -131,6 +131,8 @@ private:
 
     // 기본 이름 값
     std::wstring playerName = L"윤서";
+
+    bool m_isMiniGame2Initialized = false;
      
 private:
 
