@@ -131,6 +131,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="minigame1\PCroomgame.cpp" />
     <ClCompile Include="minigame1\ramen.cpp" />
+    <ClCompile Include="minigame2\RhythmMiniGame.cpp" />
     <ClCompile Include="minigame4\avoidgame.cpp" />
     <ClCompile Include="Scenes\ChoiceScene.cpp" />
     <ClCompile Include="Scenes\EndingScene.cpp" />
@@ -147,6 +148,7 @@
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="minigame1\PCroomgame.h" />
     <ClInclude Include="minigame1\ramen.h" />
+    <ClInclude Include="minigame2\RhythmMiniGame.h" />
     <ClInclude Include="minigame4\avoidgame.h" />
     <ClInclude Include="Scenes\ChoiceScene.h" />
     <ClInclude Include="Scenes\EndingScene.h" />

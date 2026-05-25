@@ -34,6 +34,12 @@ void GameManager::Initialize(HWND hWnd)
 }
 void GameManager::Shutdown()
 {
+    if (m_isMiniGame2Initialized)
+    {
+        minigame2.Release();
+        m_isMiniGame2Initialized = false;
+    }
+
     // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
     titleScene.Shutdown();
@@ -275,15 +281,27 @@ void GameManager::EnterCurrentMiniGameTutorial()
 
 void GameManager::StartCurrentMiniGame()
 {
-    // 미니게임 4는 실제 avoidgame을 사용한다.
-    if (currentMiniGameIndex == 3)
+    if (currentMiniGameIndex != 1 && m_isMiniGame2Initialized)
     {
+        minigame2.Release();
+        m_isMiniGame2Initialized = false;
+    }
+
+    if (currentMiniGameIndex == 1)
+    {
+        // 미니게임 2는 리듬게임을 사용한다.
+        minigame2.Release();
+        minigame2.Init(m_hWnd);
+        m_isMiniGame2Initialized = true;
+    }
+    else if (currentMiniGameIndex == 3)
+    {
+        // 미니게임 4는 avoidgame을 사용한다.
         minigame4.Initialize();
     }
     else
     {
-        // 지금은 1~3번 미니게임 슬롯 모두 PCroomgame을 임시로 사용한다.
-        // 실제 미니게임 2, 3이 생기면 currentMiniGameIndex별로 Init 함수를 나누면 된다.
+        // 미니게임 1과 임시 미니게임 3은 PCroomgame을 사용한다.
         minigame1.Release();
         minigame1.Init();
     }
@@ -356,7 +374,10 @@ void GameManager::HandleCurrentMiniGameMouse(int x, int y)
     {
         return;
     }
-
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.OnMouseDown(x, y);
+        return;
+    }
     // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 마우스 처리를 사용한다.
     minigame1.MOUSE(x, y);
 }
@@ -366,6 +387,11 @@ void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
     // 미니게임 4는 방향키를 WM_KEYDOWN/WM_KEYUP에서 따로 처리한다.
     // 현재 실행 화면 기준으로 판단해야 Result 전환 페이드 중에도 다른 미니게임으로 잘못 빠지지 않는다.
     if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        return;
+    }
+
+    if (now_game_mode == game_mode_info::MiniGame2)
     {
         return;
     }
@@ -383,6 +409,10 @@ void GameManager::UpdateCurrentMiniGame()
         minigame4.Update();
         return;
     }
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.Update();
+        return;
+    }
 
     // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 Update를 사용한다.
     minigame1.Update();
@@ -398,7 +428,10 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
         minigame4.Render(hDC);
         return;
     }
-
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.Render(hDC);
+        return;
+    }
     // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 화면 출력을 사용한다.
     minigame1.PAINT(hDC);
 }
@@ -418,7 +451,19 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
         currentMiniGameIndex++;
         return;
     }
+    if (now_game_mode == game_mode_info::MiniGame2)
+    {
+        if (!minigame2.IsGameOver())
+        {
+            return;
+        }
 
+        EnterResult(1, minigame2.GetResultScore100());
+        //minigame2.Release();
+        m_isMiniGame2Initialized = false;
+        currentMiniGameIndex++;
+        return;
+    }
     // 임시 연결된 미니게임 1이 끝나지 않았으면 Result로 이동하지 않는다.
     if (!minigame1.isfinished())
     {
@@ -1005,6 +1050,21 @@ void GameManager::OnKeyUp(WPARAM wParam)
     if (now_game_mode == game_mode_info::MiniGame4)
     {
         minigame4.OnKeyUp(wParam);
+
+    }
+}
+
+void GameManager::OnMouseUp(int x, int y) {
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.OnMouseUp(x, y);
+        return;
+    }
+}
+
+void GameManager::OnMouseMove(int x, int y) {
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.OnMouseMove(x, y);
+        return;
     }
 }
 

@@ -29,6 +29,8 @@
 #include"Scenes/MiniGame1TutorialScene.h"
 #include "minigame1/PCroomgame.h" // 피시방 미니게임 헤더파일
 #include "minigame4/avoidgame.h" // 유혹 피하기 미니게임 헤더파일
+#include "minigame2/RhythmMiniGame.h"
+
 
 class GameManager
 {
@@ -41,6 +43,8 @@ public:
     void OnKeyDown(WPARAM wParam);
     void OnKeyUp(WPARAM wParam);
     void OnTimer(HWND hWnd);
+    void OnMouseUp(int x, int y);
+    void OnMouseMove(int x, int y);
 
 private:
     HWND m_hWnd = nullptr;
@@ -80,6 +84,7 @@ private:
     MiniGame1TutorialScene minigam1_tutorial1;
 
     PCroomgame minigame1;
+    RhythmMiniGame minigame2;
     avoidgame minigame4;
 private:
     static const int HEROINE_COUNT = 3;
@@ -126,6 +131,8 @@ private:
 
     // 기본 이름 값
     std::wstring playerName = L"윤서";
+
+    bool m_isMiniGame2Initialized = false;
      
 private:
 

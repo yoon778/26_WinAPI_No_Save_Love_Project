@@ -1,0 +1,3839 @@
+﻿#include "RhythmMiniGame.h"
+#include <cstdlib>
+#include <cmath>
+
+RhythmMiniGame::RhythmMiniGame()
+{
+    score = 0;
+    isGameOver = false;
+
+    mouseX = 0;
+    mouseY = 0;
+    isMouseDown = false;
+
+    screenWidth = 1920;
+    screenHeight = 1080;
+
+    gdiplusToken = 0;
+    cursorMiddleImg = nullptr;
+    cursorRotateImg = nullptr;
+}
+
+
+void RhythmMiniGame::Init(HWND hWnd)
+{
+    gameHwnd = hWnd;
+
+    gameStartTime = GetTickCount();
+    windowGimmickStartTime = 0;
+
+    hasWindowGimmickTriggered = false;
+    isWindowGimmickActive = false;
+
+    // 원래 창 위치와 크기 저장
+    GetWindowRect(gameHwnd, &originalWindowRect);
+
+    // 원래 클라이언트 영역 크기 저장
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    originalClientWidth = clientRect.right - clientRect.left;
+    originalClientHeight = clientRect.bottom - clientRect.top;
+
+    // 이후 노트 생성 범위도 실제 창 내부 크기를 기준으로 사용
+    screenWidth = originalClientWidth;
+    screenHeight = originalClientHeight;
+
+    hitCircleImg.Load(L"resource\\minigame2\\hitcircle\\hitcircle.png");
+    hitCircleOverlayImg.Load(L"resource\\minigame2\\hitcircle\\hitcircleoverlay.png");
+    approachCircleImg.Load(L"resource\\minigame2\\hitcircle\\approachcircle.png");
+    
+    hit300Img.Load(L"resource\\minigame2\\judge\\hit300.png");
+    hit100Img.Load(L"resource\\minigame2\\judge\\hit100.png");
+    hit50Img.Load(L"resource\\minigame2\\judge\\hit50.png");
+    hit0Img.Load(L"resource\\minigame2\\judge\\hit0.png");
+
+    sliderStartCircleImg.Load(L"resource\\minigame2\\slider\\sliderstartcircle.png");
+    sliderStartCircleOverlayImg.Load(L"resource\\minigame2\\slider\\sliderstartcircleoverlay.png");
+    sliderBallImg.Load(L"resource\\minigame2\\slider\\sliderb.png");
+    sliderFollowCircleImg.Load(
+        L"resource\\minigame2\\slider\\sliderfollowcircle.png"
+    );
+
+    cursorImg.Load(L"resource\\minigame2\\cursor\\cursor.png");
+    cursorTrailImg.Load(L"resource\\minigame2\\cursor\\cursortrail.png");
+    Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+    Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+    cursorRotateImg =
+        new Gdiplus::Image(
+            L"resource\\minigame2\\cursor\\cursor.png"
+        );
+
+    cursorMiddleImg =
+        new Gdiplus::Image(
+            L"resource\\minigame2\\cursor\\cursormiddle.png"
+        );
+
+    cursorRotationAngle = 0.0f;
+    wchar_t bgPath[256];
+
+    for (int i = 0; i < BACKGROUND_COUNT; i++)
+    {
+        wsprintf(
+            bgPath,
+            L"resource\\minigame2\\background\\bg%d.png",
+            i + 1
+        );
+
+        backgrounds[i].Load(bgPath);
+    }
+
+    wchar_t path[256];
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(path, L"resource\\minigame2\\combo\\combo10\\frame%d.png", i + 1);
+        combo10Frames[i].Load(path);
+        PremultiplyAlpha(combo10Frames[i]);
+    }
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(path, L"resource\\minigame2\\combo\\combo20\\frame%d.png", i + 1);
+        combo20Frames[i].Load(path);
+        PremultiplyAlpha(combo20Frames[i]);
+    }
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(path, L"resource\\minigame2\\combo\\combo30\\frame%d.png", i + 1);
+        combo30Frames[i].Load(path);
+        PremultiplyAlpha(combo30Frames[i]);
+    }
+
+    wchar_t missPath[256];
+
+    for (int i = 0; i < MISS_REACTION_FRAME_COUNT; i++)
+    {
+        wsprintf(
+            missPath,
+            L"resource\\minigame2\\miss\\frame%d.png",
+            i + 1
+        );
+
+        missReactionFrames[i].Load(missPath);
+        PremultiplyAlpha(missReactionFrames[i]);
+    }
+
+    wchar_t finalPath[256];
+
+    for (int i = 0; i < FINAL_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(
+            finalPath,
+            L"resource\\minigame2\\final\\left\\frame%d.png",
+            i + 1
+        );
+
+        finalLeftAnimationFrames[i].Load(finalPath);
+        PremultiplyAlpha(finalLeftAnimationFrames[i]);
+    }
+
+    for (int i = 0; i < FINAL_ANIMATION_FRAME_COUNT; i++)
+    {
+        wsprintf(
+            finalPath,
+            L"resource\\minigame2\\final\\right\\frame%d.png",
+            i + 1
+        );
+
+        finalRightAnimationFrames[i].Load(finalPath);
+        PremultiplyAlpha(finalRightAnimationFrames[i]);
+    }
+
+    PremultiplyAlpha(cursorImg);
+    PremultiplyAlpha(cursorTrailImg);
+
+    PremultiplyAlpha(sliderFollowCircleImg);
+    PremultiplyAlpha(sliderStartCircleImg);
+    PremultiplyAlpha(sliderStartCircleOverlayImg);
+    PremultiplyAlpha(sliderBallImg);
+
+    PremultiplyAlpha(approachCircleImg);
+    PremultiplyAlpha(hitCircleImg);
+    PremultiplyAlpha(hitCircleOverlayImg);
+
+    PremultiplyAlpha(hit300Img);
+    PremultiplyAlpha(hit100Img);
+    PremultiplyAlpha(hit50Img);
+    PremultiplyAlpha(hit0Img);
+
+    lastJudge = JUDGE_NONE;
+    judgeDisplayStartTime = 0;
+
+    hasWindowJumpGimmickTriggered = false;
+    isWindowJumpGimmickActive = false;
+
+    windowJumpLastMoveTime = 0;
+    windowJumpStep = 0;
+
+    hasSliderFollowWindowGimmickTriggered = false;
+    isSliderFollowWindowGimmickActive = false;
+
+    sliderFollowBaseWindowRect = { 0, 0, 0, 0 };
+    sliderFollowPatternStep = 0;
+
+    isSecondWindowGimmickWaiting = false;
+    secondWindowGimmickReserveTime = 0;
+
+    score = 0;
+    isGameOver = false;
+
+    isComboAnimationActive = false;
+    currentComboCharacterType = COMBO_CHARACTER_NONE;
+    comboAnimationStartTime = 0;
+    comboAnimationFrameIndex = 0;
+
+    judgeX = 0;
+    judgeY = 0;
+
+    mouseX = 0;
+    mouseY = 0;
+    isMouseDown = false;
+
+    hitCircleCount = 0;
+    sliderCount = 0;
+   
+    spawnedObjectCount = 0;
+
+    combo = 0;
+    comboEffectStartTime = 0;
+
+    noteSpawnBlockUntilTime = 0;
+
+    isWindowJumpNotePending = false;
+    windowJumpNoteSpawnTime = 0;
+
+    isMissReactionActive = false;
+    missReactionStartTime = 0;
+    missReactionFrameIndex = 0;
+
+    isScreenFlashActive = false;
+    screenFlashStartTime = 0;
+    screenFlashDuration = 0;
+    screenFlashMaxAlpha = 0;
+
+    maxCombo = 0;
+    finalScore = 0;
+    resultScore100 = 0;
+    isResultCalculated = false;
+
+    isWindowShakeActive = false;
+    windowShakeStartTime = 0;
+    windowShakeDuration = 0;
+    windowShakePower = 0;
+    windowShakeBaseRect = { 0, 0, 0, 0 };
+
+    hasFinalEffectStarted = false;
+    isFinalEffectActive = false;
+    finalEffectStartTime = 0;
+
+    isClearEffectActive = false;
+    clearEffectStartTime = 0;
+
+    finalLastHitX = 0;
+    finalLastHitY = 0;
+    hasFinalLastHitPosition = false;
+
+    currentBackgroundIndex = 0;
+    nextBackgroundIndex = 0;
+
+    isBackgroundTransitionActive = false;
+    backgroundTransitionStartTime = 0;
+    hasBackgroundSwapped = false;
+
+    isFinalAnimationActive = false;
+    finalAnimationStartTime = 0;
+    finalAnimationFrameIndex = 0;
+
+    InitFinalSparkles();
+    lastFinalCountdownSecond = -1;
+
+    // 히트서클 초기화
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        hitCircles[i].isActive = false;
+        hitCircles[i].isJudged = false;
+
+        hitCircles[i].x = 0;
+        hitCircles[i].y = 0;
+
+        hitCircles[i].spawnTime = 0;
+        hitCircles[i].hitTime = 0;
+    }
+
+    // 슬라이더 초기화
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        sliders[i].isActive = false;
+        sliders[i].isStarted = false;
+        sliders[i].isFinished = false;
+        sliders[i].isFailed = false;
+
+        sliders[i].startX = 0;
+        sliders[i].startY = 0;
+        sliders[i].endX = 0;
+        sliders[i].endY = 0;
+
+        sliders[i].spawnTime = 0;
+        sliders[i].hitTime = 0;
+        sliders[i].duration = 0;
+        sliders[i].slideStartTime = 0;
+        sliders[i].isTrackingSuccess = false;
+        sliders[i].isWindowFollowTarget = false;
+    }
+
+    // =========================
+    // 커서 초기화
+    // =========================
+    cursorTrailIndex = 0;
+
+    for (int i = 0; i < MAX_CURSOR_TRAIL; i++)
+    {
+        cursorTrail[i].x = 0;
+        cursorTrail[i].y = 0;
+        cursorTrail[i].isActive = false;
+        cursorTrail[i].createTime = 0;
+    }
+
+    lastHitCircleSpawnTime = GetTickCount();
+    hitCircleSpawnInterval = 1200;
+
+    PlayBGM();
+    LoadEffectSounds();
+
+    bgmStartTime = GetTickCount();
+    currentBeatIndex = 0;
+}
+
+void RhythmMiniGame::Update()
+{
+    DWORD currentTime = GetTickCount();
+
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    if (hasFinalEffectStarted == false &&
+        elapsedBgmTime >= FINAL_EFFECT_START_TIME)
+    {
+        StartFinalEffect(currentTime);
+    }
+
+    if (elapsedBgmTime >= RHYTHM_GAME_DURATION)
+    {
+        if (isGameOver == false)
+        {
+            isGameOver = true;
+
+            StopBGM();
+            ClearAllNotes();
+
+            isFinalEffectActive = false;
+            isFinalAnimationActive = false;
+
+            CalculateResult();
+
+            // 클리어 연출 시작
+            isClearEffectActive = true;
+            clearEffectStartTime = currentTime;
+        }
+
+        return;
+    }
+
+    UpdateComboAnimation(currentTime);
+    UpdateMissReaction(currentTime);
+    UpdateFinalAnimation(currentTime);
+    UpdateFinalSparkles(currentTime);
+    UpdateFinalCountdownEffect(currentTime);
+    UpdateScreenFlash(currentTime);
+    UpdateBackgroundTransition(currentTime);
+    UpdateFinalAnimation(currentTime);
+    UpdateWindowGimmick(currentTime);
+    UpdateWindowJumpGimmick(currentTime);
+    UpdateSliderFollowWindowGimmick(currentTime);
+    UpdateWindowJumpDelayedNote(currentTime);
+    UpdateWindowShake(currentTime);
+    // 창 기믹 처리가 전부 끝난 뒤에 박자 기반 노트 생성
+    UpdateBeatSpawn(currentTime);
+
+    // =========================
+    // 두 번째 작은 창 기믹 예약 실행
+    // =========================
+    if (isSecondWindowGimmickWaiting == true)
+    {
+        if (currentTime - secondWindowGimmickReserveTime >=
+            SECOND_WINDOW_GIMMICK_DELAY_BEAT * BEAT_INTERVAL)
+        {
+            isSecondWindowGimmickWaiting = false;
+
+            TriggerWindowGimmick(currentTime, true);
+        }
+    }
+
+
+    bool hasActiveSlider = false;
+
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            hasActiveSlider = true;
+            break;
+        }
+    }
+
+    cursorRotationAngle += 3.0f;
+
+    if (cursorRotationAngle >= 360.0f)
+    {
+        cursorRotationAngle -= 360.0f;
+    }
+
+    // =========================
+    // 일정 시간마다 히트서클 생성
+    // =========================
+    DWORD currentSpawnInterval =
+        isWindowGimmickActive
+        ? SMALL_WINDOW_SPAWN_INTERVAL
+        : hitCircleSpawnInterval;
+
+
+
+
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == true)
+        {
+            // 눌러야 할 시간보다 250ms 이상 늦으면 Miss
+            if (currentTime > hitCircles[i].hitTime + 250)
+            {
+                hitCircles[i].isActive = false;
+                hitCircles[i].isJudged = true;
+                hitCircleCount--;
+
+                judgeX = hitCircles[i].x;
+                judgeY = hitCircles[i].y;
+                lastJudge = JUDGE_MISS;
+                ResetCombo();
+                PlayMissSound();
+                judgeDisplayStartTime = currentTime;
+            }
+        }
+    }
+    // =========================
+    // 슬라이더 시작 타이밍 Miss 처리
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == false &&
+            sliders[i].isFinished == false)
+        {
+            if (currentTime > sliders[i].hitTime + 250)
+            {
+                sliders[i].isActive = false;
+                sliders[i].isFailed = true;
+                sliders[i].isFinished = true;
+                sliderCount--;
+
+                lastJudge = JUDGE_MISS;
+                ResetCombo();
+                PlayMissSound();
+
+                judgeX = sliders[i].startX;
+                judgeY = sliders[i].startY;
+                judgeDisplayStartTime = currentTime;
+                lastHitCircleSpawnTime = currentTime;
+
+                if (sliders[i].isWindowFollowTarget == true)
+                {
+                    sliderFollowPatternStep++;
+
+                    // 다음 패턴이 남아 있다면 이어서 생성
+                    if (sliderFollowPatternStep < WINDOW_SLIDER_FOLLOW_PATTERN_COUNT)
+                    {
+                        // 다음 방향으로 바뀌기 전에 창을 랜덤 위치에 다시 생성
+                        MoveSliderFollowWindowToPatternPosition(sliderFollowPatternStep);
+                        CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
+                    }
+                    // 5개를 전부 끝냈다면 원래 창으로 복귀
+                    else
+                    {
+                        isSliderFollowWindowGimmickActive = false;
+
+                        RestoreOriginalWindow(currentTime);
+
+                        isSecondWindowGimmickWaiting = true;
+                        secondWindowGimmickReserveTime = currentTime;
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================
+    // 슬라이더 추적 판정
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == true &&
+            sliders[i].isFinished == false &&
+            sliders[i].isFailed == false)
+        {
+            DWORD elapsedTime =
+                currentTime - sliders[i].slideStartTime;
+
+            double progress =
+                (double)elapsedTime / sliders[i].duration;
+
+            if (progress < 0.0)
+                progress = 0.0;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+            int ballX =
+                (int)(sliders[i].startX +
+                    (sliders[i].endX - sliders[i].startX) * progress);
+
+            int ballY =
+                (int)(sliders[i].startY +
+                    (sliders[i].endY - sliders[i].startY) * progress);
+
+            // 마우스 버튼을 떼면 실패
+            if (isMouseDown == false)
+            {
+                sliders[i].isFailed = true;
+                sliders[i].isTrackingSuccess = false;
+                continue;
+            }
+
+            // 마우스가 슬라이더 볼 주변에 있는지 확인
+            int dx = mouseX - ballX;
+            int dy = mouseY - ballY;
+
+            double followScale = 0.75;
+
+            int followRadius =
+                (int)(sliderFollowCircleImg.GetWidth() * followScale / 2);
+
+            if (dx * dx + dy * dy > followRadius * followRadius)
+            {
+                sliders[i].isFailed = true;
+                sliders[i].isTrackingSuccess = false;
+            }
+        }
+    }
+
+    // =========================
+    // 슬라이더 볼 이동 완료 처리
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == true &&
+            sliders[i].isFinished == false)
+        {
+            DWORD elapsedTime =
+                currentTime - sliders[i].slideStartTime;
+
+            if (elapsedTime >= sliders[i].duration)
+            {
+                // 다음 슬라이더를 만들기 전에 현재 슬라이더 정보를 먼저 저장
+                bool wasWindowFollowTarget = sliders[i].isWindowFollowTarget;
+
+                bool isSliderSuccess =
+                    sliders[i].isTrackingSuccess == true &&
+                    sliders[i].isFailed == false;
+
+                int endX = sliders[i].endX;
+                int endY = sliders[i].endY;
+
+                sliders[i].isFinished = true;
+                sliders[i].isActive = false;
+                sliderCount--;
+
+                judgeX = endX;
+                judgeY = endY;
+                judgeDisplayStartTime = currentTime;
+
+                // =========================
+                // 먼저 현재 슬라이더 판정
+                // =========================
+                if (isSliderSuccess == true)
+                {
+                    lastJudge = JUDGE_PERFECT;
+                    score += 300;
+                    AddCombo();
+                    PlayHitSound();
+                }
+                else
+                {
+                    lastJudge = JUDGE_MISS;
+                    ResetCombo();
+                    PlayMissSound();
+                }
+
+                lastHitCircleSpawnTime = currentTime;
+
+                // =========================
+                // 그 다음에 특수 슬라이더 기믹 진행
+                // =========================
+                if (wasWindowFollowTarget == true)
+                {
+                    sliderFollowPatternStep++;
+
+                    if (sliderFollowPatternStep < WINDOW_SLIDER_FOLLOW_PATTERN_COUNT)
+                    {
+                        MoveSliderFollowWindowToPatternPosition(sliderFollowPatternStep);
+                        CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
+                    }
+                    else
+                    {
+                        isSliderFollowWindowGimmickActive = false;
+
+                        RestoreOriginalWindow(currentTime);
+
+                        isSecondWindowGimmickWaiting = true;
+                        secondWindowGimmickReserveTime = currentTime;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void RhythmMiniGame::Render(HDC hDC)
+{
+
+    RenderBackground(hDC);
+ 
+    // =========================
+    // 점수 / 콤보 출력
+    // =========================
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, RGB(255, 255, 255));
+
+    wchar_t scoreText[100];
+    wsprintf(scoreText, L"Score : %d", score);
+    TextOut(hDC, 50, 50, scoreText, lstrlen(scoreText));
+
+    wchar_t comboText[100];
+
+    if (combo > 0)
+    {
+        wsprintf(comboText, L"%d COMBO", combo);
+    }
+    else
+    {
+        wsprintf(comboText, L"");
+    }
+
+    TextOut(hDC, 50, 90, comboText, lstrlen(comboText));
+
+    
+    // =========================
+    // 슬라이더 그리기
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            int startX = sliders[i].startX;
+            int startY = sliders[i].startY;
+            int endX = sliders[i].endX;
+            int endY = sliders[i].endY;
+
+            // -------------------------
+            // 슬라이더 몸체
+            // -------------------------
+            HPEN sliderOutlinePen = CreatePen(PS_SOLID, 90, RGB(255, 255, 255));
+            HPEN oldPen = (HPEN)SelectObject(hDC, sliderOutlinePen);
+
+            MoveToEx(hDC, startX, startY, NULL);
+            LineTo(hDC, endX, endY);
+
+            SelectObject(hDC, oldPen);
+            DeleteObject(sliderOutlinePen);
+
+            HPEN sliderInnerPen = CreatePen(PS_SOLID, 72, RGB(180, 180, 180));
+            oldPen = (HPEN)SelectObject(hDC, sliderInnerPen);
+
+            MoveToEx(hDC, startX, startY, NULL);
+            LineTo(hDC, endX, endY);
+
+            SelectObject(hDC, oldPen);
+            DeleteObject(sliderInnerPen);
+
+            // -------------------------
+            // 슬라이더 시작 원의 접근 원
+            // -------------------------
+            if (sliders[i].isStarted == false)
+            {
+                DWORD currentTime = GetTickCount();
+ 
+
+                DWORD spawnTime = sliders[i].spawnTime;
+                DWORD hitTime = sliders[i].hitTime;
+
+                DWORD totalTime = hitTime - spawnTime;
+                DWORD elapsedTime = currentTime - spawnTime;
+
+                double progress = 0.0;
+
+                if (totalTime > 0)
+                {
+                    progress = (double)elapsedTime / totalTime;
+                }
+
+                if (progress < 0.0)
+                    progress = 0.0;
+
+                if (progress > 1.0)
+                    progress = 1.0;
+
+                double startScale = 1.8;
+                double endScale = 1.0;
+
+                double currentScale =
+                    startScale - (startScale - endScale) * progress;
+
+                int approachBaseWidth = approachCircleImg.GetWidth();
+                int approachBaseHeight = approachCircleImg.GetHeight();
+
+                int approachWidth = (int)(approachBaseWidth * currentScale);
+                int approachHeight = (int)(approachBaseHeight * currentScale);
+
+                int approachDrawX = startX - approachWidth / 2;
+                int approachDrawY = startY - approachHeight / 2;
+
+                approachCircleImg.Draw(
+                    hDC,
+                    approachDrawX,
+                    approachDrawY,
+                    approachWidth,
+                    approachHeight
+                );
+            }
+            // -------------------------
+            // 시작 원 이미지
+            // -------------------------
+            int startCircleWidth = sliderStartCircleImg.GetWidth();
+            int startCircleHeight = sliderStartCircleImg.GetHeight();
+
+            sliderStartCircleImg.Draw(
+                hDC,
+                startX - startCircleWidth / 2,
+                startY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+
+            sliderStartCircleOverlayImg.Draw(
+                hDC,
+                startX - startCircleWidth / 2,
+                startY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+
+            // -------------------------
+            // 끝 원
+            // 지금은 시작 원 이미지를 재사용
+            // -------------------------
+            sliderStartCircleImg.Draw(
+                hDC,
+                endX - startCircleWidth / 2,
+                endY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+
+            sliderStartCircleOverlayImg.Draw(
+                hDC,
+                endX - startCircleWidth / 2,
+                endY - startCircleHeight / 2,
+                startCircleWidth,
+                startCircleHeight
+            );
+        }
+        // -------------------------
+        // 슬라이더 볼 이동
+        // -------------------------
+        if (sliders[i].isStarted == true &&
+            sliders[i].isFinished == false)
+        {
+            DWORD currentTime = GetTickCount();
+
+            DWORD elapsedTime =
+                currentTime - sliders[i].slideStartTime;
+
+            double progress =
+                (double)elapsedTime / sliders[i].duration;
+
+            if (progress < 0.0)
+                progress = 0.0;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+            int ballX =
+                (int)(sliders[i].startX +
+                    (sliders[i].endX - sliders[i].startX) * progress);
+
+            int ballY =
+                (int)(sliders[i].startY +
+                    (sliders[i].endY - sliders[i].startY) * progress);
+           
+            // -------------------------
+            // 슬라이더 팔로우 원
+            // -------------------------
+            double followScale = 0.75;
+
+            int followWidth =
+                (int)(sliderFollowCircleImg.GetWidth() * followScale);
+
+            int followHeight =
+                (int)(sliderFollowCircleImg.GetHeight() * followScale);
+
+            sliderFollowCircleImg.Draw(
+                hDC,
+                ballX - followWidth / 2,
+                ballY - followHeight / 2,
+                followWidth,
+                followHeight
+            );
+
+            int ballWidth = sliderBallImg.GetWidth();
+            int ballHeight = sliderBallImg.GetHeight();
+
+            sliderBallImg.Draw(
+                hDC,
+                ballX - ballWidth / 2,
+                ballY - ballHeight / 2,
+                ballWidth,
+                ballHeight
+            );
+        }
+
+    }
+
+    DWORD currentTime = GetTickCount();
+
+    if (lastJudge != JUDGE_NONE &&
+        currentTime - judgeDisplayStartTime <= 500)
+    {
+        CImage* judgeImg = nullptr;
+
+        switch (lastJudge)
+        {
+        case JUDGE_PERFECT:
+            judgeImg = &hit300Img;
+            break;
+
+        case JUDGE_GOOD:
+            judgeImg = &hit100Img;
+            break;
+
+        case JUDGE_BAD:
+            judgeImg = &hit50Img;
+            break;
+
+        case JUDGE_MISS:
+            judgeImg = &hit0Img;
+            break;
+        }
+
+        if (judgeImg != nullptr && !judgeImg->IsNull())
+        {
+            DWORD elapsedTime = currentTime - judgeDisplayStartTime;
+            DWORD displayTime = 500;
+
+            // 0.0 ~ 1.0 진행도
+            double progress = (double)elapsedTime / displayTime;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+            // 처음에는 1.2배 크기
+            // 시간이 지나면 1.0배 크기로 줄어듦
+            double startScale = 1.35;
+            double endScale = 1.0;
+
+            double currentScale =
+                startScale - (startScale - endScale) * progress;
+
+            int originalWidth = judgeImg->GetWidth();
+            int originalHeight = judgeImg->GetHeight();
+
+            int drawWidth = (int)(originalWidth * currentScale);
+            int drawHeight = (int)(originalHeight * currentScale);
+
+            int drawX = judgeX - drawWidth / 2;
+            int drawY = judgeY - drawHeight / 2;
+
+            judgeImg->Draw(
+                hDC,
+                drawX,
+                drawY,
+                drawWidth,
+                drawHeight
+            );
+        }
+    }
+
+    // =========================
+    // 히트서클 그리기
+    // =========================
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == true)
+        {
+            double hitCircleScale =
+                isWindowGimmickActive
+                ? SMALL_WINDOW_HITCIRCLE_SCALE
+                : 1.0;
+
+            int imageWidth =
+                (int)(hitCircleImg.GetWidth() * hitCircleScale);
+
+            int imageHeight =
+                (int)(hitCircleImg.GetHeight() * hitCircleScale);
+
+            int drawX = hitCircles[i].x - imageWidth / 2;
+            int drawY = hitCircles[i].y - imageHeight / 2;
+
+            // =========================
+            // 접근 원 크기 계산
+            // =========================
+            DWORD currentTime = GetTickCount();
+
+            DWORD spawnTime = hitCircles[i].spawnTime;
+            DWORD hitTime = hitCircles[i].hitTime;
+
+            // 생성 시점부터 정확히 눌러야 하는 시점까지 걸리는 시간
+            DWORD totalTime = hitTime - spawnTime;
+
+            // 지금까지 지난 시간
+            DWORD elapsedTime = currentTime - spawnTime;
+
+            // 0.0 ~ 1.0 사이의 진행도
+            double progress = 0.0;
+
+            if (totalTime > 0)
+            {
+                progress = (double)elapsedTime / totalTime;
+            }
+
+            // 너무 작거나 커지지 않게 제한
+            if (progress < 0.0)
+                progress = 0.0;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+
+            // =========================
+            // 접근 원 크기 설정
+            // =========================
+            // 처음에는 히트서클의 2.5배 크기
+            // hitTime에 도달하면 히트서클과 같은 크기
+            double startScale = 1.8;
+            double endScale = 1.0;
+
+            double currentScale =
+                startScale - (startScale - endScale) * progress;
+
+
+            // 접근 원 출력 크기
+            int approachBaseWidth = approachCircleImg.GetWidth();
+            int approachBaseHeight = approachCircleImg.GetHeight();
+
+            int approachWidth =
+                (int)(approachBaseWidth * currentScale * hitCircleScale);
+
+            int approachHeight =
+                (int)(approachBaseHeight * currentScale * hitCircleScale);
+
+            // 중심을 유지하도록 좌표 계산
+            int approachDrawX = hitCircles[i].x - approachWidth / 2;
+            int approachDrawY = hitCircles[i].y - approachHeight / 2;
+
+
+            // =========================
+            // 접근 원 그리기
+            // =========================
+            approachCircleImg.Draw(
+                hDC,
+                approachDrawX,
+                approachDrawY,
+                approachWidth,
+                approachHeight
+            );
+
+            // 기본 히트서클
+            hitCircleImg.Draw(
+                hDC,
+                drawX,
+                drawY,
+                imageWidth,
+                imageHeight
+            );
+
+            // 히트서클 위에 오버레이
+            hitCircleOverlayImg.Draw(
+                hDC,
+                drawX,
+                drawY,
+                imageWidth,
+                imageHeight
+            );
+        }
+    }
+
+    RenderComboAnimation(hDC);
+    RenderMissReaction(hDC);
+    RenderFinalAnimation(hDC);
+    RenderFinalSparkles(hDC);
+    RenderFinalTimer(hDC);
+    RenderScreenFlash(hDC);
+    RenderClearEffect(hDC);
+
+    // =========================
+    // 커서 궤적 그리기
+    // =========================
+    for (int i = 0; i < MAX_CURSOR_TRAIL; i++)
+    {
+        int index = (cursorTrailIndex + i) % MAX_CURSOR_TRAIL;
+
+        if (cursorTrail[index].isActive == true)
+        {
+            DWORD elapsedTime =
+                currentTime - cursorTrail[index].createTime;
+
+            if (elapsedTime > CURSOR_TRAIL_LIFETIME)
+            {
+                cursorTrail[index].isActive = false;
+                continue;
+            }
+
+            int trailWidth = cursorTrailImg.GetWidth();
+            int trailHeight = cursorTrailImg.GetHeight();
+
+            cursorTrailImg.Draw(
+                hDC,
+                cursorTrail[index].x - trailWidth / 2,
+                cursorTrail[index].y - trailHeight / 2,
+                trailWidth,
+                trailHeight
+            );
+        }
+    }
+
+    // =========================
+    // 현재 커서 그리기
+    // =========================
+
+        // =========================
+        // 회전하는 커서 중앙 장식
+        // =========================
+        if (cursorMiddleImg != nullptr &&
+            cursorMiddleImg->GetLastStatus() == Gdiplus::Ok)
+        {
+            Gdiplus::Graphics graphics(hDC);
+
+            int middleWidth =
+                (int)cursorMiddleImg->GetWidth();
+
+            int middleHeight =
+                (int)cursorMiddleImg->GetHeight();
+
+            Gdiplus::GraphicsState state = graphics.Save();
+
+            // 회전 중심을 현재 커서 위치로 이동
+            graphics.TranslateTransform(
+                (Gdiplus::REAL)mouseX,
+                (Gdiplus::REAL)mouseY
+            );
+
+            // 커서 중심에서 회전
+            graphics.RotateTransform(cursorRotationAngle);
+
+            // 중심 기준으로 이미지 출력
+            graphics.DrawImage(
+                cursorMiddleImg,
+                -middleWidth / 2,
+                -middleHeight / 2,
+                middleWidth,
+                middleHeight
+            );
+
+            graphics.Restore(state);
+        }
+        // =========================
+        // 회전하는 커서 본체
+        // =========================
+        if (cursorRotateImg != nullptr &&
+            cursorRotateImg->GetLastStatus() == Gdiplus::Ok)
+        {
+            Gdiplus::Graphics graphics(hDC);
+
+            int cursorWidth =
+                (int)cursorRotateImg->GetWidth();
+
+            int cursorHeight =
+                (int)cursorRotateImg->GetHeight();
+
+            Gdiplus::GraphicsState state = graphics.Save();
+
+            // 현재 마우스 위치를 회전 중심으로 이동
+            graphics.TranslateTransform(
+                (Gdiplus::REAL)mouseX,
+                (Gdiplus::REAL)mouseY
+            );
+
+            // 커서 회전
+            graphics.RotateTransform(cursorRotationAngle);
+
+            // 중심 기준으로 출력
+            graphics.DrawImage(
+                cursorRotateImg,
+                -cursorWidth / 2,
+                -cursorHeight / 2,
+                cursorWidth,
+                cursorHeight
+            );
+
+            graphics.Restore(state);
+        }
+
+        
+    
+}
+
+void RhythmMiniGame::Release()
+{
+    if (!hitCircleImg.IsNull())
+        hitCircleImg.Destroy();
+
+    if (!hitCircleOverlayImg.IsNull())
+        hitCircleOverlayImg.Destroy();
+
+    if (!approachCircleImg.IsNull())
+        approachCircleImg.Destroy();
+
+    if (!hit300Img.IsNull())
+        hit300Img.Destroy();
+
+    if (!hit100Img.IsNull())
+        hit100Img.Destroy();
+
+    if (!hit50Img.IsNull())
+        hit50Img.Destroy();
+
+    if (!hit0Img.IsNull())
+        hit0Img.Destroy();
+
+    if (!sliderStartCircleImg.IsNull())
+        sliderStartCircleImg.Destroy();
+
+    if (!sliderStartCircleOverlayImg.IsNull())
+        sliderStartCircleOverlayImg.Destroy();
+
+    if (!sliderBallImg.IsNull())
+        sliderBallImg.Destroy();
+
+    if (!sliderFollowCircleImg.IsNull())
+        sliderFollowCircleImg.Destroy();
+
+    if (!cursorImg.IsNull())
+        cursorImg.Destroy();
+
+    if (!cursorTrailImg.IsNull())
+        cursorTrailImg.Destroy();
+
+    if (cursorMiddleImg != nullptr)
+    {
+        delete cursorMiddleImg;
+        cursorMiddleImg = nullptr;
+    }
+
+    if (gdiplusToken != 0)
+    {
+        Gdiplus::GdiplusShutdown(gdiplusToken);
+        gdiplusToken = 0;
+    }
+
+    if (cursorRotateImg != nullptr)
+    {
+        delete cursorRotateImg;
+        cursorRotateImg = nullptr;
+    }
+
+    for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)
+    {
+        if (!combo10Frames[i].IsNull())
+            combo10Frames[i].Destroy();
+
+        if (!combo20Frames[i].IsNull())
+            combo20Frames[i].Destroy();
+
+        if (!combo30Frames[i].IsNull())
+            combo30Frames[i].Destroy();
+    }
+
+    for (int i = 0; i < MISS_REACTION_FRAME_COUNT; i++)
+    {
+        if (!missReactionFrames[i].IsNull())
+            missReactionFrames[i].Destroy();
+    }
+
+    for (int i = 0; i < FINAL_ANIMATION_FRAME_COUNT; i++)
+    {
+        if (!finalLeftAnimationFrames[i].IsNull())
+            finalLeftAnimationFrames[i].Destroy();
+
+        if (!finalRightAnimationFrames[i].IsNull())
+            finalRightAnimationFrames[i].Destroy();
+    }
+    for (int i = 0; i < BACKGROUND_COUNT; i++)
+    {
+        if (!backgrounds[i].IsNull())
+            backgrounds[i].Destroy();
+    }
+
+    CloseEffectSounds();
+    StopBGM();
+}
+
+void RhythmMiniGame::OnMouseDown(int x, int y)
+{
+    mouseX = x;
+    mouseY = y;
+    isMouseDown = true;
+
+    DWORD currentTime = GetTickCount();
+
+    // =========================
+    // 히트서클 클릭 판정
+    // 겹쳤을 경우 먼저 생성된 히트서클 우선
+    // =========================
+    int targetHitCircleIndex = -1;
+
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == true)
+        {
+            double hitCircleScale =
+                isWindowGimmickActive
+                ? SMALL_WINDOW_HITCIRCLE_SCALE
+                : 1.0;
+
+            int hitRadius =
+                (int)(hitCircleImg.GetWidth() * hitCircleScale / 2) + 15;
+
+            int dx = x - hitCircles[i].x;
+            int dy = y - hitCircles[i].y;
+
+            if (dx * dx + dy * dy <= hitRadius * hitRadius)
+            {
+                // 아직 선택된 대상이 없으면 선택
+                if (targetHitCircleIndex == -1)
+                {
+                    targetHitCircleIndex = i;
+                }
+                // 더 먼저 생성된 히트서클이면 교체
+                else if (
+                    hitCircles[i].spawnTime <
+                    hitCircles[targetHitCircleIndex].spawnTime
+                    )
+                {
+                    targetHitCircleIndex = i;
+                }
+            }
+        }
+    }
+    if (targetHitCircleIndex != -1)
+    {
+        int i = targetHitCircleIndex;
+
+        int signedTimeDiff =
+            (int)currentTime - (int)hitCircles[i].hitTime;
+
+        int timeDiff = signedTimeDiff;
+
+        if (timeDiff < 0)
+            timeDiff = -timeDiff;
+
+        if (timeDiff <= 80)
+        {
+            lastJudge = JUDGE_PERFECT;
+            score += 300;
+        }
+        else if (timeDiff <= 160)
+        {
+            lastJudge = JUDGE_GOOD;
+            score += 100;
+        }
+        else if (
+            (signedTimeDiff < 0 && timeDiff <= 350) ||
+            (signedTimeDiff > 0 && timeDiff <= 250)
+            )
+        {
+            lastJudge = JUDGE_BAD;
+            score += 50;
+        }
+        else
+        {
+            // 히트서클 위를 눌렀지만 판정 타이밍이 아니면
+            // 다른 겹친 원으로 넘어가지 않고 그대로 종료
+            return;
+        }
+
+        hitCircles[i].isActive = false;
+        hitCircles[i].isJudged = true;
+        hitCircleCount--;
+        
+        AddCombo();
+        PlayHitSound();
+
+        judgeX = hitCircles[i].x;
+        judgeY = hitCircles[i].y;
+        judgeDisplayStartTime = currentTime;
+
+        return;
+    }
+    // =========================
+    // 슬라이더 시작 원 클릭 판정
+    // =========================
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == false &&
+            sliders[i].isFinished == false)
+        {
+            int dx = x - sliders[i].startX;
+            int dy = y - sliders[i].startY;
+
+            int hitRadius = sliderStartCircleImg.GetWidth() / 2 + 15;
+
+            if (dx * dx + dy * dy <= hitRadius * hitRadius)
+            {
+                int signedTimeDiff =
+                    (int)currentTime - (int)sliders[i].hitTime;
+
+                int timeDiff = signedTimeDiff;
+
+                if (timeDiff < 0)
+                    timeDiff = -timeDiff;
+
+                if (timeDiff <= 80)
+                {
+                    lastJudge = JUDGE_PERFECT;
+                    score += 300;
+                }
+                else if (timeDiff <= 160)
+                {
+                    lastJudge = JUDGE_GOOD;
+                    score += 100;
+                }
+                else if (
+                    // 조금 빠른 클릭은 350ms까지 허용
+                    (signedTimeDiff < 0 && timeDiff <= 350) ||
+
+                    // 늦은 클릭은 250ms까지 허용
+                    (signedTimeDiff > 0 && timeDiff <= 250)
+                    )
+                {
+                    lastJudge = JUDGE_BAD;
+                    score += 50;
+                }
+                else
+                {
+                    break;
+                }
+
+                sliders[i].isStarted = true;
+                sliders[i].slideStartTime = currentTime;
+
+                sliders[i].isTrackingSuccess = true;
+
+                AddCombo();
+                PlayHitSound();
+
+                judgeX = sliders[i].startX;
+                judgeY = sliders[i].startY;
+                judgeDisplayStartTime = currentTime;
+
+                break;
+            }
+        }
+    }
+
+}
+
+void RhythmMiniGame::OnMouseUp(int x, int y)
+{
+    mouseX = x;
+    mouseY = y;
+    isMouseDown = false;
+
+    // 이후 여기에
+    // - 슬라이더 중단 처리
+    // 를 넣을 예정
+}
+
+void RhythmMiniGame::OnMouseMove(int x, int y)
+{
+    DWORD currentTime = GetTickCount();
+
+    // 이전 마우스 위치
+    int prevX = mouseX;
+    int prevY = mouseY;
+
+    // 이동 거리 계산
+    int dx = x - prevX;
+    int dy = y - prevY;
+
+    double distance = sqrt((double)(dx * dx + dy * dy));
+
+    // 일정 간격마다 trail 점 추가
+    int pointCount =
+        (int)(distance / CURSOR_TRAIL_POINT_SPACING);
+
+    if (pointCount < 1)
+    {
+        pointCount = 1;
+    }
+
+    for (int i = 1; i <= pointCount; i++)
+    {
+        double t = (double)i / pointCount;
+
+        int trailX =
+            (int)(prevX + dx * t);
+
+        int trailY =
+            (int)(prevY + dy * t);
+
+        AddCursorTrailPoint(trailX, trailY, currentTime);
+    }
+
+    // 현재 마우스 위치 갱신
+    mouseX = x;
+    mouseY = y;
+}
+
+bool RhythmMiniGame::IsGameOver() const
+{
+    return isGameOver;
+}
+
+
+void RhythmMiniGame::CreateHitCircle(int x, int y)
+{
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == false)
+        {
+            DWORD currentTime = GetTickCount();
+
+            hitCircles[i].isActive = true;
+            hitCircles[i].isJudged = false;
+
+            hitCircles[i].x = x;
+            hitCircles[i].y = y;
+
+            hitCircles[i].spawnTime = currentTime;
+            hitCircles[i].hitTime = currentTime + HIT_APPROACH_TIME;
+
+            hitCircleCount++;
+
+            break;
+        }
+    }
+}
+
+void RhythmMiniGame::PremultiplyAlpha(CImage& image)
+{
+    if (image.IsNull())
+        return;
+
+    // 알파 채널이 있는 32비트 이미지에만 적용
+    if (image.GetBPP() != 32)
+        return;
+
+    BYTE* pBits = (BYTE*)image.GetBits();
+    int pitch = image.GetPitch();
+    int width = image.GetWidth();
+    int height = image.GetHeight();
+
+    for (int y = 0; y < height; y++)
+    {
+        BYTE* pPixel = pBits + y * pitch;
+
+        for (int x = 0; x < width; x++)
+        {
+            BYTE& blue = pPixel[x * 4 + 0];
+            BYTE& green = pPixel[x * 4 + 1];
+            BYTE& red = pPixel[x * 4 + 2];
+            BYTE& alpha = pPixel[x * 4 + 3];
+
+            blue = (BYTE)((blue * alpha) / 255);
+            green = (BYTE)((green * alpha) / 255);
+            red = (BYTE)((red * alpha) / 255);
+        }
+    }
+}
+
+void RhythmMiniGame::CreateSlider(
+    int startX,
+    int startY,
+    int endX,
+    int endY,
+    bool isWindowFollowTarget
+) {
+    
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == false)
+        {
+            DWORD currentTime = GetTickCount();
+
+            sliders[i].isActive = true;
+            sliders[i].isStarted = false;
+            sliders[i].isFinished = false;
+            sliders[i].isFailed = false;
+
+            sliders[i].startX = startX;
+            sliders[i].startY = startY;
+            sliders[i].endX = endX;
+            sliders[i].endY = endY;
+
+            sliders[i].spawnTime = currentTime;
+            sliders[i].hitTime = currentTime + HIT_APPROACH_TIME;
+            sliders[i].isTrackingSuccess = false;
+            sliders[i].isWindowFollowTarget = isWindowFollowTarget;
+
+            int dx = endX - startX;
+            int dy = endY - startY;
+
+            double distance = sqrt((double)(dx * dx + dy * dy));
+
+            // 슬라이더 볼 속도
+            // 값이 작을수록 느리고, 클수록 빠름
+            double sliderSpeed = 350.0;   // 초당 350픽셀 이동
+
+            sliders[i].duration =
+                (DWORD)((distance / sliderSpeed) * 1000.0);
+
+            if (sliders[i].duration < 700)
+            {
+                sliders[i].duration = 700;
+            }
+
+            sliders[i].slideStartTime = 0;
+            
+            sliderCount++;
+
+            break;
+        }
+    }
+}
+
+void RhythmMiniGame::UpdateWindowGimmick(DWORD currentTime)
+{
+    int beatIndex =
+        (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+
+    if (hasWindowGimmickTriggered == false &&
+        isWindowJumpGimmickActive == false &&
+        beatIndex >= WINDOW_GIMMICK_TRIGGER_BEAT)
+    {
+        TriggerWindowGimmick(currentTime);
+        hasWindowGimmickTriggered = true;
+    }
+
+
+    // 유지 시간이 끝나면 원래 창으로 복귀
+    if (isWindowGimmickActive == true &&
+        currentTime - windowGimmickStartTime >= WINDOW_GIMMICK_DURATION)
+    {
+        RestoreOriginalWindow(currentTime);
+    }
+}
+
+void RhythmMiniGame::CalculateGimmickClientSize(int& outWidth, int& outHeight)
+{
+    int maxX = 0;
+    int maxY = 0;
+
+    // 현재 떠 있는 히트서클 확인
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        if (hitCircles[i].isActive == true)
+        {
+            if (hitCircles[i].x > maxX)
+                maxX = hitCircles[i].x;
+
+            if (hitCircles[i].y > maxY)
+                maxY = hitCircles[i].y;
+        }
+    }
+
+    // 현재 떠 있는 슬라이더 확인
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            if (sliders[i].startX > maxX)
+                maxX = sliders[i].startX;
+
+            if (sliders[i].endX > maxX)
+                maxX = sliders[i].endX;
+
+            if (sliders[i].startY > maxY)
+                maxY = sliders[i].startY;
+
+            if (sliders[i].endY > maxY)
+                maxY = sliders[i].endY;
+        }
+    }
+
+    int requiredWidth = maxX + GIMMICK_OBJECT_PADDING;
+    int requiredHeight = maxY + GIMMICK_OBJECT_PADDING;
+
+    // 최소 창 크기 보장
+    if (requiredWidth < MIN_GIMMICK_CLIENT_WIDTH)
+        requiredWidth = MIN_GIMMICK_CLIENT_WIDTH;
+
+    if (requiredHeight < MIN_GIMMICK_CLIENT_HEIGHT)
+        requiredHeight = MIN_GIMMICK_CLIENT_HEIGHT;
+
+
+    // 기믹 중에는 너무 커지지 않도록 제한
+    if (requiredWidth > MAX_GIMMICK_CLIENT_WIDTH)
+        requiredWidth = MAX_GIMMICK_CLIENT_WIDTH;
+
+    if (requiredHeight > MAX_GIMMICK_CLIENT_HEIGHT)
+        requiredHeight = MAX_GIMMICK_CLIENT_HEIGHT;
+
+    outWidth = requiredWidth;
+    outHeight = requiredHeight;
+}
+
+void RhythmMiniGame::TriggerWindowGimmick(DWORD currentTime, bool isSecondRun)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    int targetClientWidth = 0;
+    int targetClientHeight = 0;
+
+    CalculateGimmickClientSize(targetClientWidth, targetClientHeight);
+
+    // 원하는 클라이언트 크기를 실제 윈도우 전체 크기로 변환
+    RECT adjustedRect = { 0, 0, targetClientWidth, targetClientHeight };
+
+    DWORD windowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_STYLE);
+
+    DWORD exWindowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_EXSTYLE);
+
+    AdjustWindowRectEx(
+        &adjustedRect,
+        windowStyle,
+        FALSE,
+        exWindowStyle
+    );
+
+    int targetWindowWidth =
+        adjustedRect.right - adjustedRect.left;
+
+    int targetWindowHeight =
+        adjustedRect.bottom - adjustedRect.top;
+
+    // 화면 오른쪽 위로 갑자기 이동
+    int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
+
+    int targetX = 0;
+    int targetY = 0;
+
+    if (isSecondRun == false)
+    {
+        // 첫 번째 1번 기믹: 오른쪽 위
+        targetX = desktopWidth - targetWindowWidth - 40;
+        targetY = 40;
+    }
+    else
+    {
+        // 두 번째 1번 기믹: 왼쪽 아래
+        int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
+
+        targetX = 40;
+        targetY = desktopHeight - targetWindowHeight - 80;
+    }
+    if (targetX < 0)
+        targetX = 0;
+
+    if (targetY < 0)
+        targetY = 0;
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        targetX,
+        targetY,
+        targetWindowWidth,
+        targetWindowHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    // 바뀐 실제 클라이언트 영역 크기 반영
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    screenWidth = clientRect.right - clientRect.left;
+    screenHeight = clientRect.bottom - clientRect.top;
+
+    // 기존 노트는 모두 제거
+    ClearAllNotes();
+
+    // 바뀐 창 크기 안에서 즉시 새 히트서클 생성
+    CreateImmediateHitCircle();
+
+    // 창 변화 직후 박자 기반 생성이 바로 겹치지 않게 막기
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
+
+    // 다음 자동 생성 시간이 꼬이지 않도록 기준 시간 갱신
+    lastHitCircleSpawnTime = currentTime;
+
+    windowGimmickStartTime = currentTime;
+    isWindowGimmickActive = true;
+
+    TriggerGimmickImpact(currentTime);
+
+    InvalidateRect(gameHwnd, NULL, FALSE);
+}
+
+void RhythmMiniGame::RestoreOriginalWindow(DWORD currentTime)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    int originalWindowWidth =
+        originalWindowRect.right - originalWindowRect.left;
+
+    int originalWindowHeight =
+        originalWindowRect.bottom - originalWindowRect.top;
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        originalWindowRect.left,
+        originalWindowRect.top,
+        originalWindowWidth,
+        originalWindowHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    screenWidth = clientRect.right - clientRect.left;
+    screenHeight = clientRect.bottom - clientRect.top;
+
+    // 작은 창 기믹 종료
+    isWindowGimmickActive = false;
+
+    // 기존 작은 창 노트 제거 후 큰 창 기준으로 새 노트 생성
+    ClearAllNotes();
+    CreateImmediateHitCircle();
+
+    isWindowJumpNotePending = false;
+    windowJumpNoteSpawnTime = 0;
+
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
+    lastHitCircleSpawnTime = currentTime;
+
+    StartBackgroundTransition();
+
+    InvalidateRect(gameHwnd, NULL, FALSE);
+}
+void RhythmMiniGame::ClearAllNotes()
+{
+    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
+    {
+        hitCircles[i].isActive = false;
+        hitCircles[i].isJudged = false;
+    }
+
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        sliders[i].isActive = false;
+        sliders[i].isStarted = false;
+        sliders[i].isFinished = false;
+        sliders[i].isFailed = false;
+        sliders[i].isTrackingSuccess = false;
+        sliders[i].isWindowFollowTarget = false;
+    }
+
+    hitCircleCount = 0;
+    sliderCount = 0;
+}
+
+void RhythmMiniGame::CreateImmediateHitCircle()
+{
+    int marginX;
+    int marginY;
+
+    if (isWindowGimmickActive == true)
+    {
+        marginX = 80;
+        marginY = 70;
+    }
+    else
+    {
+        marginX = 180;
+        marginY = 140;
+    }
+
+    int randomX =
+        marginX + rand() % (screenWidth - marginX * 2);
+
+    int randomY =
+        marginY + rand() % (screenHeight - marginY * 2);
+
+    CreateHitCircle(randomX, randomY);
+}
+
+void RhythmMiniGame::UpdateWindowJumpGimmick(DWORD currentTime)
+{
+    DWORD elapsedGameTime = currentTime - gameStartTime;
+
+    // 35초에 처음 발동
+    if (hasWindowJumpGimmickTriggered == false &&
+        elapsedGameTime >= WINDOW_JUMP_GIMMICK_TRIGGER_TIME)
+    {
+        TriggerWindowJumpGimmick(currentTime);
+        hasWindowJumpGimmickTriggered = true;
+    }
+
+    // 기믹이 진행 중이면 0.7초마다 다음 창 상태로 이동
+    if (isWindowJumpGimmickActive == true)
+    {
+        if (currentTime - windowJumpLastMoveTime >= WINDOW_JUMP_INTERVAL)
+        {
+            windowJumpStep++;
+
+            if (windowJumpStep >= WINDOW_JUMP_COUNT)
+            {
+                // 5번 이동이 끝나면 원래 창으로 복귀
+                RestoreOriginalWindow(currentTime);
+                isWindowJumpGimmickActive = false;
+                return;
+            }
+
+            MoveWindowJumpStep(windowJumpStep, currentTime);
+            windowJumpLastMoveTime = currentTime;
+        }
+    }
+}
+
+void RhythmMiniGame::TriggerWindowJumpGimmick(DWORD currentTime)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    // 혹시 작은 창 기믹이 남아 있다면 종료 처리
+    isWindowGimmickActive = false;
+
+    isWindowJumpGimmickActive = true;
+    windowJumpStep = 0;
+    windowJumpLastMoveTime = currentTime;
+
+    MoveWindowJumpStep(windowJumpStep, currentTime);
+}
+
+void RhythmMiniGame::MoveWindowJumpStep(int step, DWORD currentTime)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    int clientWidth = 1000;
+    int clientHeight = 600;
+
+    int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
+    int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    int targetX = 0;
+    int targetY = 0;
+
+    // 패턴형 기믹이므로 순서를 고정
+    switch (step)
+    {
+    case 0:
+        clientWidth = 1000;
+        clientHeight = 600;
+        targetX = 40;
+        targetY = 40;
+        break;
+
+    case 1:
+        clientWidth = 850;
+        clientHeight = 520;
+        targetX = desktopWidth - clientWidth - 100;
+        targetY = 80;
+        break;
+
+    case 2:
+        clientWidth = 1100;
+        clientHeight = 650;
+        targetX = (desktopWidth - clientWidth) / 2;
+        targetY = (desktopHeight - clientHeight) / 2;
+        break;
+
+    case 3:
+        clientWidth = 900;
+        clientHeight = 540;
+        targetX = 80;
+        targetY = desktopHeight - clientHeight - 120;
+        break;
+
+    case 4:
+        clientWidth = 980;
+        clientHeight = 580;
+        targetX = desktopWidth - clientWidth - 80;
+        targetY = desktopHeight - clientHeight - 100;
+        break;
+    }
+
+    // 클라이언트 크기를 실제 창 크기로 변환
+    RECT adjustedRect = { 0, 0, clientWidth, clientHeight };
+
+    DWORD windowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_STYLE);
+
+    DWORD exWindowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_EXSTYLE);
+
+    AdjustWindowRectEx(
+        &adjustedRect,
+        windowStyle,
+        FALSE,
+        exWindowStyle
+    );
+
+    int targetWindowWidth =
+        adjustedRect.right - adjustedRect.left;
+
+    int targetWindowHeight =
+        adjustedRect.bottom - adjustedRect.top;
+
+    // 실제 창 위치 적용
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        targetX,
+        targetY,
+        targetWindowWidth,
+        targetWindowHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    // 바뀐 클라이언트 크기 반영
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    screenWidth = clientRect.right - clientRect.left;
+    screenHeight = clientRect.bottom - clientRect.top;
+
+    ClearAllNotes();
+
+    // 창이 바뀐 직후 바로 노드를 만들지 않고,
+    // 잠깐 뒤에 생성하도록 예약
+    isWindowJumpNotePending = true;
+    windowJumpNoteSpawnTime = currentTime + WINDOW_JUMP_NOTE_DELAY;
+
+    // 박자 기반 자동 생성도 잠깐 차단
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_JUMP_NOTE_DELAY + 300;
+
+    lastHitCircleSpawnTime = currentTime;
+
+    TriggerGimmickImpact(currentTime);
+
+    InvalidateRect(gameHwnd, NULL, FALSE);
+}
+
+void RhythmMiniGame::UpdateSliderFollowWindowGimmick(DWORD currentTime)
+{
+    int beatIndex =
+        (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+
+    if (hasSliderFollowWindowGimmickTriggered == false &&
+        isWindowGimmickActive == false &&
+        isWindowJumpGimmickActive == false &&
+        beatIndex >= WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT)
+    {
+        TriggerSliderFollowWindowGimmick(currentTime);
+        hasSliderFollowWindowGimmickTriggered = true;
+    }
+
+    if (isSliderFollowWindowGimmickActive == true)
+    {
+        MoveWindowWithSliderBall(currentTime);
+    }
+}
+
+void RhythmMiniGame::TriggerSliderFollowWindowGimmick(DWORD currentTime)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    // 원하는 클라이언트 크기
+    RECT adjustedRect = {
+        0,
+        0,
+        WINDOW_SLIDER_FOLLOW_CLIENT_WIDTH,
+        WINDOW_SLIDER_FOLLOW_CLIENT_HEIGHT
+    };
+
+    DWORD windowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_STYLE);
+
+    DWORD exWindowStyle =
+        (DWORD)GetWindowLongPtr(gameHwnd, GWL_EXSTYLE);
+
+    AdjustWindowRectEx(
+        &adjustedRect,
+        windowStyle,
+        FALSE,
+        exWindowStyle
+    );
+
+    int targetWindowWidth =
+        adjustedRect.right - adjustedRect.left;
+
+    int targetWindowHeight =
+        adjustedRect.bottom - adjustedRect.top;
+
+    int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
+    int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    int maxX = desktopWidth - targetWindowWidth;
+    int maxY = desktopHeight - targetWindowHeight;
+
+    int targetX = rand() % (maxX + 1);
+    int targetY = rand() % (maxY + 1);
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        targetX,
+        targetY,
+        targetWindowWidth,
+        targetWindowHeight,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    PlayWindowSound();
+
+    // 바뀐 창 크기 반영
+    RECT clientRect;
+    GetClientRect(gameHwnd, &clientRect);
+
+    screenWidth = clientRect.right - clientRect.left;
+    screenHeight = clientRect.bottom - clientRect.top;
+
+    // 이 위치를 창 이동 기준점으로 저장
+    GetWindowRect(gameHwnd, &sliderFollowBaseWindowRect);
+
+    // 기존 노트 제거
+ClearAllNotes();
+
+isSliderFollowWindowGimmickActive = true;
+sliderFollowPatternStep = 0;
+
+// 첫 번째 패턴 슬라이더 생성
+MoveSliderFollowWindowToPatternPosition(sliderFollowPatternStep);
+CreateSliderFollowPattern(sliderFollowPatternStep, currentTime);
+
+lastHitCircleSpawnTime = currentTime;
+
+TriggerScreenFlash(
+    GIMMICK_FLASH_ALPHA,
+    GIMMICK_FLASH_DURATION
+);
+
+InvalidateRect(gameHwnd, NULL, FALSE);
+}
+
+void RhythmMiniGame::MoveWindowWithSliderBall(DWORD currentTime)
+{
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true &&
+            sliders[i].isStarted == true &&
+            sliders[i].isFinished == false &&
+            sliders[i].isWindowFollowTarget == true)
+        {
+            DWORD elapsedTime =
+                currentTime - sliders[i].slideStartTime;
+
+            double progress =
+                (double)elapsedTime / sliders[i].duration;
+
+            if (progress < 0.0)
+                progress = 0.0;
+
+            if (progress > 1.0)
+                progress = 1.0;
+
+            int ballX =
+                (int)(sliders[i].startX +
+                    (sliders[i].endX - sliders[i].startX) * progress);
+
+            int ballY =
+                (int)(sliders[i].startY +
+                    (sliders[i].endY - sliders[i].startY) * progress);
+
+            int moveX =
+                (int)((ballX - sliders[i].startX) *
+                    WINDOW_SLIDER_FOLLOW_POWER);
+
+            int moveY =
+                (int)((ballY - sliders[i].startY) *
+                    WINDOW_SLIDER_FOLLOW_POWER);
+
+            int windowWidth =
+                sliderFollowBaseWindowRect.right -
+                sliderFollowBaseWindowRect.left;
+
+            int windowHeight =
+                sliderFollowBaseWindowRect.bottom -
+                sliderFollowBaseWindowRect.top;
+
+            int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
+            int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
+
+            int targetX =
+                sliderFollowBaseWindowRect.left + moveX;
+
+            int targetY =
+                sliderFollowBaseWindowRect.top + moveY;
+
+            // 화면 밖으로 빠지지 않게 제한
+            if (targetX < 0)
+                targetX = 0;
+
+            if (targetY < 0)
+                targetY = 0;
+
+            if (targetX + windowWidth > desktopWidth)
+                targetX = desktopWidth - windowWidth;
+
+            if (targetY + windowHeight > desktopHeight)
+                targetY = desktopHeight - windowHeight;
+
+            SetWindowPos(
+                gameHwnd,
+                NULL,
+                targetX,
+                targetY,
+                0,
+                0,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
+            );
+
+            return;
+        }
+    }
+}
+
+void RhythmMiniGame::CreateSliderFollowPattern(int patternIndex, DWORD currentTime)
+{
+    int startX = 0;
+    int startY = 0;
+    int endX = 0;
+    int endY = 0;
+
+    // 너무 가장자리에 붙지 않게 하는 여백
+    int marginX = 110;
+    int marginY = 90;
+
+    // 랜덤 보정 범위
+    int randomXRange = 120;
+    int randomYRange = 80;
+
+    switch (patternIndex)
+    {
+    case 0:
+        // 1. 좌하단 → 우상단 대각선
+        startX = marginX + rand() % randomXRange;
+        startY = screenHeight - marginY - rand() % randomYRange;
+
+        endX = screenWidth - marginX - rand() % randomXRange;
+        endY = marginY + rand() % randomYRange;
+        break;
+
+    case 1:
+        // 2. 좌상단 → 우하단 대각선
+        startX = marginX + rand() % randomXRange;
+        startY = marginY + rand() % randomYRange;
+
+        endX = screenWidth - marginX - rand() % randomXRange;
+        endY = screenHeight - marginY - rand() % randomYRange;
+        break;
+
+    case 2:
+        // 3. 위 → 아래 세로 이동
+        startX =
+            marginX + rand() % (screenWidth - marginX * 2);
+        startY =
+            marginY + rand() % 50;
+
+        endX =
+            startX + (-50 + rand() % 101); // 약간 기울어질 수도 있음
+        endY =
+            screenHeight - marginY - rand() % 50;
+
+        // 끝 X가 화면 밖으로 나가지 않게 보정
+        if (endX < marginX)
+            endX = marginX;
+
+        if (endX > screenWidth - marginX)
+            endX = screenWidth - marginX;
+        break;
+
+    case 3:
+        // 4. 아래 → 위 세로 이동
+        startX =
+            marginX + rand() % (screenWidth - marginX * 2);
+        startY =
+            screenHeight - marginY - rand() % 50;
+
+        endX =
+            startX + (-50 + rand() % 101); // 약간 기울어질 수도 있음
+        endY =
+            marginY + rand() % 50;
+
+        if (endX < marginX)
+            endX = marginX;
+
+        if (endX > screenWidth - marginX)
+            endX = screenWidth - marginX;
+        break;
+
+    case 4:
+        // 5. 왼쪽 → 오른쪽 가로 이동
+        startX =
+            marginX + rand() % 50;
+        startY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        endX =
+            screenWidth - marginX - rand() % 50;
+        endY =
+            startY + (-50 + rand() % 101); // 약간 기울어질 수도 있음
+
+        if (endY < marginY)
+            endY = marginY;
+
+        if (endY > screenHeight - marginY)
+            endY = screenHeight - marginY;
+        break;
+    }
+
+    // 현재 창 위치를 창 이동 기준점으로 저장
+    GetWindowRect(gameHwnd, &sliderFollowBaseWindowRect);
+
+    CreateSlider(
+        startX,
+        startY,
+        endX,
+        endY,
+        true
+    );
+
+    lastHitCircleSpawnTime = currentTime;
+}
+
+void RhythmMiniGame::MoveSliderFollowWindowToPatternPosition(int patternIndex)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    RECT windowRect;
+    GetWindowRect(gameHwnd, &windowRect);
+
+    int windowWidth =
+        windowRect.right - windowRect.left;
+
+    int windowHeight =
+        windowRect.bottom - windowRect.top;
+
+    int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
+    int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    int maxX = desktopWidth - windowWidth;
+    int maxY = desktopHeight - windowHeight;
+
+    if (maxX < 0)
+        maxX = 0;
+
+    if (maxY < 0)
+        maxY = 0;
+
+    int targetX = 0;
+    int targetY = 0;
+
+    int margin = 40;
+
+    switch (patternIndex)
+    {
+    case 0:
+        // 좌하단 -> 우상단 대각선
+        // 창은 왼쪽 아래에서 시작해야 오른쪽 위로 많이 움직임
+        targetX = margin;
+        targetY = maxY - margin;
+        break;
+
+    case 1:
+        // 좌상단 -> 우하단 대각선
+        // 창은 왼쪽 위에서 시작해야 오른쪽 아래로 많이 움직임
+        targetX = margin;
+        targetY = margin;
+        break;
+
+    case 2:
+        // 위 -> 아래
+        // 창은 위쪽에서 시작해야 아래로 많이 움직임
+        targetX = maxX / 2;
+        targetY = margin;
+        break;
+
+    case 3:
+        // 아래 -> 위
+        // 창은 아래쪽에서 시작해야 위로 많이 움직임
+        targetX = maxX / 2;
+        targetY = maxY - margin;
+        break;
+
+    case 4:
+        // 왼쪽 -> 오른쪽
+        // 창은 왼쪽에서 시작해야 오른쪽으로 많이 움직임
+        targetX = margin;
+        targetY = maxY / 2;
+        break;
+    }
+
+    if (targetX < 0)
+        targetX = 0;
+
+    if (targetY < 0)
+        targetY = 0;
+
+    if (targetX > maxX)
+        targetX = maxX;
+
+    if (targetY > maxY)
+        targetY = maxY;
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        targetX,
+        targetY,
+        0,
+        0,
+        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
+    );
+
+    // 슬라이더 볼을 따라 움직일 기준 위치 갱신
+    GetWindowRect(gameHwnd, &sliderFollowBaseWindowRect);
+
+    PlayWindowSound();
+
+    InvalidateRect(gameHwnd, NULL, FALSE);
+}
+
+void RhythmMiniGame::AddCursorTrailPoint(int x, int y, DWORD createTime)
+{
+    cursorTrail[cursorTrailIndex].x = x;
+    cursorTrail[cursorTrailIndex].y = y;
+    cursorTrail[cursorTrailIndex].isActive = true;
+    cursorTrail[cursorTrailIndex].createTime = createTime;
+
+    cursorTrailIndex++;
+
+    if (cursorTrailIndex >= MAX_CURSOR_TRAIL)
+    {
+        cursorTrailIndex = 0;
+    }
+}
+
+void RhythmMiniGame::AddCombo()
+{
+    combo++;
+
+    if (combo > maxCombo)
+    {
+        maxCombo = combo;
+    }
+
+    if (combo % 10 == 0)
+    {
+        TriggerComboAnimation();
+    }
+}
+
+void RhythmMiniGame::ResetCombo()
+{
+    combo = 0;
+    TriggerMissReaction();
+}
+
+void RhythmMiniGame::TriggerComboAnimation()
+{
+    int comboPattern = combo % 30;
+
+    if (comboPattern == 10)
+    {
+        currentComboCharacterType = COMBO_CHARACTER_10;
+    }
+    else if (comboPattern == 20)
+    {
+        currentComboCharacterType = COMBO_CHARACTER_20;
+    }
+    else
+    {
+        currentComboCharacterType = COMBO_CHARACTER_30;
+    }
+
+    TriggerScreenFlash(COMBO_FLASH_ALPHA, COMBO_FLASH_DURATION);
+    
+    isComboAnimationActive = true;
+    comboAnimationStartTime = GetTickCount();
+    comboAnimationFrameIndex = 0;
+}
+
+void RhythmMiniGame::UpdateComboAnimation(DWORD currentTime)
+{
+    if (isComboAnimationActive == false)
+        return;
+
+    DWORD elapsedTime = currentTime - comboAnimationStartTime;
+
+    if (elapsedTime >= COMBO_ANIMATION_DURATION)
+    {
+        isComboAnimationActive = false;
+        currentComboCharacterType = COMBO_CHARACTER_NONE;
+        comboAnimationFrameIndex = 0;
+        return;
+    }
+
+    comboAnimationFrameIndex =
+        (elapsedTime / COMBO_ANIMATION_FRAME_INTERVAL) %
+        COMBO_ANIMATION_FRAME_COUNT;
+}
+
+void RhythmMiniGame::RenderComboAnimation(HDC hDC)
+{
+    if (isComboAnimationActive == false)
+        return;
+
+    CImage* currentFrame = nullptr;
+
+    if (currentComboCharacterType == COMBO_CHARACTER_10)
+    {
+        currentFrame = &combo10Frames[comboAnimationFrameIndex];
+    }
+    else if (currentComboCharacterType == COMBO_CHARACTER_20)
+    {
+        currentFrame = &combo20Frames[comboAnimationFrameIndex];
+    }
+    else if (currentComboCharacterType == COMBO_CHARACTER_30)
+    {
+        currentFrame = &combo30Frames[comboAnimationFrameIndex];
+    }
+
+    if (currentFrame == nullptr || currentFrame->IsNull())
+        return;
+
+    int drawSize = screenHeight / 3;
+
+    if (drawSize > 320)
+        drawSize = 320;
+
+    if (drawSize < 180)
+        drawSize = 180;
+
+    int drawX = screenWidth - drawSize - 30;
+    int drawY = screenHeight - drawSize - 30;
+
+    currentFrame->Draw(
+        hDC,
+        drawX,
+        drawY,
+        drawSize,
+        drawSize
+    );
+}
+
+void RhythmMiniGame::PlayHitSound()
+{
+    PlayEffectSound(L"hitSound");
+}
+
+void RhythmMiniGame::PlayMissSound()
+{
+    PlayEffectSound(L"missSound");
+}
+
+void RhythmMiniGame::PlayBGM()
+{
+    mciSendString(L"close rhythmBGM", NULL, 0, NULL);
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\bgm.mp3\" type mpegvideo alias rhythmBGM",
+        NULL,
+        0,
+        NULL
+    );
+
+    wchar_t volumeCommand[100];
+    wsprintf(volumeCommand, L"setaudio rhythmBGM volume to %d", BGM_VOLUME);
+
+    mciSendString(
+        volumeCommand,
+        NULL,
+        0,
+        NULL
+    );
+
+    mciSendString(
+        L"play rhythmBGM",
+        NULL,
+        0,
+        NULL
+    );
+}
+
+void RhythmMiniGame::StopBGM()
+{
+    mciSendString(L"stop rhythmBGM", NULL, 0, NULL);
+    mciSendString(L"close rhythmBGM", NULL, 0, NULL);
+}
+
+void RhythmMiniGame::UpdateBeatSpawn(DWORD currentTime)
+{
+    // 2번째 창 점프 기믹 중에는
+    // 창 하나당 예약된 히트서클 1개만 생성되게 한다.
+    if (isWindowJumpGimmickActive == true)
+        return;
+
+    if (isGameOver == true)
+        return;
+
+    if (currentTime < noteSpawnBlockUntilTime)
+        return;
+
+    // 슬라이더 창 이동 기믹 중에는 전용 슬라이더만 사용
+    if (isSliderFollowWindowGimmickActive == true)
+        return;
+
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    int beatIndex =
+        (int)(elapsedBgmTime / BEAT_INTERVAL);
+
+    // 아직 새 박자가 아님
+    if (beatIndex <= currentBeatIndex)
+        return;
+
+    // 현재 박자까지 처리한 것으로 기록
+    currentBeatIndex = beatIndex;
+
+    // 슬라이더가 진행 중이면 새 노트 생성하지 않음
+    bool hasActiveSlider = false;
+
+    for (int i = 0; i < MAX_SLIDERS; i++)
+    {
+        if (sliders[i].isActive == true)
+        {
+            hasActiveSlider = true;
+            break;
+        }
+    }
+
+    if (hasActiveSlider == true)
+        return;
+
+    // 2박자마다 노트 생성
+    int currentNoteBeatStep =
+        isFinalEffectActive ? 1 : NOTE_BEAT_STEP;
+
+    if (beatIndex % currentNoteBeatStep != 0)
+        return;
+
+    // 기믹 발동 직전에는 노드를 하나 덜 생성
+    if (ShouldSkipNoteBeforeGimmick(currentTime, beatIndex) == true)
+        return;
+
+    // =========================
+    // 작은 창 기믹 중
+    // 히트서클만 생성
+    // =========================
+    if (isWindowGimmickActive == true)
+    {
+        int marginX = 80;
+        int marginY = 70;
+
+        int randomX =
+            marginX + rand() % (screenWidth - marginX * 2);
+
+        int randomY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        CreateHitCircle(randomX, randomY);
+        return;
+    }
+
+    if (isFinalEffectActive == true)
+    {
+        CreateFinalHitCircle();
+        return;
+    }
+
+    // =========================
+    // 일반 상태
+    // 히트서클 / 슬라이더 섞어서 생성
+    // =========================
+    spawnedObjectCount++;
+
+    int marginX = 300;
+    int marginY = 220;
+
+    // 4번째 노트마다 슬라이더
+    if (spawnedObjectCount % 4 == 0)
+    {
+        int startX =
+            marginX + rand() % (screenWidth - marginX * 2);
+
+        int startY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        int endX = startX;
+        int endY = startY;
+
+        int tryCount = 0;
+
+        while (true)
+        {
+            endX =
+                marginX + rand() % (screenWidth - marginX * 2);
+
+            endY =
+                marginY + rand() % (screenHeight - marginY * 2);
+
+            int dx = endX - startX;
+            int dy = endY - startY;
+
+            int distanceSquared = dx * dx + dy * dy;
+
+            if (distanceSquared >= 350 * 350)
+            {
+                break;
+            }
+
+            tryCount++;
+
+            if (tryCount > 30)
+            {
+                CreateHitCircle(startX, startY);
+                return;
+            }
+        }
+
+        CreateSlider(startX, startY, endX, endY);
+    }
+    else
+    {
+        int randomX =
+            marginX + rand() % (screenWidth - marginX * 2);
+
+        int randomY =
+            marginY + rand() % (screenHeight - marginY * 2);
+
+        CreateHitCircle(randomX, randomY);
+    }
+}
+
+bool RhythmMiniGame::ShouldSkipNoteBeforeGimmick(DWORD currentTime, int beatIndex)
+{
+    // =========================
+    // 1번 작은 창 기믹 직전
+    // =========================
+    if (hasWindowGimmickTriggered == false)
+    {
+        int remainBeat =
+            WINDOW_GIMMICK_TRIGGER_BEAT - beatIndex;
+
+        if (remainBeat > 0 &&
+            remainBeat <= NOTE_BEAT_STEP)
+        {
+            return true;
+        }
+    }
+
+    // =========================
+    // 연속 창 점프 기믹 직전
+    // 현재 코드가 시간 기준이라 시간으로 검사
+    // =========================
+    if (hasWindowJumpGimmickTriggered == false)
+    {
+        DWORD elapsedGameTime =
+            currentTime - gameStartTime;
+
+        if (elapsedGameTime < WINDOW_JUMP_GIMMICK_TRIGGER_TIME)
+        {
+            DWORD remainTime =
+                WINDOW_JUMP_GIMMICK_TRIGGER_TIME - elapsedGameTime;
+
+            if (remainTime <= PRE_GIMMICK_NOTE_SKIP_TIME)
+            {
+                return true;
+            }
+        }
+    }
+
+    // =========================
+    // 슬라이더 창 이동 기믹 직전
+    // =========================
+    if (hasSliderFollowWindowGimmickTriggered == false)
+    {
+        int remainBeat =
+            WINDOW_SLIDER_FOLLOW_TRIGGER_BEAT - beatIndex;
+
+        if (remainBeat > 0 &&
+            remainBeat <= NOTE_BEAT_STEP)
+        {
+            return true;
+        }
+    }
+
+    // =========================
+    // 두 번째 작은 창 기믹 예약 실행 직전
+    // =========================
+    if (isSecondWindowGimmickWaiting == true)
+    {
+        DWORD secondTriggerTime =
+            secondWindowGimmickReserveTime +
+            SECOND_WINDOW_GIMMICK_DELAY_BEAT * BEAT_INTERVAL;
+
+        if (currentTime < secondTriggerTime)
+        {
+            DWORD remainTime =
+                secondTriggerTime - currentTime;
+
+            if (remainTime <= PRE_GIMMICK_NOTE_SKIP_TIME)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void RhythmMiniGame::UpdateWindowJumpDelayedNote(DWORD currentTime)
+{
+    if (isWindowJumpNotePending == false)
+        return;
+
+    if (currentTime < windowJumpNoteSpawnTime)
+        return;
+
+    isWindowJumpNotePending = false;
+
+    // 창 이동 후 새 창 기준으로 히트서클 생성
+    CreateImmediateHitCircle();
+
+    // 생성 직후 박자 기반 노트가 바로 또 나오지 않게 막기
+    currentBeatIndex = (int)((currentTime - bgmStartTime) / BEAT_INTERVAL);
+    noteSpawnBlockUntilTime = currentTime + WINDOW_NOTE_SPAWN_BLOCK_TIME;
+    lastHitCircleSpawnTime = currentTime;
+}
+
+void RhythmMiniGame::TriggerMissReaction()
+{
+    isMissReactionActive = true;
+    missReactionStartTime = GetTickCount();
+    missReactionFrameIndex = 0;
+}
+
+void RhythmMiniGame::UpdateMissReaction(DWORD currentTime)
+{
+    if (isMissReactionActive == false)
+        return;
+
+    DWORD elapsedTime = currentTime - missReactionStartTime;
+
+    if (elapsedTime >= MISS_REACTION_DURATION)
+    {
+        isMissReactionActive = false;
+        missReactionFrameIndex = 0;
+        return;
+    }
+
+    missReactionFrameIndex =
+        (elapsedTime / MISS_REACTION_FRAME_INTERVAL) %
+        MISS_REACTION_FRAME_COUNT;
+}
+
+void RhythmMiniGame::RenderMissReaction(HDC hDC)
+{
+    if (isMissReactionActive == false)
+        return;
+
+    CImage* currentFrame =
+        &missReactionFrames[missReactionFrameIndex];
+
+    if (currentFrame->IsNull())
+        return;
+
+    int drawSize = screenHeight / 4;
+
+    if (drawSize > 260)
+        drawSize = 260;
+
+    if (drawSize < 150)
+        drawSize = 150;
+
+    int drawX = 30;
+    int drawY = screenHeight - drawSize - 30;
+
+    currentFrame->Draw(
+        hDC,
+        drawX,
+        drawY,
+        drawSize,
+        drawSize
+    );
+}
+
+void RhythmMiniGame::TriggerScreenFlash(int maxAlpha, DWORD duration)
+{
+    isScreenFlashActive = true;
+    screenFlashStartTime = GetTickCount();
+    screenFlashDuration = duration;
+    screenFlashMaxAlpha = maxAlpha;
+}
+
+void RhythmMiniGame::UpdateScreenFlash(DWORD currentTime)
+{
+    if (isScreenFlashActive == false)
+        return;
+
+    DWORD elapsedTime = currentTime - screenFlashStartTime;
+
+    if (elapsedTime >= screenFlashDuration)
+    {
+        isScreenFlashActive = false;
+    }
+}
+
+void RhythmMiniGame::RenderScreenFlash(HDC hDC)
+{
+    if (isScreenFlashActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedTime = currentTime - screenFlashStartTime;
+
+    if (elapsedTime >= screenFlashDuration)
+        return;
+
+    double progress =
+        (double)elapsedTime / screenFlashDuration;
+
+    int alpha =
+        (int)(screenFlashMaxAlpha * (1.0 - progress));
+
+    if (alpha < 0)
+        alpha = 0;
+
+    Gdiplus::Graphics graphics(hDC);
+
+    Gdiplus::SolidBrush brush(
+        Gdiplus::Color(
+            alpha,
+            255,
+            255,
+            255
+        )
+    );
+
+    graphics.FillRectangle(
+        &brush,
+        0,
+        0,
+        screenWidth,
+        screenHeight
+    );
+}
+
+void RhythmMiniGame::StartWindowShake(
+    DWORD currentTime,
+    DWORD duration,
+    int power
+)
+{
+    if (gameHwnd == NULL)
+        return;
+
+    GetWindowRect(gameHwnd, &windowShakeBaseRect);
+
+    isWindowShakeActive = true;
+    windowShakeStartTime = currentTime;
+    windowShakeDuration = duration;
+    windowShakePower = power;
+}
+
+void RhythmMiniGame::UpdateWindowShake(DWORD currentTime)
+{
+    if (isWindowShakeActive == false)
+        return;
+
+    DWORD elapsedTime =
+        currentTime - windowShakeStartTime;
+
+    if (elapsedTime >= windowShakeDuration)
+    {
+        SetWindowPos(
+            gameHwnd,
+            NULL,
+            windowShakeBaseRect.left,
+            windowShakeBaseRect.top,
+            0,
+            0,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
+        );
+
+        isWindowShakeActive = false;
+        return;
+    }
+
+    int offsetX =
+        (rand() % (windowShakePower * 2 + 1)) - windowShakePower;
+
+    int offsetY =
+        (rand() % (windowShakePower * 2 + 1)) - windowShakePower;
+
+    SetWindowPos(
+        gameHwnd,
+        NULL,
+        windowShakeBaseRect.left + offsetX,
+        windowShakeBaseRect.top + offsetY,
+        0,
+        0,
+        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE
+    );
+}
+
+void RhythmMiniGame::TriggerGimmickImpact(DWORD currentTime)
+{
+    // 창이 바뀌는 느낌
+    PlayWindowSound();
+
+    TriggerScreenFlash(
+        GIMMICK_FLASH_ALPHA,
+        GIMMICK_FLASH_DURATION
+    );
+
+    // 흔들림이 있는 기믹은 충격음도 같이
+    if (isSliderFollowWindowGimmickActive == false)
+    {
+        PlayImpactSound();
+
+        StartWindowShake(
+            currentTime,
+            WINDOW_SHAKE_DURATION,
+            WINDOW_SHAKE_POWER
+        );
+    }
+}
+
+void RhythmMiniGame::StartFinalEffect(DWORD currentTime)
+{
+    hasFinalEffectStarted = true;
+    isFinalEffectActive = true;
+    finalEffectStartTime = currentTime;
+
+    InitFinalSparkles();
+    lastFinalCountdownSecond = -1;
+
+    hasFinalLastHitPosition = false;
+    finalLastHitX = screenWidth / 2;
+    finalLastHitY = screenHeight / 2;
+
+    // 마지막 응원 느낌
+    isFinalAnimationActive = true;
+    finalAnimationStartTime = currentTime;
+    finalAnimationFrameIndex = 0;
+
+    TriggerScreenFlash(130, 300);
+}
+
+void RhythmMiniGame::CreateFinalHitCircle()
+{
+    int x;
+    int y;
+
+    // 마지막 15초 전용 안전 플레이 영역
+    int safeLeft = screenWidth * FINAL_PLAY_AREA_LEFT_RATIO / 100;
+    int safeRight = screenWidth * FINAL_PLAY_AREA_RIGHT_RATIO / 100;
+
+    int safeTop = FINAL_PLAY_AREA_TOP_MARGIN;
+    int safeBottom = screenHeight - FINAL_PLAY_AREA_BOTTOM_MARGIN;
+
+    // 화면이 너무 작을 때 안전 처리
+    if (safeRight <= safeLeft)
+    {
+        safeLeft = 160;
+        safeRight = screenWidth - 160;
+    }
+
+    if (safeBottom <= safeTop)
+    {
+        safeTop = 130;
+        safeBottom = screenHeight - 130;
+    }
+
+    // 마지막 구간 첫 노트는 중앙 안전 영역에서 시작
+    if (hasFinalLastHitPosition == false)
+    {
+        x = (safeLeft + safeRight) / 2;
+        y = (safeTop + safeBottom) / 2;
+
+        hasFinalLastHitPosition = true;
+    }
+    else
+    {
+        int offsetX =
+            -FINAL_HITCIRCLE_MOVE_RANGE +
+            rand() % (FINAL_HITCIRCLE_MOVE_RANGE * 2 + 1);
+
+        int offsetY =
+            -FINAL_HITCIRCLE_MOVE_RANGE +
+            rand() % (FINAL_HITCIRCLE_MOVE_RANGE * 2 + 1);
+
+        x = finalLastHitX + offsetX;
+        y = finalLastHitY + offsetY;
+    }
+
+    // 안전 영역 밖으로 나가지 않게 보정
+    if (x < safeLeft)
+        x = safeLeft;
+
+    if (x > safeRight)
+        x = safeRight;
+
+    if (y < safeTop)
+        y = safeTop;
+
+    if (y > safeBottom)
+        y = safeBottom;
+
+    CreateHitCircle(x, y);
+
+    finalLastHitX = x;
+    finalLastHitY = y;
+}
+
+void RhythmMiniGame::UpdateFinalAnimation(DWORD currentTime)
+{
+    if (isFinalAnimationActive == false)
+        return;
+
+    finalAnimationFrameIndex =
+        ((currentTime - finalAnimationStartTime) / FINAL_ANIMATION_FRAME_INTERVAL)
+        % FINAL_ANIMATION_FRAME_COUNT;
+}
+
+void RhythmMiniGame::RenderFinalAnimation(HDC hDC)
+{
+    if (isFinalAnimationActive == false)
+        return;
+
+    CImage* leftFrame =
+        &finalLeftAnimationFrames[finalAnimationFrameIndex];
+
+    CImage* rightFrame =
+        &finalRightAnimationFrames[finalAnimationFrameIndex];
+
+    int targetHeight = screenHeight * 3 / 4;
+
+    if (targetHeight > 720)
+        targetHeight = 720;
+
+    if (targetHeight < 300)
+        targetHeight = 300;
+
+    // =========================
+    // 왼쪽 애니메이션
+    // =========================
+    if (!leftFrame->IsNull())
+    {
+        int originalWidth = leftFrame->GetWidth();
+        int originalHeight = leftFrame->GetHeight();
+
+        int drawHeight = targetHeight;
+        int drawWidth =
+            originalWidth * drawHeight / originalHeight;
+
+        int drawX = 30;
+        int drawY = screenHeight - drawHeight - 20;
+
+        leftFrame->Draw(
+            hDC,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight
+        );
+    }
+
+    // =========================
+    // 오른쪽 애니메이션
+    // =========================
+    if (!rightFrame->IsNull())
+    {
+        int originalWidth = rightFrame->GetWidth();
+        int originalHeight = rightFrame->GetHeight();
+
+        int drawHeight = targetHeight;
+        int drawWidth =
+            originalWidth * drawHeight / originalHeight;
+
+        int drawX = screenWidth - drawWidth - 30;
+        int drawY = screenHeight - drawHeight - 20;
+
+        rightFrame->Draw(
+            hDC,
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight
+        );
+    }
+}
+void RhythmMiniGame::RenderFinalTimer(HDC hDC)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    // 게임이 끝났으면 타이머를 더 이상 출력하지 않음
+    if (isGameOver == true)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    int remainingMs =
+        (int)RHYTHM_GAME_DURATION - (int)elapsedBgmTime;
+
+    if (remainingMs < 0)
+        remainingMs = 0;
+
+    double remainingSec =
+        remainingMs / 1000.0;
+
+    wchar_t timerText[50];
+
+    // wsprintf는 소수점 출력이 안 좋으니 swprintf_s 사용
+    swprintf_s(timerText, 50, L"%.1f", remainingSec);
+
+    int fontSize = 90;
+
+    if (remainingSec <= 3.0)
+    {
+        DWORD pulseTime =
+            (GetTickCount() - finalEffectStartTime) % 300;
+
+        double pulse =
+            1.0 - (double)pulseTime / 300.0;
+
+        fontSize =
+            140 + (int)(35 * pulse);
+    }
+
+    HFONT timerFont = CreateFontW(
+        fontSize,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    HFONT oldFont = (HFONT)SelectObject(hDC, timerFont);
+
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextAlign(hDC, TA_CENTER);
+
+    int centerX = screenWidth / 2;
+    int drawY = 60;
+
+    // 검은색 외곽선 느낌
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 3, drawY, timerText, lstrlen(timerText));
+    TextOut(hDC, centerX + 3, drawY, timerText, lstrlen(timerText));
+    TextOut(hDC, centerX, drawY - 3, timerText, lstrlen(timerText));
+    TextOut(hDC, centerX, drawY + 3, timerText, lstrlen(timerText));
+
+    // 실제 흰색 숫자
+    if (remainingSec <= 3.0)
+    {
+        SetTextColor(hDC, RGB(255, 230, 80));
+    }
+    else
+    {
+        SetTextColor(hDC, RGB(255, 255, 255));
+    }
+
+    TextOut(hDC, centerX, drawY, timerText, lstrlen(timerText));
+
+    SetTextAlign(hDC, TA_LEFT);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(timerFont);
+}
+
+void RhythmMiniGame::RenderClearEffect(HDC hDC)
+{
+    if (isClearEffectActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedTime = currentTime - clearEffectStartTime;
+
+    // 살짝 커졌다 작아지는 느낌
+    int titleFontSize = 120;
+
+    if ((elapsedTime / 300) % 2 == 0)
+    {
+        titleFontSize = 135;
+    }
+
+    HFONT titleFont = CreateFontW(
+        titleFontSize,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    HFONT oldFont = (HFONT)SelectObject(hDC, titleFont);
+
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextAlign(hDC, TA_CENTER);
+
+    int centerX = screenWidth / 2;
+    int centerY = screenHeight / 2 - 90;
+
+    const wchar_t* clearText = L"CLEAR!";
+
+    // 외곽선
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 4, centerY, clearText, lstrlen(clearText));
+    TextOut(hDC, centerX + 4, centerY, clearText, lstrlen(clearText));
+    TextOut(hDC, centerX, centerY - 4, clearText, lstrlen(clearText));
+    TextOut(hDC, centerX, centerY + 4, clearText, lstrlen(clearText));
+
+    // 본문
+    SetTextColor(hDC, RGB(255, 255, 255));
+    TextOut(hDC, centerX, centerY, clearText, lstrlen(clearText));
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(titleFont);
+
+    // =========================
+    // 최종 점수 출력
+    // =========================
+    HFONT scoreFont = CreateFontW(
+        48,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    // =========================
+// 등급 출력
+// =========================
+    HFONT gradeFont = CreateFontW(
+        90,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    oldFont = (HFONT)SelectObject(hDC, gradeFont);
+
+    wchar_t gradeText[100];
+    wsprintf(gradeText, L"RANK : %s", GetGradeText());
+
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 3, centerY + 180, gradeText, lstrlen(gradeText));
+    TextOut(hDC, centerX + 3, centerY + 180, gradeText, lstrlen(gradeText));
+    TextOut(hDC, centerX, centerY + 177, gradeText, lstrlen(gradeText));
+    TextOut(hDC, centerX, centerY + 183, gradeText, lstrlen(gradeText));
+
+    SetTextColor(hDC, RGB(255, 220, 80));
+    TextOut(hDC, centerX, centerY + 180, gradeText, lstrlen(gradeText));
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(gradeFont);
+
+    HFONT bonusFont = CreateFontW(
+        36,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_SWISS,
+        L"Arial"
+    );
+
+    oldFont = (HFONT)SelectObject(hDC, bonusFont);
+
+    wchar_t comboText[100];
+
+    if (maxCombo >= MAX_COMBO_TARGET)
+    {
+        wsprintf(
+            comboText,
+            L"Max Combo Bonus!  +%d",
+            MAX_COMBO_BONUS_SCORE
+        );
+    }
+    else
+    {
+        wsprintf(
+            comboText,
+            L"Max Combo : %d / %d+",
+            maxCombo,
+            MAX_COMBO_TARGET 
+        );
+    }
+
+    SetTextColor(hDC, RGB(255, 255, 255));
+    TextOut(hDC, centerX, centerY + 250, comboText, lstrlen(comboText));
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(bonusFont);
+
+    oldFont = (HFONT)SelectObject(hDC, scoreFont);
+
+    wchar_t scoreText[100];
+    wsprintf(scoreText, L"Final Score : %d", score);
+
+    SetTextColor(hDC, RGB(0, 0, 0));
+    TextOut(hDC, centerX - 2, centerY + 110, scoreText, lstrlen(scoreText));
+    TextOut(hDC, centerX + 2, centerY + 110, scoreText, lstrlen(scoreText));
+    TextOut(hDC, centerX, centerY + 108, scoreText, lstrlen(scoreText));
+    TextOut(hDC, centerX, centerY + 112, scoreText, lstrlen(scoreText));
+
+    SetTextColor(hDC, RGB(255, 240, 120));
+    TextOut(hDC, centerX, centerY + 110, scoreText, lstrlen(scoreText));
+
+    SetTextAlign(hDC, TA_LEFT);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(scoreFont);
+}
+
+void RhythmMiniGame::CalculateResult()
+{
+    if (isResultCalculated == true)
+        return;
+
+    finalScore = score;
+
+    if (maxCombo > MAX_COMBO_TARGET)
+    {
+        finalScore += MAX_COMBO_BONUS_SCORE;
+    }
+
+    // 윤서에게 넘길 0~100 점수
+    resultScore100 = finalScore * 100 / GRADE_S_SCORE;
+
+    if (resultScore100 > 100)
+        resultScore100 = 100;
+
+    if (resultScore100 < 0)
+        resultScore100 = 0;
+
+    isResultCalculated = true;
+}
+
+const wchar_t* RhythmMiniGame::GetGradeText() const
+{
+    if (finalScore >= GRADE_S_SCORE)
+        return L"S";
+
+    if (finalScore >= GRADE_A_SCORE)
+        return L"A";
+
+    if (finalScore >= GRADE_B_SCORE)
+        return L"B";
+
+    if (finalScore >= GRADE_C_SCORE)
+        return L"C";
+
+    return L"D";
+}
+
+
+
+int RhythmMiniGame::GetResultScore100() const
+{
+    return resultScore100;
+}
+
+int RhythmMiniGame::GetFinalScore() const
+{
+    return finalScore;
+}
+
+void RhythmMiniGame::InitFinalSparkles()
+{
+    lastFinalSparkleSpawnTime = 0;
+    finalSparkleIndex = 0;
+
+    for (int i = 0; i < FINAL_SPARKLE_COUNT; i++)
+    {
+        finalSparkles[i].x = 0;
+        finalSparkles[i].y = 0;
+        finalSparkles[i].size = 0;
+        finalSparkles[i].createTime = 0;
+        finalSparkles[i].lifeTime = 0;
+        finalSparkles[i].isActive = false;
+    }
+}
+
+void RhythmMiniGame::SpawnFinalSparkle(DWORD currentTime)
+{
+    int edge = rand() % 4;
+
+    int x = 0;
+    int y = 0;
+
+    int margin = 35;
+
+    switch (edge)
+    {
+    case 0:
+        // 위쪽 가장자리
+        x = rand() % screenWidth;
+        y = margin + rand() % 40;
+        break;
+
+    case 1:
+        // 아래쪽 가장자리
+        x = rand() % screenWidth;
+        y = screenHeight - margin - rand() % 40;
+        break;
+
+    case 2:
+        // 왼쪽 가장자리
+        x = margin + rand() % 40;
+        y = rand() % screenHeight;
+        break;
+
+    case 3:
+        // 오른쪽 가장자리
+        x = screenWidth - margin - rand() % 40;
+        y = rand() % screenHeight;
+        break;
+    }
+
+    finalSparkles[finalSparkleIndex].x = x;
+    finalSparkles[finalSparkleIndex].y = y;
+    finalSparkles[finalSparkleIndex].size = 4 + rand() % 8;
+    finalSparkles[finalSparkleIndex].createTime = currentTime;
+    finalSparkles[finalSparkleIndex].lifeTime =
+        FINAL_SPARKLE_LIFETIME + rand() % 300;
+    finalSparkles[finalSparkleIndex].isActive = true;
+
+    finalSparkleIndex++;
+
+    if (finalSparkleIndex >= FINAL_SPARKLE_COUNT)
+    {
+        finalSparkleIndex = 0;
+    }
+}
+
+void RhythmMiniGame::UpdateFinalSparkles(DWORD currentTime)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    if (currentTime - lastFinalSparkleSpawnTime >= FINAL_SPARKLE_SPAWN_INTERVAL)
+    {
+        // 한 번에 2개씩 생성해서 더 화려하게
+        SpawnFinalSparkle(currentTime);
+        SpawnFinalSparkle(currentTime);
+
+        lastFinalSparkleSpawnTime = currentTime;
+    }
+
+    for (int i = 0; i < FINAL_SPARKLE_COUNT; i++)
+    {
+        if (finalSparkles[i].isActive == true)
+        {
+            DWORD elapsedTime =
+                currentTime - finalSparkles[i].createTime;
+
+            if (elapsedTime >= finalSparkles[i].lifeTime)
+            {
+                finalSparkles[i].isActive = false;
+            }
+        }
+    }
+}
+
+void RhythmMiniGame::RenderFinalSparkles(HDC hDC)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+
+    for (int i = 0; i < FINAL_SPARKLE_COUNT; i++)
+    {
+        if (finalSparkles[i].isActive == false)
+            continue;
+
+        DWORD elapsedTime =
+            currentTime - finalSparkles[i].createTime;
+
+        double progress =
+            (double)elapsedTime / finalSparkles[i].lifeTime;
+
+        if (progress > 1.0)
+            progress = 1.0;
+
+        int alpha = (int)(220 * (1.0 - progress));
+
+        if (alpha < 0)
+            alpha = 0;
+
+        int size =
+            finalSparkles[i].size +
+            (int)(finalSparkles[i].size * progress);
+
+        int x = finalSparkles[i].x - size / 2;
+        int y = finalSparkles[i].y - size / 2;
+
+        Gdiplus::SolidBrush brush(
+            Gdiplus::Color(
+                alpha,
+                255,
+                245,
+                150
+            )
+        );
+
+        graphics.FillEllipse(
+            &brush,
+            x,
+            y,
+            size,
+            size
+        );
+
+        // 십자 반짝이 느낌
+        Gdiplus::Pen pen(
+            Gdiplus::Color(alpha, 255, 255, 220),
+            2.0f
+        );
+
+        graphics.DrawLine(
+            &pen,
+            finalSparkles[i].x - size,
+            finalSparkles[i].y,
+            finalSparkles[i].x + size,
+            finalSparkles[i].y
+        );
+
+        graphics.DrawLine(
+            &pen,
+            finalSparkles[i].x,
+            finalSparkles[i].y - size,
+            finalSparkles[i].x,
+            finalSparkles[i].y + size
+        );
+    }
+}
+
+void RhythmMiniGame::UpdateFinalCountdownEffect(DWORD currentTime)
+{
+    if (isFinalEffectActive == false)
+        return;
+
+    if (isGameOver == true)
+        return;
+
+    DWORD elapsedBgmTime = currentTime - bgmStartTime;
+
+    int remainingMs =
+        (int)RHYTHM_GAME_DURATION - (int)elapsedBgmTime;
+
+    if (remainingMs < 0)
+        remainingMs = 0;
+
+    if (remainingMs > FINAL_COUNTDOWN_STRONG_TIME)
+        return;
+
+    int currentSecond =
+        (remainingMs + 999) / 1000;
+
+    if (currentSecond != lastFinalCountdownSecond)
+    {
+        lastFinalCountdownSecond = currentSecond;
+
+        TriggerScreenFlash(150, 180);
+    }
+}
+
+void RhythmMiniGame::PlayWindowSound()
+{
+    PlayEffectSound(L"windowSound");
+}
+
+void RhythmMiniGame::PlayImpactSound()
+{
+    PlayEffectSound(L"impactSound");
+}
+
+void RhythmMiniGame::LoadEffectSounds()
+{
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\hit.wav\" type waveaudio alias hitSound",
+        NULL,
+        0,
+        NULL
+    );
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\miss.wav\" type waveaudio alias missSound",
+        NULL,
+        0,
+        NULL
+    );
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\window.wav\" type waveaudio alias windowSound",
+        NULL,
+        0,
+        NULL
+    );
+
+    mciSendString(
+        L"open \"resource\\minigame2\\sound\\impact.wav\" type waveaudio alias impactSound",
+        NULL,
+        0,
+        NULL
+    );
+}
+
+void RhythmMiniGame::CloseEffectSounds()
+{
+    mciSendString(L"close hitSound", NULL, 0, NULL);
+    mciSendString(L"close missSound", NULL, 0, NULL);
+    mciSendString(L"close windowSound", NULL, 0, NULL);
+    mciSendString(L"close impactSound", NULL, 0, NULL);
+}
+
+void RhythmMiniGame::PlayEffectSound(const wchar_t* aliasName)
+{
+    wchar_t command[100];
+
+    wsprintf(command, L"stop %s", aliasName);
+    mciSendString(command, NULL, 0, NULL);
+
+    wsprintf(command, L"seek %s to start", aliasName);
+    mciSendString(command, NULL, 0, NULL);
+
+    wsprintf(command, L"play %s", aliasName);
+    mciSendString(command, NULL, 0, NULL);
+}
+
+void RhythmMiniGame::StartBackgroundTransition()
+{
+    if (BACKGROUND_COUNT <= 1)
+        return;
+
+    // 이미 배경 전환 중이면 중복 실행 방지
+    if (isBackgroundTransitionActive == true)
+        return;
+
+    // 다음 배경을 순서대로 선택
+    nextBackgroundIndex = currentBackgroundIndex + 1;
+
+    if (nextBackgroundIndex >= BACKGROUND_COUNT)
+    {
+        nextBackgroundIndex = 0;
+    }
+
+    isBackgroundTransitionActive = true;
+    backgroundTransitionStartTime = GetTickCount();
+    hasBackgroundSwapped = false;
+}
+
+void RhythmMiniGame::UpdateBackgroundTransition(DWORD currentTime)
+{
+    if (isBackgroundTransitionActive == false)
+        return;
+
+    DWORD elapsedTime =
+        currentTime - backgroundTransitionStartTime;
+
+    if (elapsedTime >= BACKGROUND_TRANSITION_DURATION)
+    {
+        currentBackgroundIndex = nextBackgroundIndex;
+        isBackgroundTransitionActive = false;
+        hasBackgroundSwapped = false;
+        return;
+    }
+
+    // 전환 시간의 절반이 지나면 배경 교체
+    if (hasBackgroundSwapped == false &&
+        elapsedTime >= BACKGROUND_TRANSITION_DURATION / 2)
+    {
+        currentBackgroundIndex = nextBackgroundIndex;
+        hasBackgroundSwapped = true;
+    }
+}
+
+void RhythmMiniGame::RenderBackground(HDC hDC)
+{
+    if (backgrounds[currentBackgroundIndex].IsNull() == false)
+    {
+        backgrounds[currentBackgroundIndex].Draw(
+            hDC,
+            0,
+            0,
+            screenWidth,
+            screenHeight
+        );
+    }
+
+    if (isBackgroundTransitionActive == false)
+        return;
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedTime =
+        currentTime - backgroundTransitionStartTime;
+
+    if (elapsedTime > BACKGROUND_TRANSITION_DURATION)
+        elapsedTime = BACKGROUND_TRANSITION_DURATION;
+
+    int halfDuration = BACKGROUND_TRANSITION_DURATION / 2;
+    int alpha = 0;
+
+    if (elapsedTime <= (DWORD)halfDuration)
+    {
+        // 어두워지는 구간
+        double t = (double)elapsedTime / halfDuration;
+        alpha = (int)(220 * t);
+    }
+    else
+    {
+        // 밝아지는 구간
+        double t = (double)(elapsedTime - halfDuration) / halfDuration;
+        alpha = (int)(220 * (1.0 - t));
+    }
+
+    if (alpha < 0)
+        alpha = 0;
+
+    if (alpha > 220)
+        alpha = 220;
+
+    Gdiplus::Graphics graphics(hDC);
+    Gdiplus::SolidBrush brush(
+        Gdiplus::Color(alpha, 0, 0, 0)
+    );
+
+    graphics.FillRectangle(
+        &brush,
+        0,
+        0,
+        screenWidth,
+        screenHeight
+    );
+}
