@@ -69,6 +69,13 @@ private:
         Ending
     };
 
+    enum pending_minigame_release
+    {
+        PendingMiniGameReleaseNone,
+        PendingMiniGameRelease1,
+        PendingMiniGameRelease2
+    };
+
     game_mode_info now_game_mode = game_mode_info::Story;
 
 private:
@@ -133,6 +140,7 @@ private:
     std::wstring playerName = L"윤서";
 
     bool m_isMiniGame2Initialized = false;
+    pending_minigame_release m_pendingMiniGameRelease = PendingMiniGameReleaseNone;
      
 private:
 
@@ -171,6 +179,9 @@ private:
 
     // 미니게임이 끝났을 때 점수를 계산하고 ResultScene으로 이동한다.
     void FinishCurrentMiniGameIfNeeded();
+
+    // Scene 전환이 실제로 끝난 뒤 미니게임 리소스를 정리한다.
+    void ReleasePendingMiniGame();
 
     // ResultScene이 계산한 상승 스탯을 실제 player에 반영한다.
     void ApplyStatGain(const Player_state& plusState);

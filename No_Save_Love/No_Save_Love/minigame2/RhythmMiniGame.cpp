@@ -1182,16 +1182,16 @@ void RhythmMiniGame::Release()
         cursorMiddleImg = nullptr;
     }
 
-    if (gdiplusToken != 0)
-    {
-        Gdiplus::GdiplusShutdown(gdiplusToken);
-        gdiplusToken = 0;
-    }
-
     if (cursorRotateImg != nullptr)
     {
         delete cursorRotateImg;
         cursorRotateImg = nullptr;
+    }
+
+    if (gdiplusToken != 0)
+    {
+        Gdiplus::GdiplusShutdown(gdiplusToken);
+        gdiplusToken = 0;
     }
 
     for (int i = 0; i < COMBO_ANIMATION_FRAME_COUNT; i++)

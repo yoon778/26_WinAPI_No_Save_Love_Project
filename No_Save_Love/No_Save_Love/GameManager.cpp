@@ -34,6 +34,8 @@ void GameManager::Initialize(HWND hWnd)
 }
 void GameManager::Shutdown()
 {
+    ReleasePendingMiniGame();
+
     if (m_isMiniGame2Initialized)
     {
         minigame2.Release();
@@ -461,8 +463,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
 
         EnterResult(1, minigame2.GetResultScore100());
         ShowCursor(TRUE);
-        minigame2.Release();
-        m_isMiniGame2Initialized = false;
+        m_pendingMiniGameRelease = PendingMiniGameRelease2;
         currentMiniGameIndex++;
         return;
     }
@@ -489,9 +490,34 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
 
     // currentMiniGameIndex는 ResultScene에 몇 번째 미니게임인지 알려주는 값이다.
     EnterResult(currentMiniGameIndex, convertedScore);
+    m_pendingMiniGameRelease = PendingMiniGameRelease1;
 
     // Result 이후 Choice와 Story를 거쳐 다음 미니게임 슬롯으로 넘어가게 한다.
     currentMiniGameIndex++;
+}
+
+void GameManager::ReleasePendingMiniGame()
+{
+    switch (m_pendingMiniGameRelease)
+    {
+    case PendingMiniGameRelease1:
+        minigame1.Release();
+        break;
+
+    case PendingMiniGameRelease2:
+        if (m_isMiniGame2Initialized)
+        {
+            minigame2.Release();
+            m_isMiniGame2Initialized = false;
+        }
+        break;
+
+    case PendingMiniGameReleaseNone:
+    default:
+        break;
+    }
+
+    m_pendingMiniGameRelease = PendingMiniGameReleaseNone;
 }
 
 void GameManager::ApplyStatGain(const Player_state& plusState)
@@ -1155,6 +1181,8 @@ void GameManager::ApplyPendingSceneChange()
 
     // 실제 모드를 변경한다.
     now_game_mode = pendingGameMode;
+
+    ReleasePendingMiniGame();
 
     // 예약 정보 초기화
     hasPendingSceneChange = false;
