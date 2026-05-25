@@ -14,6 +14,7 @@ public:
     ~avoidgame();
 
     void Initialize(); // 게임 준비
+    void Release(); // 리소스 해제
     void Reset(); // 처음 상태
     void Update(); // 상태 갱신
     void Render(HDC hDC); // 화면 출력

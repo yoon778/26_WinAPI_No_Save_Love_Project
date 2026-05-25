@@ -52,7 +52,7 @@ avoidgame::avoidgame()
 
 avoidgame::~avoidgame()
 {
-    DestroyImages();
+    Release();
 }
 
 void avoidgame::Initialize()
@@ -68,6 +68,23 @@ void avoidgame::Initialize()
     }
 
     Reset();
+}
+
+void avoidgame::Release()
+{
+    // 리소스 정리
+    DestroyImages();
+    m_platforms.clear();
+    m_attacks.clear();
+    m_foods.clear();
+
+    m_player = {};
+    m_game = {};
+    m_pattern = {};
+    m_kakao = {};
+    m_foodPattern = {};
+    m_deliver = {};
+    m_lastHitImageIndex = HIT_IMAGE_NONE;
 }
 
 void avoidgame::LoadImages()

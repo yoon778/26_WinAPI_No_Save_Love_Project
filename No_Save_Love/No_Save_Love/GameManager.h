@@ -132,8 +132,6 @@ private:
     // 기본 이름 값
     std::wstring playerName = L"윤서";
 
-    bool m_isMiniGame2Initialized = false;
-     
 private:
 
     // 선택된 히로인에 맞는 다음 StoryScene으로 들어간다.

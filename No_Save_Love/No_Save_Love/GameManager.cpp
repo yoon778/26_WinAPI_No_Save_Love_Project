@@ -34,11 +34,8 @@ void GameManager::Initialize(HWND hWnd)
 }
 void GameManager::Shutdown()
 {
-    if (m_isMiniGame2Initialized)
-    {
-        minigame2.Release();
-        m_isMiniGame2Initialized = false;
-    }
+    minigame2.Release();
+    minigame4.Release();
 
     // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
@@ -281,22 +278,16 @@ void GameManager::EnterCurrentMiniGameTutorial()
 
 void GameManager::StartCurrentMiniGame()
 {
-    if (currentMiniGameIndex != 1 && m_isMiniGame2Initialized)
-    {
-        minigame2.Release();
-        m_isMiniGame2Initialized = false;
-    }
-
     if (currentMiniGameIndex == 1)
     {
         // 미니게임 2는 리듬게임을 사용한다.
         minigame2.Release();
         minigame2.Init(m_hWnd);
-        m_isMiniGame2Initialized = true;
     }
     else if (currentMiniGameIndex == 3)
     {
         // 미니게임 4는 avoidgame을 사용한다.
+        minigame4.Release();
         minigame4.Initialize();
     }
     else
@@ -459,8 +450,6 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
         }
 
         EnterResult(1, minigame2.GetResultScore100());
-        //minigame2.Release();
-        m_isMiniGame2Initialized = false;
         currentMiniGameIndex++;
         return;
     }
@@ -1145,6 +1134,8 @@ void GameManager::ApplyPendingSceneChange()
         return;
     }
 
+    game_mode_info previousMode = now_game_mode;
+
     // 검은 화면이 된 순간 다음 Scene 준비 작업을 실행한다.
     if (pendingSceneSetup != nullptr)
     {
@@ -1153,6 +1144,16 @@ void GameManager::ApplyPendingSceneChange()
 
     // 실제 모드를 변경한다.
     now_game_mode = pendingGameMode;
+
+    if (previousMode == game_mode_info::MiniGame2 && now_game_mode != game_mode_info::MiniGame2)
+    {
+        minigame2.Release();
+    }
+
+    if (previousMode == game_mode_info::MiniGame4 && now_game_mode != game_mode_info::MiniGame4)
+    {
+        minigame4.Release();
+    }
 
     // 예약 정보 초기화
     hasPendingSceneChange = false;
