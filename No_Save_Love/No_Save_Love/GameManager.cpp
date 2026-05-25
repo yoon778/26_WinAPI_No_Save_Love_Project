@@ -1,5 +1,7 @@
 ﻿#include "GameManager.h"
 
+#pragma comment(lib, "Msimg32.lib")
+
 void GameManager::Initialize(HWND hWnd)
 {
     m_hWnd = hWnd;
@@ -42,6 +44,24 @@ void GameManager::Shutdown()
 
 void GameManager::OnMouseClick(int x, int y)
 {
+    if (m_exitConfirmOpen)
+    {
+        if (IsPointInsideRect(m_exitYesButtonRect, x, y))
+        {
+            PostMessage(m_hWnd, WM_CLOSE, 0, 0);
+            return;
+        }
+
+        if (IsPointInsideRect(m_exitNoButtonRect, x, y))
+        {
+            m_exitConfirmOpen = false;
+            InvalidateRect(m_hWnd, nullptr, FALSE);
+            return;
+        }
+
+        return;
+    }
+
     if (sceneTransition.IsActive()) // 페이드 인 아웃시 클릭 금지
     {
         return;
@@ -515,6 +535,158 @@ void GameManager::Render(HDC hDC)
     }
     }
     sceneTransition.Render(hDC, 1920, 1080); // 페이드 인 아웃 덮기
+
+    if (m_exitConfirmOpen)
+    {
+        RenderExitConfirmPopup(hDC);
+    }
+}
+
+void GameManager::RenderExitConfirmPopup(HDC hDC)
+{
+    // 어두운 덮개
+    HDC overlayDC = CreateCompatibleDC(hDC);
+    HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, 1920, 1080);
+    HBITMAP oldOverlayBitmap = static_cast<HBITMAP>(SelectObject(overlayDC, overlayBitmap));
+
+    RECT screenRect = { 0, 0, 1920, 1080 };
+    HBRUSH overlayBrush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(overlayDC, &screenRect, overlayBrush);
+
+    BLENDFUNCTION blend = {};
+    blend.BlendOp = AC_SRC_OVER;
+    blend.SourceConstantAlpha = 120;
+    AlphaBlend(hDC, 0, 0, 1920, 1080, overlayDC, 0, 0, 1920, 1080, blend);
+
+    DeleteObject(overlayBrush);
+    SelectObject(overlayDC, oldOverlayBitmap);
+    DeleteObject(overlayBitmap);
+    DeleteDC(overlayDC);
+
+    // 팝업 본체
+    HBRUSH popupBrush = CreateSolidBrush(RGB(22, 22, 30));
+    HPEN popupPen = CreatePen(PS_SOLID, 3, RGB(230, 210, 255));
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, popupBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, popupPen));
+
+    RoundRect(
+        hDC,
+        m_exitPopupRect.left,
+        m_exitPopupRect.top,
+        m_exitPopupRect.right,
+        m_exitPopupRect.bottom,
+        28,
+        28
+    );
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+    DeleteObject(popupBrush);
+    DeleteObject(popupPen);
+
+    HFONT titleFont = CreateFontW(
+        42,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, titleFont));
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, RGB(245, 245, 250));
+
+    RECT titleRect = { m_exitPopupRect.left, m_exitPopupRect.top + 70, m_exitPopupRect.right, m_exitPopupRect.top + 135 };
+    DrawTextW(hDC, L"프로그램을 종료하시겠습니까?", -1, &titleRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(titleFont);
+
+    HFONT subFont = CreateFontW(
+        26,
+        0,
+        0,
+        0,
+        FW_NORMAL,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    oldFont = static_cast<HFONT>(SelectObject(hDC, subFont));
+    SetTextColor(hDC, RGB(205, 195, 220));
+
+    RECT subRect = { m_exitPopupRect.left, m_exitPopupRect.top + 145, m_exitPopupRect.right, m_exitPopupRect.top + 195 };
+    DrawTextW(hDC, L"No를 누르면 현재 화면으로 돌아갑니다.", -1, &subRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(subFont);
+
+    DrawExitConfirmButton(hDC, m_exitYesButtonRect, L"YES");
+    DrawExitConfirmButton(hDC, m_exitNoButtonRect, L"NO");
+}
+
+void GameManager::DrawExitConfirmButton(HDC hDC, const RECT& rect, const wchar_t* text)
+{
+    // StoryScene SKIP 버튼 스타일
+    HBRUSH buttonBrush = CreateSolidBrush(RGB(35, 35, 45));
+    HPEN buttonPen = CreatePen(PS_SOLID, 2, RGB(230, 210, 255));
+
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, buttonBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, buttonPen));
+
+    RoundRect(hDC, rect.left, rect.top, rect.right, rect.bottom, 18, 18);
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+    DeleteObject(buttonBrush);
+    DeleteObject(buttonPen);
+
+    HFONT buttonFont = CreateFontW(
+        28,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, buttonFont));
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, RGB(245, 245, 250));
+    DrawTextW(hDC, text, -1, const_cast<RECT*>(&rect), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(buttonFont);
+}
+
+bool GameManager::IsPointInsideRect(const RECT& rect, int x, int y) const
+{
+    POINT point = { x, y };
+    return PtInRect(&rect, point);
 }
 
 bool GameManager::EnterBranchStory(int selectedHeroineIndex)
@@ -705,6 +877,11 @@ int GameManager::CalculateEndingType(int heroineIndex) const
 }
 void GameManager::OnChar(wchar_t inputChar)
 {
+    if (m_exitConfirmOpen)
+    {
+        return;
+    }
+
     switch (now_game_mode)
     {
         case game_mode_info::NameInput:
@@ -754,6 +931,32 @@ void GameManager::OnKeyDown(WPARAM wParam)
         return;
     }
 
+    if (m_exitConfirmOpen)
+    {
+        if (wParam == VK_ESCAPE)
+        {
+            m_exitConfirmOpen = false;
+            InvalidateRect(m_hWnd, nullptr, FALSE);
+        }
+        return;
+    }
+
+    if (wParam == VK_ESCAPE)
+    {
+        if (now_game_mode == game_mode_info::MiniGame4)
+        {
+            minigame4.OnKeyUp(VK_LEFT);
+            minigame4.OnKeyUp(VK_RIGHT);
+            minigame4.OnKeyUp(VK_DOWN);
+            minigame4.OnKeyUp(VK_UP);
+            minigame4.OnKeyUp(VK_SPACE);
+        }
+
+        m_exitConfirmOpen = true;
+        InvalidateRect(m_hWnd, nullptr, FALSE);
+        return;
+    }
+
     // F1~F4는 테스트용 바로가기다.
     // F1 = 미니게임 1, F2 = 미니게임 2, F3 = 미니게임 3, F4 = 미니게임 4.
     switch (wParam)
@@ -787,6 +990,11 @@ void GameManager::OnKeyDown(WPARAM wParam)
 
 void GameManager::OnKeyUp(WPARAM wParam)
 {
+    if (m_exitConfirmOpen)
+    {
+        return;
+    }
+
     // 페이드 전환 중에는 입력 상태를 바꾸지 않는다.
     if (sceneTransition.IsActive())
     {
@@ -802,6 +1010,12 @@ void GameManager::OnKeyUp(WPARAM wParam)
 
 void GameManager::OnTimer(HWND hWnd)
 {
+    if (m_exitConfirmOpen)
+    {
+        InvalidateRect(hWnd, NULL, FALSE);
+        return;
+    }
+
     // 전역 Scene 전환 중이 아닐 때만 현재 Scene 내부 업데이트를 진행한다.
     if (!sceneTransition.IsActive())
     {

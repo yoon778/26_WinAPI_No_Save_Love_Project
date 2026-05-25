@@ -198,4 +198,15 @@ private:
     // 화면이 완전히 검어진 순간 실제 Scene 변경을 적용한다.
     void ApplyPendingSceneChange();
 
+private: // 종료 확인 팝업
+
+    bool m_exitConfirmOpen = false;
+    RECT m_exitPopupRect = { 610, 360, 1310, 720 };
+    RECT m_exitYesButtonRect = { 720, 585, 910, 655 };
+    RECT m_exitNoButtonRect = { 1010, 585, 1200, 655 };
+
+    void RenderExitConfirmPopup(HDC hDC);
+    void DrawExitConfirmButton(HDC hDC, const RECT& rect, const wchar_t* text);
+    bool IsPointInsideRect(const RECT& rect, int x, int y) const;
+
 };
