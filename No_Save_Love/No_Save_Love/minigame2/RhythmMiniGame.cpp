@@ -13,6 +13,10 @@ RhythmMiniGame::RhythmMiniGame()
 
     screenWidth = 1920;
     screenHeight = 1080;
+
+    gdiplusToken = 0;
+    cursorMiddleImg = nullptr;
+    cursorRotateImg = nullptr;
 }
 
 
@@ -1165,7 +1169,11 @@ void RhythmMiniGame::Release()
         cursorMiddleImg = nullptr;
     }
 
-    Gdiplus::GdiplusShutdown(gdiplusToken);
+    if (gdiplusToken != 0)
+    {
+        Gdiplus::GdiplusShutdown(gdiplusToken);
+        gdiplusToken = 0;
+    }
 
     if (cursorRotateImg != nullptr)
     {
