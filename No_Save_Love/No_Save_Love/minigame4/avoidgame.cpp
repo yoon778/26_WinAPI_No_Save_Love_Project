@@ -24,11 +24,36 @@ avoidgame::avoidgame()
 
     m_kakao = {};
     m_foodPattern = {};
-    m_blackhole = {};
+    m_deliver = {};
+
+    m_gdiplusToken = 0;
+    m_isGdiplusStarted = false;
+    m_playerStandLeftImage = nullptr;
+    m_playerStandRightImage = nullptr;
+    m_playerRunningLeftImage = nullptr;
+    m_playerRunningRightImage = nullptr;
+    m_kakaoPopupImage = nullptr;
+    m_ridderImage = nullptr;
+    m_phoneImage = nullptr;
+    m_reelsPhoneCache = nullptr;
+    for (int i = 0; i < 3; i++)
+    {
+        m_foodImages[i] = nullptr;
+        m_instarImages[i] = nullptr;
+        m_reelsInstarCaches[i] = nullptr;
+        m_reelsInstarCacheHeights[i] = 0;
+    }
+}
+
+avoidgame::~avoidgame()
+{
+    DestroyImages();
 }
 
 void avoidgame::Initialize()
 {
+    LoadImages();
+
     // 랜덤 시드
     static bool isRandomSeeded = false;
     if (!isRandomSeeded)
@@ -38,6 +63,284 @@ void avoidgame::Initialize()
     }
 
     Reset();
+}
+
+void avoidgame::LoadImages()
+{
+    // GDI+ 시작
+    if (!m_isGdiplusStarted)
+    {
+        Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+        if (Gdiplus::GdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, nullptr) == Gdiplus::Ok)
+        {
+            m_isGdiplusStarted = true;
+        }
+    }
+
+    if (!m_isGdiplusStarted)
+    {
+        return;
+    }
+
+    // 리소스 로드
+    if (m_playerStandLeftImage == nullptr)
+    {
+        m_playerStandLeftImage = new Gdiplus::Image(L"resource\\minigame4\\char_stand_left.png");
+    }
+    if (m_playerStandRightImage == nullptr)
+    {
+        m_playerStandRightImage = new Gdiplus::Image(L"resource\\minigame4\\char_stand_right.png");
+    }
+    if (m_playerRunningLeftImage == nullptr)
+    {
+        m_playerRunningLeftImage = new Gdiplus::Image(L"resource\\minigame4\\running_left.png");
+        if (m_playerRunningLeftImage->GetLastStatus() != Gdiplus::Ok)
+        {
+            delete m_playerRunningLeftImage;
+            m_playerRunningLeftImage = new Gdiplus::Image(L"resource\\minigame4\\char_running_left.png");
+        }
+    }
+    if (m_playerRunningRightImage == nullptr)
+    {
+        m_playerRunningRightImage = new Gdiplus::Image(L"resource\\minigame4\\running_right.png");
+        if (m_playerRunningRightImage->GetLastStatus() != Gdiplus::Ok)
+        {
+            delete m_playerRunningRightImage;
+            m_playerRunningRightImage = new Gdiplus::Image(L"resource\\minigame4\\char_running_right.png");
+        }
+    }
+    if (m_kakaoPopupImage == nullptr)
+    {
+        m_kakaoPopupImage = new Gdiplus::Image(L"resource\\minigame4\\lol_popup.png");
+    }
+    if (m_ridderImage == nullptr)
+    {
+        m_ridderImage = new Gdiplus::Image(L"resource\\minigame4\\ridder.png");
+    }
+    if (m_foodImages[0] == nullptr)
+    {
+        m_foodImages[0] = new Gdiplus::Image(L"resource\\minigame4\\jajang.png");
+    }
+    if (m_foodImages[1] == nullptr)
+    {
+        m_foodImages[1] = new Gdiplus::Image(L"resource\\minigame4\\chicken.png");
+    }
+    if (m_foodImages[2] == nullptr)
+    {
+        m_foodImages[2] = new Gdiplus::Image(L"resource\\minigame4\\pizza.png");
+    }
+    if (m_phoneImage == nullptr)
+    {
+        m_phoneImage = new Gdiplus::Image(L"resource\\minigame4\\phone.png");
+    }
+    if (m_instarImages[0] == nullptr)
+    {
+        m_instarImages[0] = new Gdiplus::Image(L"resource\\minigame4\\instar_1.png");
+    }
+    if (m_instarImages[1] == nullptr)
+    {
+        m_instarImages[1] = new Gdiplus::Image(L"resource\\minigame4\\instar_2.png");
+    }
+    if (m_instarImages[2] == nullptr)
+    {
+        m_instarImages[2] = new Gdiplus::Image(L"resource\\minigame4\\instar_3.png");
+    }
+
+    BuildReelsImageCache();
+}
+
+void avoidgame::DestroyImages()
+{
+    // 리소스 해제
+    DestroyReelsImageCache();
+
+    if (m_playerStandLeftImage != nullptr)
+    {
+        delete m_playerStandLeftImage;
+        m_playerStandLeftImage = nullptr;
+    }
+    if (m_playerStandRightImage != nullptr)
+    {
+        delete m_playerStandRightImage;
+        m_playerStandRightImage = nullptr;
+    }
+    if (m_playerRunningLeftImage != nullptr)
+    {
+        delete m_playerRunningLeftImage;
+        m_playerRunningLeftImage = nullptr;
+    }
+    if (m_playerRunningRightImage != nullptr)
+    {
+        delete m_playerRunningRightImage;
+        m_playerRunningRightImage = nullptr;
+    }
+    if (m_kakaoPopupImage != nullptr)
+    {
+        delete m_kakaoPopupImage;
+        m_kakaoPopupImage = nullptr;
+    }
+    if (m_ridderImage != nullptr)
+    {
+        delete m_ridderImage;
+        m_ridderImage = nullptr;
+    }
+    if (m_phoneImage != nullptr)
+    {
+        delete m_phoneImage;
+        m_phoneImage = nullptr;
+    }
+    for (int i = 0; i < 3; i++)
+    {
+        if (m_foodImages[i] != nullptr)
+        {
+            delete m_foodImages[i];
+            m_foodImages[i] = nullptr;
+        }
+        if (m_instarImages[i] != nullptr)
+        {
+            delete m_instarImages[i];
+            m_instarImages[i] = nullptr;
+        }
+    }
+
+    if (m_isGdiplusStarted)
+    {
+        Gdiplus::GdiplusShutdown(m_gdiplusToken);
+        m_gdiplusToken = 0;
+        m_isGdiplusStarted = false;
+    }
+}
+
+void avoidgame::BuildReelsImageCache()
+{
+    // 릴스 원본 축소
+    DestroyReelsImageCache();
+
+    if (m_phoneImage == nullptr || m_phoneImage->GetLastStatus() != Gdiplus::Ok)
+    {
+        return;
+    }
+
+    const int phoneSourceX = 238;
+    const int phoneSourceY = 36;
+    const int phoneSourceW = 629;
+    const int phoneSourceH = 1397;
+
+    int cacheWidth = REELS_COLUMN_WIDTH;
+    int cacheHeight = static_cast<int>(cacheWidth * static_cast<float>(phoneSourceH) / static_cast<float>(phoneSourceW));
+    int maxCacheHeight = SCREEN_HEIGHT - FLOOR_HEIGHT - 20;
+    if (cacheHeight > maxCacheHeight)
+    {
+        cacheHeight = maxCacheHeight;
+        cacheWidth = static_cast<int>(cacheHeight * static_cast<float>(phoneSourceW) / static_cast<float>(phoneSourceH));
+    }
+
+    m_reelsPhoneCache = new Gdiplus::Bitmap(cacheWidth, cacheHeight, PixelFormat32bppARGB);
+    Gdiplus::Graphics phoneGraphics(m_reelsPhoneCache);
+    phoneGraphics.SetPageUnit(Gdiplus::UnitPixel);
+    phoneGraphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    phoneGraphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    phoneGraphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    phoneGraphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+    phoneGraphics.Clear(Gdiplus::Color(0, 0, 0, 0));
+    phoneGraphics.DrawImage(
+        m_phoneImage,
+        Gdiplus::Rect(0, 0, cacheWidth, cacheHeight),
+        phoneSourceX,
+        phoneSourceY,
+        phoneSourceW,
+        phoneSourceH,
+        Gdiplus::UnitPixel);
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (m_instarImages[i] == nullptr || m_instarImages[i]->GetLastStatus() != Gdiplus::Ok)
+        {
+            continue;
+        }
+
+        int instarHeight = static_cast<int>(cacheWidth * static_cast<float>(m_instarImages[i]->GetHeight()) / static_cast<float>(m_instarImages[i]->GetWidth()));
+        m_reelsInstarCacheHeights[i] = instarHeight;
+        m_reelsInstarCaches[i] = new Gdiplus::Bitmap(cacheWidth, instarHeight, PixelFormat32bppARGB);
+
+        Gdiplus::Graphics instarGraphics(m_reelsInstarCaches[i]);
+        instarGraphics.SetPageUnit(Gdiplus::UnitPixel);
+        instarGraphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+        instarGraphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+        instarGraphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+        instarGraphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+        instarGraphics.Clear(Gdiplus::Color(0, 0, 0, 0));
+        instarGraphics.DrawImage(m_instarImages[i], Gdiplus::Rect(0, 0, cacheWidth, instarHeight));
+    }
+}
+
+void avoidgame::DestroyReelsImageCache()
+{
+    // 릴스 캐시 해제
+    if (m_reelsPhoneCache != nullptr)
+    {
+        delete m_reelsPhoneCache;
+        m_reelsPhoneCache = nullptr;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (m_reelsInstarCaches[i] != nullptr)
+        {
+            delete m_reelsInstarCaches[i];
+            m_reelsInstarCaches[i] = nullptr;
+        }
+        m_reelsInstarCacheHeights[i] = 0;
+    }
+}
+
+void avoidgame::DrawGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight)
+{
+    // GDI+ 이미지 출력
+    if (image == nullptr || image->GetLastStatus() != Gdiplus::Ok)
+    {
+        return;
+    }
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
+    graphics.DrawImage(image, drawRect);
+}
+
+void avoidgame::DrawGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount)
+{
+    // GDI+ 프레임 출력
+    if (image == nullptr || image->GetLastStatus() != Gdiplus::Ok || frameCount <= 0)
+    {
+        return;
+    }
+
+    int frameWidth = static_cast<int>(image->GetWidth()) / frameCount;
+    int frameHeight = static_cast<int>(image->GetHeight());
+    int safeFrame = frameIndex % frameCount;
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
+    graphics.DrawImage(
+        image,
+        drawRect,
+        safeFrame * frameWidth,
+        0,
+        frameWidth,
+        frameHeight,
+        Gdiplus::UnitPixel);
 }
 
 void avoidgame::Reset()
@@ -84,11 +387,10 @@ void avoidgame::Update()
 void avoidgame::Render(HDC hDC)
 {
     RenderMap(hDC);
-    DrawKakaoMole(hDC);
-    DrawBlackhole(hDC);
-    DrawAttacks(hDC);
+    DrawDeliver(hDC);
     DrawFoodDrops(hDC);
     RenderPlatforms(hDC);
+    DrawAttacks(hDC);
     RenderPlayer(hDC);
     RenderHud(hDC);
 
@@ -109,10 +411,16 @@ void avoidgame::OnKeyDown(WPARAM wParam)
     {
     case VK_LEFT:
         m_player.moveLeft = true;
+        m_player.faceRight = false;
         break;
 
     case VK_RIGHT:
         m_player.moveRight = true;
+        m_player.faceRight = true;
+        break;
+
+    case VK_DOWN:
+        m_player.moveDown = true;
         break;
 
     case VK_UP:
@@ -136,6 +444,10 @@ void avoidgame::OnKeyUp(WPARAM wParam)
 
     case VK_RIGHT:
         m_player.moveRight = false;
+        break;
+
+    case VK_DOWN:
+        m_player.moveDown = false;
         break;
 
     default:
@@ -164,8 +476,13 @@ void avoidgame::ResetPlayer()
     m_player.velocityY = 0.0f;
     m_player.moveLeft = false;
     m_player.moveRight = false;
+    m_player.moveDown = false;
     m_player.isGrounded = true;
+    m_player.faceRight = true;
+    m_player.animationTimer = 0.0f;
+    m_player.animationFrame = 0;
     m_player.jumpCount = 0;
+    m_player.dropThroughTimer = 0.0f;
 }
 
 void avoidgame::UpdatePlayer()
@@ -178,14 +495,26 @@ void avoidgame::UpdatePlayer()
     if (m_player.moveLeft)
     {
         m_player.velocityX -= m_player.moveSpeed;
+        m_player.faceRight = false;
     }
     if (m_player.moveRight)
     {
         m_player.velocityX += m_player.moveSpeed;
+        m_player.faceRight = true;
     }
 
     // 중력 적용
     m_player.velocityY += m_player.gravity;
+
+    // 발판 통과 시간
+    if (m_player.dropThroughTimer > 0.0f)
+    {
+        m_player.dropThroughTimer -= UPDATE_DELTA_SECONDS;
+        if (m_player.dropThroughTimer < 0.0f)
+        {
+            m_player.dropThroughTimer = 0.0f;
+        }
+    }
 
     // 위치 적용
     m_player.x += m_player.velocityX;
@@ -196,12 +525,91 @@ void avoidgame::UpdatePlayer()
     // 착지 판정
     m_player.isGrounded = false;
     HandleLanding(previousY);
+
+    // 걷기 애니메이션
+    if (m_player.velocityX != 0.0f)
+    {
+        m_player.animationTimer += UPDATE_DELTA_SECONDS;
+        if (m_player.animationTimer >= PLAYER_ANIMATION_INTERVAL)
+        {
+            m_player.animationTimer = 0.0f;
+            m_player.animationFrame = (m_player.animationFrame + 1) % PLAYER_RUNNING_FRAME_COUNT;
+        }
+    }
+    else
+    {
+        m_player.animationTimer = 0.0f;
+        m_player.animationFrame = 0;
+    }
 }
 
 void avoidgame::RenderPlayer(HDC hDC)
 {
-    // 무적 색상
-    RECT playerRect = GetPlayerRect();
+    RECT playerRect =
+    {
+        static_cast<LONG>(m_player.x),
+        static_cast<LONG>(m_player.y),
+        static_cast<LONG>(m_player.x + PLAYER_WIDTH),
+        static_cast<LONG>(m_player.y + PLAYER_HEIGHT)
+    };
+    bool isRunning = (m_player.velocityX != 0.0f);
+    Gdiplus::Image* playerImage = nullptr;
+
+    if (isRunning)
+    {
+        playerImage = m_player.faceRight ? m_playerRunningRightImage : m_playerRunningLeftImage;
+    }
+    else
+    {
+        playerImage = m_player.faceRight ? m_playerStandRightImage : m_playerStandLeftImage;
+    }
+
+    if (playerImage != nullptr && playerImage->GetLastStatus() == Gdiplus::Ok)
+    {
+        // stand와 running 크기 통일
+        int drawWidth = PLAYER_WIDTH;
+        int drawHeight = PLAYER_HEIGHT;
+        int sourceWidth = static_cast<int>(playerImage->GetWidth());
+        int sourceHeight = static_cast<int>(playerImage->GetHeight());
+        if (isRunning)
+        {
+            sourceWidth = sourceWidth / PLAYER_RUNNING_FRAME_COUNT;
+        }
+
+        if (sourceHeight > 0 && sourceWidth != sourceHeight)
+        {
+            drawWidth = static_cast<int>((drawHeight * sourceWidth + sourceHeight / 2) / sourceHeight);
+        }
+
+        int drawX = playerRect.left + ((PLAYER_WIDTH - drawWidth) / 2);
+        int drawY = playerRect.bottom - drawHeight;
+
+        if (isRunning)
+        {
+            DrawGdiImageFrame(hDC, playerImage, drawX, drawY, drawWidth, drawHeight, m_player.animationFrame, PLAYER_RUNNING_FRAME_COUNT);
+        }
+        else
+        {
+            DrawGdiImage(hDC, playerImage, drawX, drawY, drawWidth, drawHeight);
+        }
+
+        if (m_game.invincibleTimer > 0.0f)
+        {
+            HPEN invinciblePen = CreatePen(PS_SOLID, 3, RGB(255, 230, 120));
+            HGDIOBJ oldPen = SelectObject(hDC, invinciblePen);
+            HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
+
+            RoundRect(hDC, drawX, drawY, drawX + drawWidth, drawY + drawHeight, 14, 14);
+
+            SelectObject(hDC, oldBrush);
+            SelectObject(hDC, oldPen);
+            DeleteObject(invinciblePen);
+        }
+
+        return;
+    }
+
+    // 이미지 실패 시 대체 출력
     COLORREF playerColor = (m_game.invincibleTimer > 0.0f) ? RGB(255, 230, 120) : RGB(255, 170, 190);
 
     HBRUSH playerBrush = CreateSolidBrush(playerColor);
@@ -220,6 +628,19 @@ void avoidgame::RenderPlayer(HDC hDC)
 
 void avoidgame::Jump()
 {
+    // 아래+점프는 발판 통과
+    float playerBottom = m_player.y + PLAYER_HEIGHT;
+    float floorTop = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT);
+    if (m_player.moveDown && m_player.isGrounded && playerBottom < floorTop - 1.0f)
+    {
+        m_player.y += 10.0f;
+        m_player.velocityY = m_player.gravity;
+        m_player.isGrounded = false;
+        m_player.jumpCount = 1;
+        m_player.dropThroughTimer = 0.25f;
+        return;
+    }
+
     // 2단 점프 허용
     if (m_player.isGrounded || m_player.jumpCount < MAX_JUMP_COUNT)
     {
@@ -252,6 +673,11 @@ void avoidgame::HandleLanding(float previousY)
     }
 
     // 발판 착지
+    if (m_player.dropThroughTimer > 0.0f)
+    {
+        return;
+    }
+
     RECT playerRect = GetPlayerRect();
     for (int i = 0; i < static_cast<int>(m_platforms.size()); i++)
     {
@@ -303,10 +729,10 @@ RECT avoidgame::GetPlayerRect() const
     // 플레이어 충돌 영역
     RECT playerRect =
     {
-        static_cast<LONG>(m_player.x),
-        static_cast<LONG>(m_player.y),
-        static_cast<LONG>(m_player.x + PLAYER_WIDTH),
-        static_cast<LONG>(m_player.y + PLAYER_HEIGHT)
+        static_cast<LONG>(m_player.x + PLAYER_HITBOX_MARGIN_X),
+        static_cast<LONG>(m_player.y + PLAYER_HITBOX_MARGIN_TOP),
+        static_cast<LONG>(m_player.x + PLAYER_WIDTH - PLAYER_HITBOX_MARGIN_X),
+        static_cast<LONG>(m_player.y + PLAYER_HEIGHT - PLAYER_HITBOX_MARGIN_BOTTOM)
     };
 
     return playerRect;
@@ -389,7 +815,6 @@ void avoidgame::ResetPatterns()
     // 패턴 상태 초기화
     m_attacks.clear();
     m_foods.clear();
-    m_blackholeTexts.clear();
 
     m_pattern.currentPattern = PATTERN_NONE;
     m_pattern.nextPattern = 0;
@@ -397,18 +822,11 @@ void avoidgame::ResetPatterns()
 
     m_kakao.comboTimer = 0.0f;
     m_kakao.comboCount = 0;
-    m_kakao.moleWarningRect = RECT{ 0, 0, 0, 0 };
-    m_kakao.moleWarningTimer = 0.0f;
-    m_kakao.moleX = static_cast<float>((SCREEN_WIDTH - KAKAO_MOLE_WIDTH) / 2);
-    m_kakao.moleY = static_cast<float>(SCREEN_HEIGHT);
-    m_kakao.isMoleWarning = false;
-    m_kakao.isMoleActive = false;
-    m_kakao.isMoleGoingUp = false;
 
     m_foodPattern.spawnTimer = 0.0f;
     m_foodPattern.patternTimer = 0.0f;
 
-    m_blackhole = {};
+    m_deliver = {};
 }
 
 void avoidgame::UpdatePatternScheduler()
@@ -436,7 +854,7 @@ void avoidgame::UpdatePatternScheduler()
             }
             else
             {
-                StartBlackholePattern();
+                StartDeliverPattern();
             }
         }
 
@@ -452,9 +870,9 @@ void avoidgame::UpdatePatternScheduler()
     {
         UpdateFoodPattern();
     }
-    else if (m_pattern.currentPattern == PATTERN_BLACKHOLE)
+    else if (m_pattern.currentPattern == PATTERN_DELIVER)
     {
-        UpdateBlackholePattern();
+        UpdateDeliverPattern();
     }
 }
 
@@ -468,7 +886,7 @@ void avoidgame::FinishPatternIfEmpty()
 
     if (m_pattern.currentPattern == PATTERN_KAKAO)
     {
-        if (m_kakao.comboCount <= 0 && m_attacks.empty() && !m_kakao.isMoleWarning && !m_kakao.isMoleActive)
+        if (m_kakao.comboCount <= 0 && m_attacks.empty())
         {
             m_pattern.currentPattern = PATTERN_NONE;
             m_pattern.waitTimer = PATTERN_DELAY;
@@ -490,9 +908,9 @@ void avoidgame::FinishPatternIfEmpty()
             m_pattern.waitTimer = PATTERN_DELAY;
         }
     }
-    else if (m_pattern.currentPattern == PATTERN_BLACKHOLE)
+    else if (m_pattern.currentPattern == PATTERN_DELIVER)
     {
-        if (!m_blackhole.isWarning && !m_blackhole.isActive && m_blackholeTexts.empty())
+        if (!m_deliver.isWarning && !m_deliver.isActive)
         {
             m_pattern.currentPattern = PATTERN_NONE;
             m_pattern.waitTimer = PATTERN_DELAY;
@@ -506,7 +924,6 @@ void avoidgame::StartKakaoCombo()
     m_pattern.currentPattern = PATTERN_KAKAO;
     m_kakao.comboCount = KAKAO_COMBO_COUNT;
     m_kakao.comboTimer = 0.0f;
-    StartKakaoMole();
 }
 
 void avoidgame::UpdateKakaoCombo()
@@ -514,7 +931,6 @@ void avoidgame::UpdateKakaoCombo()
     // 카톡 연타 생성
     if (m_kakao.comboCount <= 0)
     {
-        UpdateKakaoMole();
         return;
     }
 
@@ -525,15 +941,13 @@ void avoidgame::UpdateKakaoCombo()
         m_kakao.comboCount--;
         m_kakao.comboTimer = KAKAO_COMBO_INTERVAL;
     }
-
-    UpdateKakaoMole();
 }
 
 void avoidgame::SpawnKakaoAttack()
 {
     // 플레이어 위치 조준
-    int attackWidth = 300;
-    int attackHeight = 90;
+    int attackWidth = KAKAO_POPUP_SIZE;
+    int attackHeight = KAKAO_POPUP_SIZE;
 
     int left = static_cast<int>(m_player.x) + (PLAYER_WIDTH / 2) - (attackWidth / 2);
     int top = static_cast<int>(m_player.y) + (PLAYER_HEIGHT / 2) - (attackHeight / 2);
@@ -566,142 +980,6 @@ void avoidgame::SpawnKakaoAttack()
     m_attacks.push_back(attack);
 }
 
-void avoidgame::StartKakaoMole()
-{
-    // 하단 절반 경고
-    m_kakao.moleWarningRect = RECT
-    {
-        0,
-        SCREEN_HEIGHT / 2,
-        SCREEN_WIDTH,
-        SCREEN_HEIGHT - FLOOR_HEIGHT
-    };
-    m_kakao.moleWarningTimer = KAKAO_MOLE_WARNING_DURATION;
-    m_kakao.moleX = static_cast<float>(rand() % (SCREEN_WIDTH - KAKAO_MOLE_WIDTH));
-    m_kakao.moleY = static_cast<float>(SCREEN_HEIGHT);
-    m_kakao.isMoleWarning = true;
-    m_kakao.isMoleActive = false;
-    m_kakao.isMoleGoingUp = true;
-}
-
-void avoidgame::UpdateKakaoMole()
-{
-    // 경고 후 상승
-    if (m_kakao.isMoleWarning)
-    {
-        m_kakao.moleWarningTimer -= UPDATE_DELTA_SECONDS;
-        if (m_kakao.moleWarningTimer <= 0.0f)
-        {
-            m_kakao.moleWarningTimer = 0.0f;
-            m_kakao.isMoleWarning = false;
-            m_kakao.isMoleActive = true;
-            m_kakao.isMoleGoingUp = true;
-        }
-
-        return;
-    }
-
-    if (!m_kakao.isMoleActive)
-    {
-        return;
-    }
-
-    const float targetY = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - KAKAO_MOLE_HEIGHT);
-    const float hiddenY = static_cast<float>(SCREEN_HEIGHT);
-
-    if (m_kakao.isMoleGoingUp)
-    {
-        m_kakao.moleY -= KAKAO_MOLE_SPEED;
-        if (m_kakao.moleY <= targetY)
-        {
-            m_kakao.moleY = targetY;
-            m_kakao.isMoleGoingUp = false;
-        }
-    }
-    else
-    {
-        m_kakao.moleY += KAKAO_MOLE_SPEED;
-        if (m_kakao.moleY >= hiddenY)
-        {
-            m_kakao.moleY = hiddenY;
-            m_kakao.isMoleActive = false;
-        }
-    }
-
-    if (IsRectOverlap(GetPlayerRect(), GetKakaoMoleRect()))
-    {
-        DamagePlayer();
-    }
-}
-
-void avoidgame::DrawKakaoMole(HDC hDC)
-{
-    // 두더지 경고
-    if (m_kakao.isMoleWarning)
-    {
-        HBRUSH warningBrush = CreateSolidBrush(RGB(80, 0, 0));
-        HPEN warningPen = CreatePen(PS_SOLID, 5, RGB(255, 60, 60));
-
-        HGDIOBJ oldBrush = SelectObject(hDC, warningBrush);
-        HGDIOBJ oldPen = SelectObject(hDC, warningPen);
-
-        Rectangle(hDC, m_kakao.moleWarningRect.left, m_kakao.moleWarningRect.top, m_kakao.moleWarningRect.right, m_kakao.moleWarningRect.bottom);
-
-        SetBkMode(hDC, TRANSPARENT);
-        SetTextColor(hDC, RGB(255, 150, 150));
-        const wchar_t* warningText = L"카톡이 아래에서 올라옵니다";
-        TextOutW(hDC, 720, (SCREEN_HEIGHT / 2) + 40, warningText, lstrlenW(warningText));
-
-        SelectObject(hDC, oldBrush);
-        SelectObject(hDC, oldPen);
-        DeleteObject(warningBrush);
-        DeleteObject(warningPen);
-        return;
-    }
-
-    if (!m_kakao.isMoleActive)
-    {
-        return;
-    }
-
-    // 두더지 카톡 판넬
-    RECT moleRect = GetKakaoMoleRect();
-    HBRUSH moleBrush = CreateSolidBrush(RGB(255, 245, 120));
-    HPEN molePen = CreatePen(PS_SOLID, 5, RGB(255, 80, 80));
-
-    HGDIOBJ oldBrush = SelectObject(hDC, moleBrush);
-    HGDIOBJ oldPen = SelectObject(hDC, molePen);
-
-    RoundRect(hDC, moleRect.left, moleRect.top, moleRect.right, moleRect.bottom, 28, 28);
-
-    SetBkMode(hDC, TRANSPARENT);
-    SetTextColor(hDC, RGB(30, 30, 30));
-    const wchar_t* titleText = L"KakaoTalk";
-    const wchar_t* bodyText = L"답장 안 해?";
-    TextOutW(hDC, moleRect.left + 36, moleRect.top + 40, titleText, lstrlenW(titleText));
-    TextOutW(hDC, moleRect.left + 36, moleRect.top + 120, bodyText, lstrlenW(bodyText));
-
-    SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldPen);
-    DeleteObject(moleBrush);
-    DeleteObject(molePen);
-}
-
-RECT avoidgame::GetKakaoMoleRect() const
-{
-    // 두더지 충돌 영역
-    const int left = static_cast<int>(m_kakao.moleX);
-    RECT rc =
-    {
-        left,
-        static_cast<LONG>(m_kakao.moleY),
-        left + KAKAO_MOLE_WIDTH,
-        static_cast<LONG>(m_kakao.moleY + KAKAO_MOLE_HEIGHT)
-    };
-
-    return rc;
-}
-
 void avoidgame::StartReelsPattern()
 {
     // 릴스 패턴 시작
@@ -711,24 +989,36 @@ void avoidgame::StartReelsPattern()
 
 void avoidgame::SpawnReelsAttack()
 {
-    // 화면 절반 공격
-    bool isLeftSide = (rand() % 2) == 0;
-
-    AttackWarning attack = {};
-    attack.rect = RECT
+    // 3개 릴스 공격
+    const int phoneSourceW = 629;
+    const int phoneSourceH = 1397;
+    int reelWidth = REELS_COLUMN_WIDTH;
+    int reelHeight = static_cast<int>(reelWidth * static_cast<float>(phoneSourceH) / static_cast<float>(phoneSourceW));
+    int maxReelHeight = SCREEN_HEIGHT - FLOOR_HEIGHT - 20;
+    if (reelHeight > maxReelHeight)
     {
-        isLeftSide ? 0 : SCREEN_WIDTH / 2,
-        0,
-        isLeftSide ? SCREEN_WIDTH / 2 : SCREEN_WIDTH,
-        SCREEN_HEIGHT - FLOOR_HEIGHT
-    };
-    attack.warningTime = REELS_WARNING_DURATION;
-    attack.attackTime = REELS_ATTACK_DURATION;
-    attack.isAttackActive = false;
-    attack.messageIndex = 0;
-    attack.attackType = ATTACK_TYPE_REELS;
+        reelHeight = maxReelHeight;
+        reelWidth = static_cast<int>(reelHeight * static_cast<float>(phoneSourceW) / static_cast<float>(phoneSourceH));
+    }
 
-    m_attacks.push_back(attack);
+    int safeGap = (SCREEN_WIDTH - (reelWidth * REELS_COLUMN_COUNT)) / (REELS_COLUMN_COUNT + 1);
+    int reelTop = (SCREEN_HEIGHT - FLOOR_HEIGHT - reelHeight) / 2;
+
+    for (int i = 0; i < REELS_COLUMN_COUNT; i++)
+    {
+        int reelLeft = safeGap + i * (reelWidth + safeGap);
+
+        AttackWarning attack = {};
+        attack.rect = RECT{ reelLeft, reelTop, reelLeft + reelWidth, reelTop + reelHeight };
+        attack.warningTime = REELS_WARNING_DURATION;
+        attack.attackTime = REELS_ATTACK_DURATION;
+        attack.isAttackActive = false;
+        attack.messageIndex = i;
+        attack.attackType = ATTACK_TYPE_REELS;
+        attack.scrollY = 0.0f;
+
+        m_attacks.push_back(attack);
+    }
 }
 
 void avoidgame::StartFoodPattern()
@@ -767,7 +1057,7 @@ void avoidgame::SpawnFoodDrop()
     food.y = -40.0f;
     food.wave = static_cast<float>(rand() % 628) / 100.0f;
     food.speed = 5.5f + static_cast<float>(rand() % 4);
-    food.foodType = rand() % 4;
+    food.foodType = rand() % 3;
 
     m_foods.push_back(food);
 }
@@ -805,18 +1095,21 @@ void avoidgame::UpdateFoodDrops()
 void avoidgame::DrawFoodDrops(HDC hDC)
 {
     // 음식 출력
-    const wchar_t* foodNames[4] =
-    {
-        L"라면",
-        L"콜라",
-        L"과자",
-        L"햄버거"
-    };
-
     for (int i = 0; i < static_cast<int>(m_foods.size()); i++)
     {
         const FoodDrop& food = m_foods[i];
         RECT foodRect = GetFoodRect(food);
+        int foodType = food.foodType;
+        if (foodType < 0 || foodType >= 3)
+        {
+            foodType = 0;
+        }
+
+        if (m_foodImages[foodType] != nullptr && m_foodImages[foodType]->GetLastStatus() == Gdiplus::Ok)
+        {
+            DrawGdiImage(hDC, m_foodImages[foodType], foodRect.left, foodRect.top, foodRect.right - foodRect.left, foodRect.bottom - foodRect.top);
+            continue;
+        }
 
         HBRUSH foodBrush = CreateSolidBrush(RGB(255, 210, 90));
         HPEN foodPen = CreatePen(PS_SOLID, 2, RGB(255, 255, 255));
@@ -830,16 +1123,6 @@ void avoidgame::DrawFoodDrops(HDC hDC)
         SelectObject(hDC, oldPen);
         DeleteObject(foodBrush);
         DeleteObject(foodPen);
-
-        int foodType = food.foodType;
-        if (foodType < 0 || foodType >= 4)
-        {
-            foodType = 0;
-        }
-
-        SetBkMode(hDC, TRANSPARENT);
-        SetTextColor(hDC, RGB(255, 255, 255));
-        TextOutW(hDC, foodRect.left - 4, foodRect.bottom + 4, foodNames[foodType], lstrlenW(foodNames[foodType]));
     }
 }
 
@@ -850,213 +1133,91 @@ RECT avoidgame::GetFoodRect(const FoodDrop& food) const
     {
         static_cast<LONG>(food.x),
         static_cast<LONG>(food.y),
-        static_cast<LONG>(food.x + 28),
-        static_cast<LONG>(food.y + 28)
+        static_cast<LONG>(food.x + FOOD_SIZE),
+        static_cast<LONG>(food.y + FOOD_SIZE)
     };
 
     return rc;
 }
 
-void avoidgame::StartBlackholePattern()
+void avoidgame::StartDeliverPattern()
 {
-    // 왼쪽 경고 시작
-    m_pattern.currentPattern = PATTERN_BLACKHOLE;
+    // 배달 패턴 시작
+    m_pattern.currentPattern = PATTERN_DELIVER;
 
-    m_blackholeTexts.clear();
+    int halfHeight = (SCREEN_HEIGHT - FLOOR_HEIGHT) / 2;
+    int top = halfHeight;
+    int bottom = SCREEN_HEIGHT - FLOOR_HEIGHT;
+    int riderSize = halfHeight;
+    int riderY = bottom - riderSize;
 
-    const int coreCenterX = SCREEN_WIDTH - BLACKHOLE_RIGHT_MARGIN;
-    const int centerY = SCREEN_HEIGHT / 2;
-
-    m_blackhole.warningRect = RECT
-    {
-        0,
-        0,
-        SCREEN_WIDTH / 2,
-        SCREEN_HEIGHT - FLOOR_HEIGHT
-    };
-
-    m_blackhole.coreRect = RECT
-    {
-        coreCenterX - (BLACKHOLE_SIZE / 2),
-        centerY - (BLACKHOLE_SIZE / 2),
-        coreCenterX + (BLACKHOLE_SIZE / 2),
-        centerY + (BLACKHOLE_SIZE / 2)
-    };
-
-    m_blackhole.warningTimer = BLACKHOLE_WARNING_DURATION;
-    m_blackhole.activeTimer = BLACKHOLE_ACTIVE_DURATION;
-    m_blackhole.spawnTimer = 0.0f;
-    m_blackhole.spawnedCount = 0;
-    m_blackhole.isWarning = true;
-    m_blackhole.isActive = false;
+    m_deliver.warningRect = RECT{ 0, top, SCREEN_WIDTH, bottom };
+    m_deliver.riderRect = RECT{ SCREEN_WIDTH, riderY, SCREEN_WIDTH + riderSize, riderY + riderSize };
+    m_deliver.warningTimer = DELIVER_WARNING_DURATION;
+    m_deliver.activeTimer = DELIVER_ACTIVE_DURATION;
+    m_deliver.isWarning = true;
+    m_deliver.isActive = false;
 }
 
-void avoidgame::UpdateBlackholePattern()
+void avoidgame::UpdateDeliverPattern()
 {
-    // 경고 후 활성
-    if (m_blackhole.isWarning)
+    // 경고 후 배달 이동
+    if (m_deliver.isWarning)
     {
-        m_blackhole.warningTimer -= UPDATE_DELTA_SECONDS;
-        if (m_blackhole.warningTimer <= 0.0f)
+        m_deliver.warningTimer -= UPDATE_DELTA_SECONDS;
+        if (m_deliver.warningTimer <= 0.0f)
         {
-            m_blackhole.warningTimer = 0.0f;
-            m_blackhole.isWarning = false;
-            m_blackhole.isActive = true;
+            m_deliver.warningTimer = 0.0f;
+            m_deliver.isWarning = false;
+            m_deliver.isActive = true;
         }
-
         return;
     }
 
-    if (!m_blackhole.isActive)
+    if (!m_deliver.isActive)
     {
         return;
     }
 
-    m_blackhole.activeTimer -= UPDATE_DELTA_SECONDS;
-    ApplyBlackholePull();
-    UpdateBlackholeTexts();
+    m_deliver.activeTimer -= UPDATE_DELTA_SECONDS;
+    m_deliver.riderRect.left -= static_cast<LONG>(DELIVER_SPEED);
+    m_deliver.riderRect.right -= static_cast<LONG>(DELIVER_SPEED);
 
-    if (IsRectOverlap(GetPlayerRect(), m_blackhole.coreRect))
+    if (IsRectOverlap(GetPlayerRect(), m_deliver.riderRect))
     {
         DamagePlayer();
     }
 
-    if (m_blackhole.activeTimer <= 0.0f)
+    if (m_deliver.riderRect.right < 0 || m_deliver.activeTimer <= 0.0f)
     {
-        m_blackhole.activeTimer = 0.0f;
-        m_blackhole.isActive = false;
-        m_blackholeTexts.clear();
+        m_deliver.activeTimer = 0.0f;
+        m_deliver.isActive = false;
     }
 }
 
-void avoidgame::ApplyBlackholePull()
+void avoidgame::DrawDeliver(HDC hDC)
 {
-    // 블랙홀 방향 계산
-    const float blackholeX = static_cast<float>((m_blackhole.coreRect.left + m_blackhole.coreRect.right) / 2);
-    const float blackholeY = static_cast<float>((m_blackhole.coreRect.top + m_blackhole.coreRect.bottom) / 2);
-    const float playerCenterX = m_player.x + (PLAYER_WIDTH / 2.0f);
-    const float playerCenterY = m_player.y + (PLAYER_HEIGHT / 2.0f);
-
-    const float deltaX = blackholeX - playerCenterX;
-    const float deltaY = blackholeY - playerCenterY;
-    const float distance = std::sqrt((deltaX * deltaX) + (deltaY * deltaY));
-
-    if (distance <= 1.0f)
-    {
-        return;
-    }
-
-    const float directionY = deltaY / distance;
-
-    bool isResisting =
-        (deltaX < 0.0f && m_player.moveRight) ||
-        (deltaX > 0.0f && m_player.moveLeft);
-
-    float horizontalPull = isResisting ? BLACKHOLE_RESIST_PULL_FORCE : BLACKHOLE_PULL_FORCE;
-
-    if (std::fabs(deltaX) > 1.0f)
-    {
-        m_player.x += (deltaX > 0.0f ? horizontalPull : -horizontalPull);
-    }
-    m_player.y += directionY * BLACKHOLE_VERTICAL_PULL_FORCE;
-
-    if (directionY < -0.1f)
-    {
-        m_player.isGrounded = false;
-    }
-
-    ClampPlayerPosition();
-
-    // 바닥 아래 방지
-    const float floorTop = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT);
-    if (m_player.y + PLAYER_HEIGHT > floorTop)
-    {
-        m_player.y = floorTop - PLAYER_HEIGHT;
-        m_player.velocityY = 0.0f;
-        m_player.isGrounded = true;
-        m_player.jumpCount = 0;
-    }
-}
-
-void avoidgame::SpawnBlackholeText()
-{
-    // 무작위 Y 생성
-    int yRange = BLACKHOLE_TEXT_MAX_Y - BLACKHOLE_TEXT_MIN_Y;
-    if (yRange < 1)
-    {
-        yRange = 1;
-    }
-
-    BlackholeText text = {};
-    text.x = static_cast<float>(-BLACKHOLE_TEXT_WIDTH);
-    text.y = static_cast<float>(BLACKHOLE_TEXT_MIN_Y + (rand() % yRange));
-    text.messageIndex = m_blackhole.spawnedCount % 3;
-
-    m_blackholeTexts.push_back(text);
-    m_blackhole.spawnedCount++;
-}
-
-void avoidgame::UpdateBlackholeTexts()
-{
-    // 텍스트 생성
-    if (m_blackhole.spawnedCount < BLACKHOLE_TEXT_COUNT)
-    {
-        m_blackhole.spawnTimer -= UPDATE_DELTA_SECONDS;
-        if (m_blackhole.spawnTimer <= 0.0f)
-        {
-            SpawnBlackholeText();
-            m_blackhole.spawnTimer = BLACKHOLE_TEXT_SPAWN_INTERVAL;
-        }
-    }
-
-    RECT playerRect = GetPlayerRect();
-
-    // 텍스트 이동
-    for (int i = 0; i < static_cast<int>(m_blackholeTexts.size());)
-    {
-        BlackholeText& text = m_blackholeTexts[i];
-        text.x += BLACKHOLE_TEXT_SPEED;
-
-        if (IsRectOverlap(playerRect, GetBlackholeTextRect(text)))
-        {
-            DamagePlayer();
-            m_blackholeTexts.erase(m_blackholeTexts.begin() + i);
-            continue;
-        }
-
-        if (text.x > m_blackhole.coreRect.left)
-        {
-            m_blackholeTexts.erase(m_blackholeTexts.begin() + i);
-            continue;
-        }
-
-        i++;
-    }
-}
-
-void avoidgame::DrawBlackhole(HDC hDC)
-{
-    // 블랙홀 패턴 출력
-    if (!m_blackhole.isWarning && !m_blackhole.isActive && m_blackholeTexts.empty())
+    // 배달 경고/기사 출력
+    if (!m_deliver.isWarning && !m_deliver.isActive)
     {
         return;
     }
 
     SetBkMode(hDC, TRANSPARENT);
 
-    if (m_blackhole.isWarning)
+    if (m_deliver.isWarning)
     {
         HBRUSH warningBrush = CreateSolidBrush(RGB(80, 0, 0));
-        HPEN warningPen = CreatePen(PS_SOLID, 5, RGB(255, 40, 40));
+        HPEN warningPen = CreatePen(PS_SOLID, 5, RGB(255, 60, 60));
 
         HGDIOBJ oldBrush = SelectObject(hDC, warningBrush);
         HGDIOBJ oldPen = SelectObject(hDC, warningPen);
 
-        Rectangle(hDC, m_blackhole.warningRect.left, m_blackhole.warningRect.top, m_blackhole.warningRect.right, m_blackhole.warningRect.bottom);
+        Rectangle(hDC, m_deliver.warningRect.left, m_deliver.warningRect.top, m_deliver.warningRect.right, m_deliver.warningRect.bottom);
 
-        SetTextColor(hDC, RGB(255, 120, 120));
-        const wchar_t* warningText = L"왼쪽 릴스 접근";
-        TextOutW(hDC, m_blackhole.warningRect.left + 110, m_blackhole.warningRect.top + 40, warningText, lstrlenW(warningText));
+        SetTextColor(hDC, RGB(255, 150, 150));
+        const wchar_t* warningText = L"배달 접근";
+        TextOutW(hDC, 820, m_deliver.warningRect.top + 40, warningText, lstrlenW(warningText));
 
         SelectObject(hDC, oldBrush);
         SelectObject(hDC, oldPen);
@@ -1065,72 +1226,15 @@ void avoidgame::DrawBlackhole(HDC hDC)
         return;
     }
 
-    // 텍스트 탄막 출력
-    const wchar_t* messages[3] =
+    if (m_ridderImage != nullptr && m_ridderImage->GetLastStatus() == Gdiplus::Ok)
     {
-        L"10초만 볼까?",
-        L"다음 영상",
-        L"알고리즘"
-    };
-
-    for (int i = 0; i < static_cast<int>(m_blackholeTexts.size()); i++)
-    {
-        const BlackholeText& text = m_blackholeTexts[i];
-        RECT textRect = GetBlackholeTextRect(text);
-
-        HBRUSH textBrush = CreateSolidBrush(RGB(250, 250, 250));
-        HPEN textPen = CreatePen(PS_SOLID, 3, RGB(255, 80, 120));
-
-        HGDIOBJ textOldBrush = SelectObject(hDC, textBrush);
-        HGDIOBJ textOldPen = SelectObject(hDC, textPen);
-
-        RoundRect(hDC, textRect.left, textRect.top, textRect.right, textRect.bottom, 22, 22);
-
-        int messageIndex = text.messageIndex;
-        if (messageIndex < 0 || messageIndex >= 3)
-        {
-            messageIndex = 0;
-        }
-
-        SetTextColor(hDC, RGB(30, 30, 30));
-        TextOutW(hDC, textRect.left + 34, textRect.top + 48, messages[messageIndex], lstrlenW(messages[messageIndex]));
-
-        SelectObject(hDC, textOldBrush);
-        SelectObject(hDC, textOldPen);
-        DeleteObject(textBrush);
-        DeleteObject(textPen);
+        DrawGdiImage(hDC, m_ridderImage, m_deliver.riderRect.left, m_deliver.riderRect.top, m_deliver.riderRect.right - m_deliver.riderRect.left, m_deliver.riderRect.bottom - m_deliver.riderRect.top);
+        return;
     }
 
-    HBRUSH blackholeBrush = CreateSolidBrush(RGB(8, 8, 16));
-    HPEN blackholePen = CreatePen(PS_SOLID, 5, RGB(255, 80, 120));
-
-    HGDIOBJ oldBrush = SelectObject(hDC, blackholeBrush);
-    HGDIOBJ oldPen = SelectObject(hDC, blackholePen);
-
-    Rectangle(hDC, m_blackhole.coreRect.left, m_blackhole.coreRect.top, m_blackhole.coreRect.right, m_blackhole.coreRect.bottom);
-
-    SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldPen);
-    DeleteObject(blackholeBrush);
-    DeleteObject(blackholePen);
-
-    SetTextColor(hDC, RGB(255, 255, 255));
-    const wchar_t* coreText = L"릴스";
-    TextOutW(hDC, m_blackhole.coreRect.left + 44, m_blackhole.coreRect.top + 54, coreText, lstrlenW(coreText));
-}
-
-RECT avoidgame::GetBlackholeTextRect(const BlackholeText& text) const
-{
-    // 텍스트 충돌 영역
-    RECT rc =
-    {
-        static_cast<LONG>(text.x),
-        static_cast<LONG>(text.y),
-        static_cast<LONG>(text.x + BLACKHOLE_TEXT_WIDTH),
-        static_cast<LONG>(text.y + BLACKHOLE_TEXT_HEIGHT)
-    };
-
-    return rc;
+    HBRUSH riderBrush = CreateSolidBrush(RGB(255, 190, 80));
+    FillRect(hDC, &m_deliver.riderRect, riderBrush);
+    DeleteObject(riderBrush);
 }
 
 void avoidgame::UpdateAttacks()
@@ -1154,8 +1258,22 @@ void avoidgame::UpdateAttacks()
         else
         {
             attack.attackTime -= UPDATE_DELTA_SECONDS;
+            if (attack.attackType == ATTACK_TYPE_REELS)
+            {
+                attack.scrollY -= REELS_SCROLL_SPEED * UPDATE_DELTA_SECONDS;
+            }
 
-            if (IsRectOverlap(playerRect, attack.rect))
+            bool isHit = false;
+            if (attack.attackType == ATTACK_TYPE_KAKAO)
+            {
+                isHit = IsRectCircleOverlap(playerRect, attack.rect);
+            }
+            else
+            {
+                isHit = IsRectOverlap(playerRect, attack.rect);
+            }
+
+            if (isHit)
             {
                 DamagePlayer();
             }
@@ -1174,21 +1292,6 @@ void avoidgame::UpdateAttacks()
 void avoidgame::DrawAttacks(HDC hDC)
 {
     // 장판 출력
-    const wchar_t* kakaoMessages[5] =
-    {
-        L"뭐해?",
-        L"답장 안 해?",
-        L"자는 척?",
-        L"나 삐짐",
-        L"진짜?"
-    };
-    const wchar_t* reelsMessages[3] =
-    {
-        L"이 영상만 보고",
-        L"다음 영상",
-        L"알고리즘 추천"
-    };
-
     // 경고 먼저 출력
     for (int i = 0; i < static_cast<int>(m_attacks.size()); i++)
     {
@@ -1204,7 +1307,14 @@ void avoidgame::DrawAttacks(HDC hDC)
         HGDIOBJ oldBrush = SelectObject(hDC, warningBrush);
         HGDIOBJ oldPen = SelectObject(hDC, warningPen);
 
-        Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
+        if (attack.attackType == ATTACK_TYPE_KAKAO)
+        {
+            Ellipse(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
+        }
+        else
+        {
+            Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
+        }
 
         SelectObject(hDC, oldBrush);
         SelectObject(hDC, oldPen);
@@ -1224,106 +1334,116 @@ void avoidgame::DrawAttacks(HDC hDC)
 
         if (attack.attackType == ATTACK_TYPE_REELS)
         {
-            // 릴스 스크롤 출력
-            HBRUSH reelsBrush = CreateSolidBrush(RGB(24, 24, 32));
-            HPEN reelsPen = CreatePen(PS_SOLID, 4, RGB(255, 60, 120));
-
-            HGDIOBJ oldBrush = SelectObject(hDC, reelsBrush);
-            HGDIOBJ oldPen = SelectObject(hDC, reelsPen);
-
-            Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
-
-            float elapsed = REELS_ATTACK_DURATION - attack.attackTime;
-            int scrollY = static_cast<int>(elapsed * 260.0f);
-            int cardWidth = 300;
-            int cardHeight = 460;
-            int cardGap = 70;
-            int centerX = (attack.rect.left + attack.rect.right) / 2;
-            int startY = attack.rect.bottom - (scrollY % (cardHeight + cardGap));
-
-            for (int j = 0; j < 4; j++)
-            {
-                int cardTop = startY - j * (cardHeight + cardGap);
-                RECT cardRect =
-                {
-                    centerX - cardWidth / 2,
-                    cardTop,
-                    centerX + cardWidth / 2,
-                    cardTop + cardHeight
-                };
-
-                HBRUSH cardBrush = CreateSolidBrush(RGB(245, 245, 245));
-                HPEN cardPen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));
-
-                HGDIOBJ cardOldBrush = SelectObject(hDC, cardBrush);
-                HGDIOBJ cardOldPen = SelectObject(hDC, cardPen);
-
-                RoundRect(hDC, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 24, 24);
-
-                SetBkMode(hDC, TRANSPARENT);
-                SetTextColor(hDC, RGB(20, 20, 20));
-                TextOutW(hDC, cardRect.left + 35, cardRect.top + 210, reelsMessages[j % 3], lstrlenW(reelsMessages[j % 3]));
-
-                SelectObject(hDC, cardOldBrush);
-                SelectObject(hDC, cardOldPen);
-                DeleteObject(cardBrush);
-                DeleteObject(cardPen);
-            }
-
-            SelectObject(hDC, oldBrush);
-            SelectObject(hDC, oldPen);
-            DeleteObject(reelsBrush);
-            DeleteObject(reelsPen);
+            DrawReelsScroll(hDC, attack);
             continue;
         }
 
-        // 카톡 알림 출력
-        HBRUSH attackBrush = CreateSolidBrush(RGB(255, 245, 120));
-        HPEN attackPen = CreatePen(PS_SOLID, 4, RGB(255, 80, 80));
+        // 카톡 팝업 이미지
+        DrawKakaoPopup(hDC, attack);
+    }
+}
 
-        HGDIOBJ oldBrush = SelectObject(hDC, attackBrush);
-        HGDIOBJ oldPen = SelectObject(hDC, attackPen);
+void avoidgame::DrawReelsScroll(HDC hDC, const AttackWarning& attack)
+{
+    // 릴스 배경
+    HBRUSH backBrush = CreateSolidBrush(RGB(18, 18, 24));
+    HPEN backPen = CreatePen(PS_SOLID, 3, RGB(255, 60, 120));
+    HGDIOBJ oldBrush = SelectObject(hDC, backBrush);
+    HGDIOBJ oldPen = SelectObject(hDC, backPen);
+    Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+    DeleteObject(backBrush);
+    DeleteObject(backPen);
 
-        RoundRect(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom, 18, 18);
-
-        RECT iconRect =
-        {
-            attack.rect.left + 16,
-            attack.rect.top + 18,
-            attack.rect.left + 66,
-            attack.rect.top + 68
-        };
-
-        HBRUSH iconBrush = CreateSolidBrush(RGB(255, 220, 0));
-        HPEN iconPen = CreatePen(PS_SOLID, 2, RGB(40, 40, 40));
-
-        HGDIOBJ iconOldBrush = SelectObject(hDC, iconBrush);
-        HGDIOBJ iconOldPen = SelectObject(hDC, iconPen);
-
-        Ellipse(hDC, iconRect.left, iconRect.top, iconRect.right, iconRect.bottom);
-
-        SelectObject(hDC, iconOldBrush);
-        SelectObject(hDC, iconOldPen);
-        DeleteObject(iconBrush);
-        DeleteObject(iconPen);
-
+    // 이미지 실패 대체
+    if (m_reelsPhoneCache == nullptr || m_reelsPhoneCache->GetLastStatus() != Gdiplus::Ok)
+    {
         SetBkMode(hDC, TRANSPARENT);
-        SetTextColor(hDC, RGB(30, 30, 30));
-        TextOutW(hDC, iconRect.left + 18, iconRect.top + 13, L"K", 1);
+        SetTextColor(hDC, RGB(255, 255, 255));
+        const wchar_t* fallbackText = L"REELS";
+        TextOutW(hDC, attack.rect.left + 40, attack.rect.top + 40, fallbackText, lstrlenW(fallbackText));
+        return;
+    }
 
-        int messageIndex = attack.messageIndex;
-        if (messageIndex < 0 || messageIndex >= 5)
+    const int phoneSourceH = 1397;
+    const int phoneHeaderH = 169;
+    const int phoneBottomY = 1261;
+
+    // 폰 위치
+    int phoneX = attack.rect.left;
+    int phoneY = attack.rect.top;
+    int phoneWidth = attack.rect.right - attack.rect.left;
+    int phoneHeight = attack.rect.bottom - attack.rect.top;
+
+    // 화면 안쪽
+    float screenX = static_cast<float>(phoneX);
+    float screenY = static_cast<float>(phoneY) + phoneHeight * (static_cast<float>(phoneHeaderH) / phoneSourceH);
+    float screenW = static_cast<float>(phoneWidth);
+    float screenH = phoneHeight * (static_cast<float>(phoneBottomY - phoneHeaderH) / phoneSourceH);
+    float drawY = screenY + attack.scrollY;
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighSpeed);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeNearestNeighbor);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+    graphics.SetClip(Gdiplus::RectF(screenX, screenY, screenW, screenH));
+
+    // 보이는 릴스만 출력
+    for (int i = 0; i < 9 && drawY < screenY + screenH; i++)
+    {
+        int imageIndex = (attack.messageIndex + i) % 3;
+        Gdiplus::Bitmap* instarImage = m_reelsInstarCaches[imageIndex];
+        if (instarImage == nullptr || instarImage->GetLastStatus() != Gdiplus::Ok)
         {
-            messageIndex = 0;
+            continue;
         }
 
-        TextOutW(hDC, attack.rect.left + 84, attack.rect.top + 30, kakaoMessages[messageIndex], lstrlenW(kakaoMessages[messageIndex]));
-
-        SelectObject(hDC, oldBrush);
-        SelectObject(hDC, oldPen);
-        DeleteObject(attackBrush);
-        DeleteObject(attackPen);
+        float instarH = static_cast<float>(m_reelsInstarCacheHeights[imageIndex]);
+        if (drawY + instarH >= screenY)
+        {
+            Gdiplus::RectF instarRect(screenX, drawY, screenW, instarH);
+            graphics.DrawImage(instarImage, instarRect);
+        }
+        drawY += instarH;
     }
+
+    graphics.ResetClip();
+
+    // 폰 틀은 마지막
+    Gdiplus::RectF phoneRect(static_cast<float>(phoneX), static_cast<float>(phoneY), static_cast<float>(phoneWidth), static_cast<float>(phoneHeight));
+    graphics.DrawImage(m_reelsPhoneCache, phoneRect);
+}
+
+void avoidgame::DrawKakaoPopup(HDC hDC, const AttackWarning& attack)
+{
+    // lol_popup 이미지
+    if (m_kakaoPopupImage != nullptr && m_kakaoPopupImage->GetLastStatus() == Gdiplus::Ok)
+    {
+        DrawGdiImage(hDC, m_kakaoPopupImage, attack.rect.left, attack.rect.top, attack.rect.right - attack.rect.left, attack.rect.bottom - attack.rect.top);
+        return;
+    }
+
+    // 이미지 실패 시 대체 출력
+    HBRUSH attackBrush = CreateSolidBrush(RGB(255, 245, 120));
+    HPEN attackPen = CreatePen(PS_SOLID, 4, RGB(255, 80, 80));
+
+    HGDIOBJ oldBrush = SelectObject(hDC, attackBrush);
+    HGDIOBJ oldPen = SelectObject(hDC, attackPen);
+
+    Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
+
+    SetBkMode(hDC, TRANSPARENT);
+    SetTextColor(hDC, RGB(30, 30, 30));
+    const wchar_t* fallbackText = L"LOL";
+    TextOutW(hDC, attack.rect.left + 62, attack.rect.top + 78, fallbackText, lstrlenW(fallbackText));
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+    DeleteObject(attackBrush);
+    DeleteObject(attackPen);
 }
 
 bool avoidgame::IsRectOverlap(const RECT& a, const RECT& b) const
@@ -1333,6 +1453,39 @@ bool avoidgame::IsRectOverlap(const RECT& a, const RECT& b) const
         a.right > b.left &&
         a.top < b.bottom &&
         a.bottom > b.top;
+}
+
+bool avoidgame::IsRectCircleOverlap(const RECT& rect, const RECT& circleRect) const
+{
+    // 사각형과 원 충돌
+    int circleCenterX = (circleRect.left + circleRect.right) / 2;
+    int circleCenterY = (circleRect.top + circleRect.bottom) / 2;
+    int radius = (circleRect.right - circleRect.left) / 2;
+
+    int closestX = circleCenterX;
+    if (closestX < rect.left)
+    {
+        closestX = rect.left;
+    }
+    else if (closestX > rect.right)
+    {
+        closestX = rect.right;
+    }
+
+    int closestY = circleCenterY;
+    if (closestY < rect.top)
+    {
+        closestY = rect.top;
+    }
+    else if (closestY > rect.bottom)
+    {
+        closestY = rect.bottom;
+    }
+
+    int deltaX = circleCenterX - closestX;
+    int deltaY = circleCenterY - closestY;
+
+    return (deltaX * deltaX) + (deltaY * deltaY) <= radius * radius;
 }
 
 void avoidgame::DamagePlayer()

@@ -34,7 +34,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdPa
     RegisterClassExW(&WndClass);
 
     hWnd = CreateWindow(
-        lpszClass, lpszWindowName, WS_OVERLAPPEDWINDOW,
+        lpszClass, lpszWindowName, WS_POPUP,
         location_x, location_y, size_w, size_h,
         NULL, (HMENU)NULL, hInstance, NULL);
 
