@@ -280,6 +280,10 @@ void GameManager::StartCurrentMiniGame()
     {
         minigame4.Initialize();
     }
+    else if (currentMiniGameIndex == 2) {
+        minigame2.Init(m_hWnd);
+        minigame2.Release();
+    }
     else
     {
         // 지금은 1~3번 미니게임 슬롯 모두 PCroomgame을 임시로 사용한다.
@@ -356,7 +360,9 @@ void GameManager::HandleCurrentMiniGameMouse(int x, int y)
     {
         return;
     }
-
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.OnMouseDown(x, y);
+    }
     // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 마우스 처리를 사용한다.
     minigame1.MOUSE(x, y);
 }
@@ -383,6 +389,10 @@ void GameManager::UpdateCurrentMiniGame()
         minigame4.Update();
         return;
     }
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.Update();
+        return;
+    }
 
     // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 Update를 사용한다.
     minigame1.Update();
@@ -398,7 +408,10 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
         minigame4.Render(hDC);
         return;
     }
-
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.Render(hDC);
+        return;
+    }
     // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 화면 출력을 사용한다.
     minigame1.PAINT(hDC);
 }
@@ -418,7 +431,13 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
         currentMiniGameIndex++;
         return;
     }
+    if (!now_game_mode == game_mode_info::MiniGame2) {
+        if (minigame2.IsGameOver()) {
+            return;
+        }
+        EnterResult(2, minigame2.GetResultScore100());
 
+    }
     // 임시 연결된 미니게임 1이 끝나지 않았으면 Result로 이동하지 않는다.
     if (!minigame1.isfinished())
     {
@@ -1005,6 +1024,21 @@ void GameManager::OnKeyUp(WPARAM wParam)
     if (now_game_mode == game_mode_info::MiniGame4)
     {
         minigame4.OnKeyUp(wParam);
+
+    }
+}
+
+void GameManager::OnMouseUp(int x, int y) {
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.OnMouseUp(x, y);
+        return;
+    }
+}
+
+void GameManager::OnMouseMove(int x, int y) {
+    if (now_game_mode == game_mode_info::MiniGame2) {
+        minigame2.OnMouseMove(x, y);
+        return;
     }
 }
 
