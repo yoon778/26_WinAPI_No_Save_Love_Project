@@ -36,12 +36,17 @@ avoidgame::avoidgame()
     m_ridderImage = nullptr;
     m_phoneImage = nullptr;
     m_reelsPhoneCache = nullptr;
+    m_lastHitImageIndex = HIT_IMAGE_NONE;
     for (int i = 0; i < 3; i++)
     {
         m_foodImages[i] = nullptr;
         m_instarImages[i] = nullptr;
         m_reelsInstarCaches[i] = nullptr;
         m_reelsInstarCacheHeights[i] = 0;
+    }
+    for (int i = 0; i < 4; i++)
+    {
+        m_hitImages[i] = nullptr;
     }
 }
 
@@ -129,6 +134,22 @@ void avoidgame::LoadImages()
     {
         m_foodImages[2] = new Gdiplus::Image(L"resource\\minigame4\\pizza.png");
     }
+    if (m_hitImages[HIT_IMAGE_GAME] == nullptr)
+    {
+        m_hitImages[HIT_IMAGE_GAME] = new Gdiplus::Image(L"resource\\minigame4\\hit_game.png");
+    }
+    if (m_hitImages[HIT_IMAGE_REELS] == nullptr)
+    {
+        m_hitImages[HIT_IMAGE_REELS] = new Gdiplus::Image(L"resource\\minigame4\\hit_reels.png");
+    }
+    if (m_hitImages[HIT_IMAGE_FOOD] == nullptr)
+    {
+        m_hitImages[HIT_IMAGE_FOOD] = new Gdiplus::Image(L"resource\\minigame4\\hit_food.png");
+    }
+    if (m_hitImages[HIT_IMAGE_RIDDER] == nullptr)
+    {
+        m_hitImages[HIT_IMAGE_RIDDER] = new Gdiplus::Image(L"resource\\minigame4\\hit_ridder.png");
+    }
     if (m_phoneImage == nullptr)
     {
         m_phoneImage = new Gdiplus::Image(L"resource\\minigame4\\phone.png");
@@ -200,6 +221,14 @@ void avoidgame::DestroyImages()
         {
             delete m_instarImages[i];
             m_instarImages[i] = nullptr;
+        }
+    }
+    for (int i = 0; i < 4; i++)
+    {
+        if (m_hitImages[i] != nullptr)
+        {
+            delete m_hitImages[i];
+            m_hitImages[i] = nullptr;
         }
     }
 
@@ -355,6 +384,7 @@ void avoidgame::Reset()
     m_game.invincibleTimer = 0.0f;
     m_game.isFinished = false;
     m_game.isSuccess = false;
+    m_lastHitImageIndex = HIT_IMAGE_NONE;
 }
 
 void avoidgame::Update()
@@ -374,6 +404,10 @@ void avoidgame::Update()
         if (m_game.invincibleTimer < 0.0f)
         {
             m_game.invincibleTimer = 0.0f;
+        }
+        if (m_game.invincibleTimer == 0.0f)
+        {
+            m_lastHitImageIndex = HIT_IMAGE_NONE;
         }
     }
 
@@ -555,7 +589,16 @@ void avoidgame::RenderPlayer(HDC hDC)
     bool isRunning = (m_player.velocityX != 0.0f);
     Gdiplus::Image* playerImage = nullptr;
 
-    if (isRunning)
+    if (m_game.invincibleTimer > 0.0f &&
+        m_lastHitImageIndex >= 0 &&
+        m_lastHitImageIndex < 4 &&
+        m_hitImages[m_lastHitImageIndex] != nullptr &&
+        m_hitImages[m_lastHitImageIndex]->GetLastStatus() == Gdiplus::Ok)
+    {
+        playerImage = m_hitImages[m_lastHitImageIndex];
+        isRunning = false;
+    }
+    else if (isRunning)
     {
         playerImage = m_player.faceRight ? m_playerRunningRightImage : m_playerRunningLeftImage;
     }
@@ -593,24 +636,11 @@ void avoidgame::RenderPlayer(HDC hDC)
             DrawGdiImage(hDC, playerImage, drawX, drawY, drawWidth, drawHeight);
         }
 
-        if (m_game.invincibleTimer > 0.0f)
-        {
-            HPEN invinciblePen = CreatePen(PS_SOLID, 3, RGB(255, 230, 120));
-            HGDIOBJ oldPen = SelectObject(hDC, invinciblePen);
-            HGDIOBJ oldBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
-
-            RoundRect(hDC, drawX, drawY, drawX + drawWidth, drawY + drawHeight, 14, 14);
-
-            SelectObject(hDC, oldBrush);
-            SelectObject(hDC, oldPen);
-            DeleteObject(invinciblePen);
-        }
-
         return;
     }
 
     // 이미지 실패 시 대체 출력
-    COLORREF playerColor = (m_game.invincibleTimer > 0.0f) ? RGB(255, 230, 120) : RGB(255, 170, 190);
+    COLORREF playerColor = RGB(255, 170, 190);
 
     HBRUSH playerBrush = CreateSolidBrush(playerColor);
     HPEN playerPen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));
@@ -1077,7 +1107,7 @@ void avoidgame::UpdateFoodDrops()
 
         if (IsRectOverlap(playerRect, GetFoodRect(food)))
         {
-            DamagePlayer();
+            DamagePlayer(HIT_IMAGE_FOOD);
             m_foods.erase(m_foods.begin() + i);
             continue;
         }
@@ -1185,7 +1215,7 @@ void avoidgame::UpdateDeliverPattern()
 
     if (IsRectOverlap(GetPlayerRect(), m_deliver.riderRect))
     {
-        DamagePlayer();
+        DamagePlayer(HIT_IMAGE_RIDDER);
     }
 
     if (m_deliver.riderRect.right < 0 || m_deliver.activeTimer <= 0.0f)
@@ -1275,7 +1305,8 @@ void avoidgame::UpdateAttacks()
 
             if (isHit)
             {
-                DamagePlayer();
+                int hitImageIndex = (attack.attackType == ATTACK_TYPE_REELS) ? HIT_IMAGE_REELS : HIT_IMAGE_GAME;
+                DamagePlayer(hitImageIndex);
             }
 
             if (attack.attackTime <= 0.0f)
@@ -1345,17 +1376,6 @@ void avoidgame::DrawAttacks(HDC hDC)
 
 void avoidgame::DrawReelsScroll(HDC hDC, const AttackWarning& attack)
 {
-    // 릴스 배경
-    HBRUSH backBrush = CreateSolidBrush(RGB(18, 18, 24));
-    HPEN backPen = CreatePen(PS_SOLID, 3, RGB(255, 60, 120));
-    HGDIOBJ oldBrush = SelectObject(hDC, backBrush);
-    HGDIOBJ oldPen = SelectObject(hDC, backPen);
-    Rectangle(hDC, attack.rect.left, attack.rect.top, attack.rect.right, attack.rect.bottom);
-    SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldPen);
-    DeleteObject(backBrush);
-    DeleteObject(backPen);
-
     // 이미지 실패 대체
     if (m_reelsPhoneCache == nullptr || m_reelsPhoneCache->GetLastStatus() != Gdiplus::Ok)
     {
@@ -1488,12 +1508,17 @@ bool avoidgame::IsRectCircleOverlap(const RECT& rect, const RECT& circleRect) co
     return (deltaX * deltaX) + (deltaY * deltaY) <= radius * radius;
 }
 
-void avoidgame::DamagePlayer()
+void avoidgame::DamagePlayer(int hitImageIndex)
 {
     // 무적 중 피격 무시
     if (m_game.invincibleTimer > 0.0f)
     {
         return;
+    }
+
+    if (hitImageIndex >= 0 && hitImageIndex < 4)
+    {
+        m_lastHitImageIndex = hitImageIndex;
     }
 
     m_game.life--;

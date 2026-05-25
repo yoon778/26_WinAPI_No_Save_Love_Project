@@ -132,6 +132,11 @@ private:
 
     static const int ATTACK_TYPE_KAKAO = 0; // 카톡 공격
     static const int ATTACK_TYPE_REELS = 1; // 릴스 공격
+    static const int HIT_IMAGE_NONE = -1; // 피격 없음
+    static const int HIT_IMAGE_GAME = 0; // 카톡 피격
+    static const int HIT_IMAGE_REELS = 1; // 릴스 피격
+    static const int HIT_IMAGE_FOOD = 2; // 음식 피격
+    static const int HIT_IMAGE_RIDDER = 3; // 배달 피격
     static constexpr float WARNING_DURATION = 1.4f; // 기본 경고
     static constexpr float ATTACK_DURATION = 0.6f; // 기본 공격
 
@@ -176,11 +181,13 @@ private:
     Gdiplus::Image* m_kakaoPopupImage; // 카톡 팝업
     Gdiplus::Image* m_ridderImage; // 배달 기사
     Gdiplus::Image* m_foodImages[3]; // 음식 이미지
+    Gdiplus::Image* m_hitImages[4]; // 피격 이미지
     Gdiplus::Image* m_phoneImage; // 릴스 폰 틀
     Gdiplus::Image* m_instarImages[3]; // 릴스 화면
     Gdiplus::Bitmap* m_reelsPhoneCache; // 릴스 폰 캐시
     Gdiplus::Bitmap* m_reelsInstarCaches[3]; // 릴스 화면 캐시
     int m_reelsInstarCacheHeights[3]; // 릴스 화면 높이
+    int m_lastHitImageIndex; // 최근 피격 이미지
 
 private:
     void LoadImages(); // 이미지 로드
@@ -231,7 +238,7 @@ private:
     void DrawReelsScroll(HDC hDC, const AttackWarning& attack); // 릴스 이미지 출력
     bool IsRectOverlap(const RECT& a, const RECT& b) const; // 충돌 확인
     bool IsRectCircleOverlap(const RECT& rect, const RECT& circleRect) const; // 원 충돌 확인
-    void DamagePlayer(); // 피격 처리
+    void DamagePlayer(int hitImageIndex); // 피격 처리
 
     void UpdateGameTimer(); // 시간 갱신
     int CalculateScore() const; // 점수 계산
