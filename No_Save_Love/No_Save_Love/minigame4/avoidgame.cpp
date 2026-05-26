@@ -52,7 +52,7 @@ avoidgame::avoidgame()
 
 avoidgame::~avoidgame()
 {
-    DestroyImages();
+    Release();
 }
 
 void avoidgame::Initialize()
@@ -68,6 +68,23 @@ void avoidgame::Initialize()
     }
 
     Reset();
+}
+
+void avoidgame::Release()
+{
+    // 리소스 정리
+    DestroyImages();
+    m_platforms.clear();
+    m_attacks.clear();
+    m_foods.clear();
+
+    m_player = {};
+    m_game = {};
+    m_pattern = {};
+    m_kakao = {};
+    m_foodPattern = {};
+    m_deliver = {};
+    m_lastHitImageIndex = HIT_IMAGE_NONE;
 }
 
 void avoidgame::LoadImages()
@@ -504,6 +521,11 @@ void avoidgame::ResetPlayer()
     // 시작 위치
     m_player.x = static_cast<float>((SCREEN_WIDTH - PLAYER_WIDTH) / 2);
     m_player.y = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - PLAYER_HEIGHT);
+
+    // 이동 값
+    m_player.gravity = 2.0f;
+    m_player.jumpPower = 28.0f;
+    m_player.moveSpeed = 12.0f;
 
     // 물리 초기화
     m_player.velocityX = 0.0f;

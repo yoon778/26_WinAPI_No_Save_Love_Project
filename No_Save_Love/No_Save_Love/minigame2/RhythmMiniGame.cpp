@@ -1137,6 +1137,12 @@ void RhythmMiniGame::Render(HDC hDC)
 
 void RhythmMiniGame::Release()
 {
+    StopBGM();
+    CloseEffectSounds();
+
+    if (!back.IsNull())
+        back.Destroy();
+
     if (!hitCircleImg.IsNull())
         hitCircleImg.Destroy();
 
@@ -1226,8 +1232,7 @@ void RhythmMiniGame::Release()
             backgrounds[i].Destroy();
     }
 
-    CloseEffectSounds();
-    StopBGM();
+    ClearAllNotes();
 }
 
 void RhythmMiniGame::OnMouseDown(int x, int y)
