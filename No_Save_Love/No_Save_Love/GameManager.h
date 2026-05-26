@@ -30,6 +30,7 @@
 #include "minigame1/PCroomgame.h" // 피시방 미니게임 헤더파일
 #include "minigame4/avoidgame.h" // 유혹 피하기 미니게임 헤더파일
 #include "minigame2/RhythmMiniGame.h"
+#include "minigame3/schoolrun.h"
 
 
 class GameManager
@@ -94,6 +95,7 @@ private:
 
     PCroomgame minigame1;
     RhythmMiniGame minigame2;
+    schoolrun minigame3;
     avoidgame minigame4;
 private:
     static const int HEROINE_COUNT = 3;

@@ -2,6 +2,25 @@
 
 #pragma comment(lib, "Msimg32.lib")
 
+namespace
+{
+    // ShowCursor는 내부 카운터 방식이라 여러 번 숨기면 한 번 보이기로 복구되지 않는다.
+    void ForceSystemCursorVisible()
+    {
+        while (ShowCursor(TRUE) < 0)
+        {
+        }
+    }
+
+    void ForceSystemCursorHidden()
+    {
+        ForceSystemCursorVisible();
+        while (ShowCursor(FALSE) >= 0)
+        {
+        }
+    }
+}
+
 void GameManager::Initialize(HWND hWnd)
 {
     m_hWnd = hWnd;
@@ -38,9 +57,11 @@ void GameManager::Shutdown()
 
     if (m_isMiniGame2Initialized)
     {
+        ForceSystemCursorVisible();
         minigame2.Release();
         m_isMiniGame2Initialized = false;
     }
+    minigame3.Release();
 
     // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
@@ -285,6 +306,7 @@ void GameManager::StartCurrentMiniGame()
 {
     if (currentMiniGameIndex != 1 && m_isMiniGame2Initialized)
     {
+        ForceSystemCursorVisible();
         minigame2.Release();
         m_isMiniGame2Initialized = false;
     }
@@ -294,7 +316,7 @@ void GameManager::StartCurrentMiniGame()
         // 미니게임 2는 리듬게임을 사용한다.
         minigame2.Release();
         minigame2.Init(m_hWnd);
-        ShowCursor(FALSE);
+        ForceSystemCursorHidden();
         m_isMiniGame2Initialized = true;
     }
     else if (currentMiniGameIndex == 3)
@@ -302,9 +324,15 @@ void GameManager::StartCurrentMiniGame()
         // 미니게임 4는 avoidgame을 사용한다.
         minigame4.Initialize();
     }
+    else if (currentMiniGameIndex == 2)
+    {
+        // 미니게임 3은 윤서의 등교길을 사용한다.
+        minigame3.Release();
+        minigame3.Initialize();
+    }
     else
     {
-        // 미니게임 1과 임시 미니게임 3은 PCroomgame을 사용한다.
+        // 미니게임 1은 PCroomgame을 사용한다.
         minigame1.Release();
         minigame1.Init();
     }
@@ -381,7 +409,11 @@ void GameManager::HandleCurrentMiniGameMouse(int x, int y)
         minigame2.OnMouseDown(x, y);
         return;
     }
-    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 마우스 처리를 사용한다.
+    if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        return;
+    }
+    // 미니게임 1의 마우스 처리를 사용한다.
     minigame1.MOUSE(x, y);
 }
 
@@ -399,7 +431,12 @@ void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
         return;
     }
 
-    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 키 입력 처리를 사용한다.
+    if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        return;
+    }
+
+    // 미니게임 1의 키 입력 처리를 사용한다.
     minigame1.KEYDOWN(inputChar);
 }
 
@@ -416,8 +453,13 @@ void GameManager::UpdateCurrentMiniGame()
         minigame2.Update();
         return;
     }
+    if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        minigame3.Update();
+        return;
+    }
 
-    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 Update를 사용한다.
+    // 미니게임 1의 Update를 사용한다.
     minigame1.Update();
 }
 
@@ -435,7 +477,12 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
         minigame2.Render(hDC);
         return;
     }
-    // 임시 연결: 미니게임 1~3 슬롯에서 미니게임 1의 화면 출력을 사용한다.
+    if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        minigame3.Render(hDC);
+        return;
+    }
+    // 미니게임 1의 화면 출력을 사용한다.
     minigame1.PAINT(hDC);
 }
 
@@ -462,8 +509,20 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
         }
 
         EnterResult(1, minigame2.GetResultScore100());
-        ShowCursor(TRUE);
+        ForceSystemCursorVisible();
         m_pendingMiniGameRelease = PendingMiniGameRelease2;
+        currentMiniGameIndex++;
+        return;
+    }
+    if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        if (!minigame3.IsFinished())
+        {
+            return;
+        }
+
+        EnterResult(2, minigame3.GetScore());
+        m_pendingMiniGameRelease = PendingMiniGameRelease3;
         currentMiniGameIndex++;
         return;
     }
@@ -507,9 +566,14 @@ void GameManager::ReleasePendingMiniGame()
     case PendingMiniGameRelease2:
         if (m_isMiniGame2Initialized)
         {
+            ForceSystemCursorVisible();
             minigame2.Release();
             m_isMiniGame2Initialized = false;
         }
+        break;
+
+    case PendingMiniGameRelease3:
+        minigame3.Release();
         break;
 
     case PendingMiniGameReleaseNone:
@@ -1024,6 +1088,11 @@ void GameManager::OnKeyDown(WPARAM wParam)
             minigame4.OnKeyUp(VK_UP);
             minigame4.OnKeyUp(VK_SPACE);
         }
+        else if (now_game_mode == game_mode_info::MiniGame3)
+        {
+            minigame3.OnKeyUp(VK_DOWN);
+            minigame3.OnKeyUp(VK_SPACE);
+        }
 
         m_exitConfirmOpen = true;
         InvalidateRect(m_hWnd, nullptr, FALSE);
@@ -1059,6 +1128,10 @@ void GameManager::OnKeyDown(WPARAM wParam)
     {
         minigame4.OnKeyDown(wParam);
     }
+    else if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        minigame3.OnKeyDown(wParam);
+    }
 }
 
 void GameManager::OnKeyUp(WPARAM wParam)
@@ -1079,6 +1152,10 @@ void GameManager::OnKeyUp(WPARAM wParam)
     {
         minigame4.OnKeyUp(wParam);
 
+    }
+    else if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        minigame3.OnKeyUp(wParam);
     }
 }
 
