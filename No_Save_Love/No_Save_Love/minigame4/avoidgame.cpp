@@ -522,6 +522,11 @@ void avoidgame::ResetPlayer()
     m_player.x = static_cast<float>((SCREEN_WIDTH - PLAYER_WIDTH) / 2);
     m_player.y = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - PLAYER_HEIGHT);
 
+    // 이동 값
+    m_player.gravity = 2.0f;
+    m_player.jumpPower = 28.0f;
+    m_player.moveSpeed = 12.0f;
+
     // 물리 초기화
     m_player.velocityX = 0.0f;
     m_player.velocityY = 0.0f;

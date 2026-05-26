@@ -43,6 +43,12 @@
     <Filter Include="헤더 파일\minigame2">
       <UniqueIdentifier>{1a4a804f-429e-495d-b501-af223daf4353}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\minigame3">
+      <UniqueIdentifier>{031b0cf3-c9cb-4e57-81a4-25195ad25d2c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\minigame3">
+      <UniqueIdentifier>{53cd87b6-ad25-4aa5-a92d-02f7dcd140b5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -93,6 +99,9 @@
     <ClCompile Include="minigame2\RhythmMiniGame.cpp">
       <Filter>소스 파일\minigame2</Filter>
     </ClCompile>
+    <ClCompile Include="minigame3\schoolrun.cpp">
+      <Filter>소스 파일\minigame3</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
@@ -139,6 +148,9 @@
     </ClInclude>
     <ClInclude Include="minigame2\RhythmMiniGame.h">
       <Filter>헤더 파일\minigame2</Filter>
+    </ClInclude>
+    <ClInclude Include="minigame3\schoolrun.h">
+      <Filter>헤더 파일\minigame3</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
