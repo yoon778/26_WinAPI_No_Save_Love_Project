@@ -6,6 +6,11 @@ AudioManager::AudioManager()
     sfxVolume = 700;
     initialized = false;
     currentBgmAlias = L"currentBgm";
+    isBgmFadeInActive = false;
+    bgmFadeInStartTime = 0;
+    bgmFadeInDuration = 0;
+    bgmFadeInStartVolume = 0;
+    bgmFadeInTargetVolume = 250;
 }
 
 AudioManager::~AudioManager()
@@ -36,6 +41,7 @@ void AudioManager::Shutdown()
     bgmPaths.clear();
     sfxPaths.clear();
     sfxAliases.clear();
+    isBgmFadeInActive = false;
 
     initialized = false;
 }
@@ -100,8 +106,47 @@ void AudioManager::PlayBgm(const std::wstring& key, bool repeat)
     currentBgmKey = key;
 }
 
+void AudioManager::PlayBgmFadeIn(const std::wstring& key, int startVolume, int targetVolume, DWORD durationMs, bool repeat)
+{
+    if (key.empty())
+    {
+        return;
+    }
+
+    if (key == L"stop")
+    {
+        StopBgm();
+        return;
+    }
+
+    if (currentBgmKey == key)
+    {
+        return;
+    }
+
+    if (bgmPaths.find(key) == bgmPaths.end())
+    {
+        return;
+    }
+
+    bgmFadeInStartVolume = startVolume;
+    bgmFadeInTargetVolume = targetVolume;
+    bgmFadeInDuration = durationMs;
+    bgmFadeInStartTime = GetTickCount();
+    isBgmFadeInActive = durationMs > 0;
+
+    SetBgmVolume(startVolume);
+    PlayBgm(key, repeat);
+
+    if (durationMs == 0)
+    {
+        SetBgmVolume(targetVolume);
+    }
+}
+
 void AudioManager::StopBgm()
 {
+    isBgmFadeInActive = false;
     CloseCurrentBgm();
     currentBgmKey.clear();
 }
@@ -119,6 +164,30 @@ void AudioManager::PlaySfx(const std::wstring& key)
     SendMciCommand(L"stop " + alias);
     SendMciCommand(L"seek " + alias + L" to start");
     SendMciCommand(L"play " + alias);
+}
+
+void AudioManager::Update()
+{
+    if (!isBgmFadeInActive || currentBgmKey.empty())
+    {
+        return;
+    }
+
+    DWORD currentTime = GetTickCount();
+    DWORD elapsedTime = currentTime - bgmFadeInStartTime;
+
+    if (elapsedTime >= bgmFadeInDuration)
+    {
+        SetBgmVolume(bgmFadeInTargetVolume);
+        isBgmFadeInActive = false;
+        return;
+    }
+
+    int volumeRange = bgmFadeInTargetVolume - bgmFadeInStartVolume;
+    int nextVolume = bgmFadeInStartVolume +
+        static_cast<int>(volumeRange * elapsedTime / bgmFadeInDuration);
+
+    SetBgmVolume(nextVolume);
 }
 
 void AudioManager::SetBgmVolume(int volume)

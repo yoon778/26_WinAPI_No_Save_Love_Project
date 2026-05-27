@@ -1209,6 +1209,8 @@ void GameManager::OnMouseMove(int x, int y) {
 
 void GameManager::OnTimer(HWND hWnd)
 {
+    audioManager.Update();
+
     if (m_exitConfirmOpen)
     {
         InvalidateRect(hWnd, NULL, FALSE);
@@ -1295,7 +1297,7 @@ void GameManager::ApplyPendingSceneChange()
 
     if (now_game_mode == game_mode_info::Title)
     {
-        audioManager.PlayBgm(L"title");
+        audioManager.PlayBgmFadeIn(L"title", 50, 450, 5000);
     }
     else if (audioManager.GetCurrentBgmKey() == L"title")
     {

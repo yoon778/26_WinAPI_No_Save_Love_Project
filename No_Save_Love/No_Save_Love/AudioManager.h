@@ -20,9 +20,12 @@ public:
     void RegisterSfx(const std::wstring& key, const std::wstring& path);
 
     void PlayBgm(const std::wstring& key, bool repeat = true);
+    void PlayBgmFadeIn(const std::wstring& key, int startVolume, int targetVolume, DWORD durationMs, bool repeat = true);
     void StopBgm();
 
     void PlaySfx(const std::wstring& key);
+
+    void Update();
 
     void SetBgmVolume(int volume);
     void SetSfxVolume(int volume);
@@ -40,6 +43,12 @@ private:
     int bgmVolume;
     int sfxVolume;
     bool initialized;
+
+    bool isBgmFadeInActive;
+    DWORD bgmFadeInStartTime;
+    DWORD bgmFadeInDuration;
+    int bgmFadeInStartVolume;
+    int bgmFadeInTargetVolume;
 
 private:
     std::wstring MakeSfxAlias(const std::wstring& key) const;
