@@ -127,6 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="GameManager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="minigame1\PCroomgame.cpp" />
@@ -146,6 +147,7 @@
     <ClCompile Include="StoryData.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioManager.h" />
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="minigame1\PCroomgame.h" />
     <ClInclude Include="minigame1\ramen.h" />

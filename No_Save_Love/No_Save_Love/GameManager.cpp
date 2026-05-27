@@ -1,6 +1,9 @@
 ﻿#include "GameManager.h"
+#include "AudioManager.h"
 
 #pragma comment(lib, "Msimg32.lib")
+
+AudioManager audioManager;
 
 namespace
 {
@@ -24,6 +27,9 @@ namespace
 void GameManager::Initialize(HWND hWnd)
 {
     m_hWnd = hWnd;
+
+    audioManager.Initialize();
+    audioManager.RegisterBgm(L"title", L"resource\\sound\\title.mp3");
 
     // 히로인 선택 횟수를 초기화한다.
     characters = {
@@ -53,6 +59,8 @@ void GameManager::Initialize(HWND hWnd)
 }
 void GameManager::Shutdown()
 {
+    audioManager.Shutdown();
+
     ReleasePendingMiniGame();
 
     if (m_isMiniGame2Initialized)
@@ -1258,6 +1266,15 @@ void GameManager::ApplyPendingSceneChange()
 
     // 실제 모드를 변경한다.
     now_game_mode = pendingGameMode;
+
+    if (now_game_mode == game_mode_info::Title)
+    {
+        audioManager.PlayBgm(L"title");
+    }
+    else if (audioManager.GetCurrentBgmKey() == L"title")
+    {
+        audioManager.StopBgm();
+    }
 
     ReleasePendingMiniGame();
 
