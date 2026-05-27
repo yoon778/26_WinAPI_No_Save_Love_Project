@@ -30,6 +30,7 @@ void GameManager::Initialize(HWND hWnd)
 
     audioManager.Initialize();
     audioManager.RegisterBgm(L"title", L"resource\\sound\\title.mp3");
+    audioManager.RegisterSfx(L"click", L"resource\\sound\\Click.wav");
 
     // 히로인 선택 횟수를 초기화한다.
     characters = {
@@ -85,12 +86,14 @@ void GameManager::OnMouseClick(int x, int y)
     {
         if (IsPointInsideRect(m_exitYesButtonRect, x, y))
         {
+            audioManager.PlaySfx(L"click");
             PostMessage(m_hWnd, WM_CLOSE, 0, 0);
             return;
         }
 
         if (IsPointInsideRect(m_exitNoButtonRect, x, y))
         {
+            audioManager.PlaySfx(L"click");
             m_exitConfirmOpen = false;
             InvalidateRect(m_hWnd, nullptr, FALSE);
             return;
@@ -111,6 +114,7 @@ void GameManager::OnMouseClick(int x, int y)
         titleScene.OnMouseClick(x, y);
 
         if (titleScene.IsStartClicked()) {
+            audioManager.PlaySfx(L"click");
 
             storyScene.SetDialogues(storyData.GetIntroStory());
 
@@ -126,6 +130,8 @@ void GameManager::OnMouseClick(int x, int y)
         // 확인 버튼을 눌러 이름 입력이 끝났다면
         if (nameinputScene.IsFinished())
         {
+            audioManager.PlaySfx(L"click");
+
             // 입력된 이름을 GameManager에 저장한다.
             playerName = nameinputScene.GetPlayerName();
 
@@ -146,10 +152,17 @@ void GameManager::OnMouseClick(int x, int y)
     }
     case game_mode_info::Story:
     {
+        bool isSkipClicked = storyScene.IsClickSkipButton(x, y);
+
         storyScene.OnMouseClick(x, y);
 
         if (storyScene.IsFinished())
         {
+            if (isSkipClicked)
+            {
+                audioManager.PlaySfx(L"click");
+            }
+
             if (currentMiniGameIndex < 4)
             {
                 // 현재 회차 번호에 맞는 미니게임 튜토리얼로 이동한다.
@@ -181,6 +194,8 @@ void GameManager::OnMouseClick(int x, int y)
         minigam1_tutorial1.OnMouseClick(x, y);
         if (minigam1_tutorial1.IsFinished())
         {
+            audioManager.PlaySfx(L"click");
+
             minigam1_tutorial1.Shutdown();
             StartCurrentMiniGame();
         }
@@ -201,6 +216,8 @@ void GameManager::OnMouseClick(int x, int y)
 
         if (resultScene.IsFinished())
         {
+            audioManager.PlaySfx(L"click");
+
             // ChoiceScene은 화면 표시용으로 현재 플레이어 스탯만 전달받는다.
             choiceScene.SetPlayerState(player);
             choiceScene.Reset();
@@ -231,6 +248,7 @@ void GameManager::OnMouseClick(int x, int y)
             // 분기 스토리 진입에 성공했을 때만 선택 반영 완료 처리한다.
             if (EnterBranchStory(selectedIndex))
             {
+                audioManager.PlaySfx(L"click");
                 m_choiceApplied = true;
             }
         }
@@ -255,11 +273,18 @@ void GameManager::OnMouseClick(int x, int y)
     case game_mode_info::EndingDialogue:
     {
         // 엔딩 대사도 StoryScene으로 출력하므로 클릭 처리는 StoryScene에게 맡긴다.
+        bool isSkipClicked = storyScene.IsClickSkipButton(x, y);
+
         storyScene.OnMouseClick(x, y);
 
         // 엔딩 대사가 모두 끝나면 THE END 화면으로 이동한다.
         if (storyScene.IsFinished())
         {
+            if (isSkipClicked)
+            {
+                audioManager.PlaySfx(L"click");
+            }
+
             endingScene.SetEndingImage(CalculateEndingType(finalHeroineIndex), finalHeroineIndex);
             endingScene.Reset();
             RequestSceneChange(game_mode_info::Ending);
@@ -276,6 +301,7 @@ void GameManager::OnMouseClick(int x, int y)
 
         if (endingScene.IsExitRequested())
         {
+            audioManager.PlaySfx(L"click");
             PostMessage(m_hWnd, WM_CLOSE, 0, 0);
         }
 

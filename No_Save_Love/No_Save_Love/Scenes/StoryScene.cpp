@@ -242,6 +242,12 @@ void StoryScene::OnMouseClick(int x, int y)
     }
 }
 
+bool StoryScene::IsClickSkipButton(int x, int y) const
+{
+    POINT mousePoint = { x, y };
+    return PtInRect(&skipButtonRect, mousePoint);
+}
+
 bool StoryScene::IsFinished() const
 {
     return finished;

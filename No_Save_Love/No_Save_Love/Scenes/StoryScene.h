@@ -55,6 +55,9 @@ public:
     // 마우스 클릭 시 다음 대사로 이동한다.
     void OnMouseClick(int x, int y);
 
+    // SKIP 버튼 클릭인지 확인한다.
+    bool IsClickSkipButton(int x, int y) const;
+
     // 현재 대사 묶음이 끝났는지 확인한다.
     bool IsFinished() const;
 
