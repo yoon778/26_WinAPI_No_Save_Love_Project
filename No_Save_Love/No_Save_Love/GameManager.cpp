@@ -124,7 +124,6 @@ void GameManager::OnMouseClick(int x, int y)
     }
     case game_mode_info::NameInput:
     {
-        // 이름 입력 화면의 마우스 클릭 처리
         nameinputScene.OnMouseClick(x, y);
 
         // 확인 버튼을 눌러 이름 입력이 끝났다면
@@ -1299,7 +1298,10 @@ void GameManager::ApplyPendingSceneChange()
     {
         audioManager.PlayBgmFadeIn(L"title", 50, 450, 5000);
     }
-    else if (audioManager.GetCurrentBgmKey() == L"title")
+    else if (now_game_mode == game_mode_info::NameInput) {
+        audioManager.PlayBgmFadeIn(L"title", 450, 50, 3000);
+    }
+    else if (now_game_mode != game_mode_info::NameInput && audioManager.GetCurrentBgmKey() == L"title")
     {
         audioManager.StopBgm();
     }

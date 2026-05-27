@@ -21,6 +21,7 @@ public:
 
     void PlayBgm(const std::wstring& key, bool repeat = true);
     void PlayBgmFadeIn(const std::wstring& key, int startVolume, int targetVolume, DWORD durationMs, bool repeat = true);
+    void FadeOutBgm(DWORD durationMs);
     void StopBgm();
 
     void PlaySfx(const std::wstring& key);
@@ -49,6 +50,11 @@ private:
     DWORD bgmFadeInDuration;
     int bgmFadeInStartVolume;
     int bgmFadeInTargetVolume;
+
+    bool isBgmFadeOutActive;
+    DWORD bgmFadeOutStartTime;
+    DWORD bgmFadeOutDuration;
+    int bgmFadeOutStartVolume;
 
 private:
     std::wstring MakeSfxAlias(const std::wstring& key) const;
