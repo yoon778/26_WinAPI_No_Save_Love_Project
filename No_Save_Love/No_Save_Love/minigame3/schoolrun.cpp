@@ -6,8 +6,8 @@ namespace
     const int SCREEN_HEIGHT = 1080;
     const int GROUND_TOP = 920;
 
-    const int PLAYER_WIDTH = 105;
-    const int PLAYER_STAND_HEIGHT = 165;
+    const int PLAYER_WIDTH = 130;
+    const int PLAYER_STAND_HEIGHT = 158;
     const int PLAYER_SLIDE_HEIGHT = 83;
 
     const int GROUND_OBSTACLE_WIDTH = 120;
@@ -38,6 +38,13 @@ namespace
     const int SCORE_MAX_DISTANCE = 1300;
 
     const int GROUND_MARK_INTERVAL = 180;
+    const int BACKGROUND_IMAGE_COUNT = 3;
+    const int BACKGROUND_SCROLL_WIDTH = 1920;
+    const float BACKGROUND_SCROLL_RATE = 0.35f;
+    const float PLAYER_ANIMATION_INTERVAL = 0.08f;
+    const int PLAYER_RUNNING_FRAME_COUNT = 8;
+    const int PLAYER_ONE_JUMP_FRAME_COUNT = 8;
+    const int PLAYER_TWO_JUMP_FRAME_COUNT = 5;
 }
 
 schoolrun::schoolrun()
@@ -51,6 +58,7 @@ schoolrun::schoolrun()
 
     m_gameSpeed = START_GAME_SPEED;
     m_scrollOffset = 0.0f;
+    m_backgroundScrollOffset = 0.0f;
     m_distanceScore = 0;
     m_nextSpeedUpDistance = SPEED_UP_DISTANCE_STEP;
     m_nextObstacleDistance = OBSTACLE_START_DISTANCE;
@@ -62,18 +70,123 @@ schoolrun::schoolrun()
     m_isGrounded = true;
     m_isSliding = false;
     m_jumpCount = 0;
+    m_playerAnimationState = RunningAnimation;
+    m_playerFrameIndex = 0;
+    m_playerAnimationTime = 0.0f;
+
+    m_gdiplusToken = 0;
+    m_isGdiplusStarted = false;
+    for (int i = 0; i < BACKGROUND_IMAGE_COUNT; ++i)
+    {
+        m_backgroundImages[i] = nullptr;
+    }
+    m_playerRunImage = nullptr;
+    m_playerOneJumpImage = nullptr;
+    m_playerTwoJumpImage = nullptr;
+    m_groundObstacleImage = nullptr;
+    m_airObstacleImage = nullptr;
+}
+
+schoolrun::~schoolrun()
+{
+    Release();
 }
 
 void schoolrun::Initialize()
 {
+    LoadImages();
+
     // 시작 상태
     Reset();
 }
 
 void schoolrun::Release()
 {
-    // 현재는 해제할 이미지 리소스 없음
+    DestroyImages();
     m_obstacles.clear();
+}
+
+void schoolrun::LoadImages()
+{
+    if (!m_isGdiplusStarted)
+    {
+        Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+        if (Gdiplus::GdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, nullptr) == Gdiplus::Ok)
+        {
+            m_isGdiplusStarted = true;
+        }
+    }
+
+    if (!m_isGdiplusStarted)
+    {
+        return;
+    }
+
+    if (m_backgroundImages[0] == nullptr)
+    {
+        m_backgroundImages[0] = new Gdiplus::Image(L"resource\\minigame3\\background1.png");
+    }
+    if (m_backgroundImages[1] == nullptr)
+    {
+        m_backgroundImages[1] = new Gdiplus::Image(L"resource\\minigame3\\backgraound2.png");
+        if (m_backgroundImages[1]->GetLastStatus() != Gdiplus::Ok)
+        {
+            delete m_backgroundImages[1];
+            m_backgroundImages[1] = new Gdiplus::Image(L"resource\\minigame3\\background2.png");
+        }
+    }
+    if (m_backgroundImages[2] == nullptr)
+    {
+        m_backgroundImages[2] = new Gdiplus::Image(L"resource\\minigame3\\background3.png");
+    }
+    if (m_playerRunImage == nullptr)
+    {
+        m_playerRunImage = new Gdiplus::Image(L"resource\\minigame3\\char_running_right.png");
+    }
+    if (m_playerOneJumpImage == nullptr)
+    {
+        m_playerOneJumpImage = new Gdiplus::Image(L"resource\\minigame3\\one_jump.png");
+    }
+    if (m_playerTwoJumpImage == nullptr)
+    {
+        m_playerTwoJumpImage = new Gdiplus::Image(L"resource\\minigame3\\two_jump.png");
+    }
+    if (m_groundObstacleImage == nullptr)
+    {
+        m_groundObstacleImage = new Gdiplus::Image(L"resource\\minigame3\\construction.png");
+    }
+    if (m_airObstacleImage == nullptr)
+    {
+        m_airObstacleImage = new Gdiplus::Image(L"resource\\minigame3\\bird.png");
+    }
+}
+
+void schoolrun::DestroyImages()
+{
+    for (int i = 0; i < BACKGROUND_IMAGE_COUNT; ++i)
+    {
+        delete m_backgroundImages[i];
+        m_backgroundImages[i] = nullptr;
+    }
+
+    delete m_playerRunImage;
+    delete m_playerOneJumpImage;
+    delete m_playerTwoJumpImage;
+    delete m_groundObstacleImage;
+    delete m_airObstacleImage;
+
+    m_playerRunImage = nullptr;
+    m_playerOneJumpImage = nullptr;
+    m_playerTwoJumpImage = nullptr;
+    m_groundObstacleImage = nullptr;
+    m_airObstacleImage = nullptr;
+
+    if (m_isGdiplusStarted)
+    {
+        Gdiplus::GdiplusShutdown(m_gdiplusToken);
+        m_gdiplusToken = 0;
+        m_isGdiplusStarted = false;
+    }
 }
 
 void schoolrun::Reset()
@@ -86,6 +199,7 @@ void schoolrun::Reset()
     // 러닝 상태
     m_gameSpeed = START_GAME_SPEED;
     m_scrollOffset = 0.0f;
+    m_backgroundScrollOffset = 0.0f;
     m_distanceScore = 0;
     m_nextSpeedUpDistance = SPEED_UP_DISTANCE_STEP;
     m_nextObstacleDistance = OBSTACLE_START_DISTANCE;
@@ -98,6 +212,9 @@ void schoolrun::Reset()
     m_isGrounded = true;
     m_isSliding = false;
     m_jumpCount = 0;
+    m_playerAnimationState = RunningAnimation;
+    m_playerFrameIndex = 0;
+    m_playerAnimationTime = 0.0f;
     m_obstacles.clear();
 }
 
@@ -146,10 +263,18 @@ void schoolrun::Update()
     {
         m_scrollOffset -= GROUND_MARK_INTERVAL;
     }
+    m_backgroundScrollOffset += m_gameSpeed * BACKGROUND_SCROLL_RATE;
+    while (m_backgroundScrollOffset >= BACKGROUND_SCROLL_WIDTH * BACKGROUND_IMAGE_COUNT)
+    {
+        m_backgroundScrollOffset -= BACKGROUND_SCROLL_WIDTH * BACKGROUND_IMAGE_COUNT;
+    }
 
     // 거리 점수
     m_distanceScore += DISTANCE_GAIN_PER_FRAME;
     m_score = m_distanceScore;
+
+    // 플레이어 애니메이션
+    UpdatePlayerAnimation();
 
     // 속도 증가
     UpdateSpeed();
@@ -170,15 +295,11 @@ void schoolrun::Update()
 
 void schoolrun::Render(HDC hDC)
 {
-    // 배경
-    RECT screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
-    HBRUSH backgroundBrush = CreateSolidBrush(RGB(20, 20, 25));
-    FillRect(hDC, &screenRect, backgroundBrush);
-    DeleteObject(backgroundBrush);
+    RenderBackground(hDC);
 
-    // 바닥
+    // 바닥 이미지가 들어오기 전까지 쓰는 임시 플레이 영역
     RECT groundRect = { 0, GROUND_TOP, SCREEN_WIDTH, SCREEN_HEIGHT };
-    HBRUSH groundBrush = CreateSolidBrush(RGB(245, 245, 245));
+    HBRUSH groundBrush = CreateSolidBrush(RGB(238, 238, 232));
     FillRect(hDC, &groundRect, groundBrush);
     DeleteObject(groundBrush);
 
@@ -189,25 +310,14 @@ void schoolrun::Render(HDC hDC)
     RenderObstacles(hDC);
 
     // 플레이어
-    RECT playerRect = GetPlayerRect();
-    HBRUSH playerBrush = CreateSolidBrush(m_isSliding ? RGB(100, 220, 180) : RGB(120, 190, 255));
-    HPEN playerPen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));
-    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, playerBrush));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, playerPen));
-
-    RoundRect(hDC, playerRect.left, playerRect.top, playerRect.right, playerRect.bottom, 27, 27);
-
-    SelectObject(hDC, oldPen);
-    SelectObject(hDC, oldBrush);
-    DeleteObject(playerPen);
-    DeleteObject(playerBrush);
+    RenderPlayer(hDC);
 
     // 충돌 박스
     RECT hitBoxRect = GetHitBoxRect();
     HPEN hitBoxPen = CreatePen(PS_DASH, 2, RGB(255, 80, 80));
     HBRUSH hollowBrush = static_cast<HBRUSH>(GetStockObject(HOLLOW_BRUSH));
-    oldBrush = static_cast<HBRUSH>(SelectObject(hDC, hollowBrush));
-    oldPen = static_cast<HPEN>(SelectObject(hDC, hitBoxPen));
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, hollowBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, hitBoxPen));
 
     Rectangle(hDC, hitBoxRect.left, hitBoxRect.top, hitBoxRect.right, hitBoxRect.bottom);
 
@@ -227,6 +337,9 @@ void schoolrun::OnKeyDown(WPARAM wParam)
         m_velocityY = m_jumpPower;
         m_isGrounded = false;
         m_jumpCount++;
+        m_playerAnimationState = (m_jumpCount >= 2) ? TwoJumpAnimation : OneJumpAnimation;
+        m_playerFrameIndex = 0;
+        m_playerAnimationTime = 0.0f;
         return;
     }
 
@@ -338,6 +451,34 @@ void schoolrun::UpdateObstacles()
     }
 }
 
+void schoolrun::UpdatePlayerAnimation()
+{
+    PlayerAnimationState nextState = GetPlayerAnimationState();
+    if (m_playerAnimationState != nextState)
+    {
+        m_playerAnimationState = nextState;
+        m_playerFrameIndex = 0;
+        m_playerAnimationTime = 0.0f;
+    }
+
+    int frameCount = PLAYER_RUNNING_FRAME_COUNT;
+    if (m_playerAnimationState == OneJumpAnimation)
+    {
+        frameCount = PLAYER_ONE_JUMP_FRAME_COUNT;
+    }
+    else if (m_playerAnimationState == TwoJumpAnimation)
+    {
+        frameCount = PLAYER_TWO_JUMP_FRAME_COUNT;
+    }
+
+    m_playerAnimationTime += UPDATE_DELTA_SECONDS;
+    while (m_playerAnimationTime >= PLAYER_ANIMATION_INTERVAL)
+    {
+        m_playerAnimationTime -= PLAYER_ANIMATION_INTERVAL;
+        m_playerFrameIndex = (m_playerFrameIndex + 1) % frameCount;
+    }
+}
+
 void schoolrun::CheckObstacleCollisions()
 {
     // 플레이어와 장애물 충돌
@@ -387,6 +528,35 @@ void schoolrun::SpawnObstacle()
     m_nextObstacleType = 1 - m_nextObstacleType;
 }
 
+void schoolrun::RenderBackground(HDC hDC) const
+{
+    RECT screenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+    HBRUSH fallbackBrush = CreateSolidBrush(RGB(85, 180, 245));
+    FillRect(hDC, &screenRect, fallbackBrush);
+    DeleteObject(fallbackBrush);
+
+    int scroll = static_cast<int>(m_backgroundScrollOffset);
+    int startTile = scroll / BACKGROUND_SCROLL_WIDTH;
+    int offsetX = scroll % BACKGROUND_SCROLL_WIDTH;
+
+    for (int i = -1; i <= 2; ++i)
+    {
+        int imageIndex = (startTile + i) % BACKGROUND_IMAGE_COUNT;
+        if (imageIndex < 0)
+        {
+            imageIndex += BACKGROUND_IMAGE_COUNT;
+        }
+
+        DrawGdiImage(
+            hDC,
+            m_backgroundImages[imageIndex],
+            i * BACKGROUND_SCROLL_WIDTH - offsetX,
+            0,
+            BACKGROUND_SCROLL_WIDTH,
+            SCREEN_HEIGHT);
+    }
+}
+
 void schoolrun::RenderScrollGround(HDC hDC) const
 {
     // 바닥선 표시
@@ -413,6 +583,12 @@ void schoolrun::RenderObstacles(HDC hDC) const
 
         if (obstacle.type == GroundObstacle)
         {
+            if (m_groundObstacleImage != nullptr && m_groundObstacleImage->GetLastStatus() == Gdiplus::Ok)
+            {
+                DrawGdiImage(hDC, m_groundObstacleImage, rect.left, rect.top, obstacle.width, obstacle.height);
+                continue;
+            }
+
             HBRUSH brush = CreateSolidBrush(RGB(230, 90, 80));
             HPEN pen = CreatePen(PS_SOLID, 3, RGB(255, 230, 220));
             HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, brush));
@@ -428,6 +604,12 @@ void schoolrun::RenderObstacles(HDC hDC) const
         }
         else
         {
+            if (m_airObstacleImage != nullptr && m_airObstacleImage->GetLastStatus() == Gdiplus::Ok)
+            {
+                DrawGdiImage(hDC, m_airObstacleImage, rect.left, rect.top, obstacle.width, obstacle.height);
+                continue;
+            }
+
             HBRUSH brush = CreateSolidBrush(RGB(255, 210, 80));
             HPEN pen = CreatePen(PS_SOLID, 3, RGB(255, 255, 230));
             HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, brush));
@@ -444,6 +626,50 @@ void schoolrun::RenderObstacles(HDC hDC) const
     }
 }
 
+void schoolrun::RenderPlayer(HDC hDC) const
+{
+    RECT playerRect = GetPlayerRect();
+    Gdiplus::Image* playerImage = m_playerRunImage;
+    int frameCount = PLAYER_RUNNING_FRAME_COUNT;
+
+    if (m_playerAnimationState == OneJumpAnimation)
+    {
+        playerImage = m_playerOneJumpImage;
+        frameCount = PLAYER_ONE_JUMP_FRAME_COUNT;
+    }
+    else if (m_playerAnimationState == TwoJumpAnimation)
+    {
+        playerImage = m_playerTwoJumpImage;
+        frameCount = PLAYER_TWO_JUMP_FRAME_COUNT;
+    }
+
+    if (playerImage != nullptr && playerImage->GetLastStatus() == Gdiplus::Ok)
+    {
+        DrawGdiImageFrame(
+            hDC,
+            playerImage,
+            playerRect.left,
+            playerRect.top,
+            playerRect.right - playerRect.left,
+            playerRect.bottom - playerRect.top,
+            m_playerFrameIndex,
+            frameCount);
+        return;
+    }
+
+    HBRUSH playerBrush = CreateSolidBrush(m_isSliding ? RGB(100, 220, 180) : RGB(120, 190, 255));
+    HPEN playerPen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, playerBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, playerPen));
+
+    RoundRect(hDC, playerRect.left, playerRect.top, playerRect.right, playerRect.bottom, 27, 27);
+
+    SelectObject(hDC, oldPen);
+    SelectObject(hDC, oldBrush);
+    DeleteObject(playerPen);
+    DeleteObject(playerBrush);
+}
+
 void schoolrun::RenderScore(HDC hDC) const
 {
     // 거리 점수 표시
@@ -458,4 +684,61 @@ void schoolrun::RenderScore(HDC hDC) const
     SetBkMode(hDC, TRANSPARENT);
     SetTextColor(hDC, RGB(255, 255, 255));
     TextOutW(hDC, 40, 35, scoreText, lstrlenW(scoreText));
+}
+
+void schoolrun::DrawGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight) const
+{
+    if (image == nullptr || image->GetLastStatus() != Gdiplus::Ok)
+    {
+        return;
+    }
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
+    graphics.DrawImage(image, drawRect);
+}
+
+void schoolrun::DrawGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount) const
+{
+    if (image == nullptr || image->GetLastStatus() != Gdiplus::Ok || frameCount <= 0)
+    {
+        return;
+    }
+
+    int frameWidth = static_cast<int>(image->GetWidth()) / frameCount;
+    int frameHeight = static_cast<int>(image->GetHeight());
+    int safeFrame = frameIndex % frameCount;
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
+    graphics.DrawImage(
+        image,
+        drawRect,
+        safeFrame * frameWidth,
+        0,
+        frameWidth,
+        frameHeight,
+        Gdiplus::UnitPixel);
+}
+
+schoolrun::PlayerAnimationState schoolrun::GetPlayerAnimationState() const
+{
+    if (m_isGrounded)
+    {
+        return RunningAnimation;
+    }
+
+    return (m_jumpCount >= 2) ? TwoJumpAnimation : OneJumpAnimation;
 }
