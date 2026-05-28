@@ -4,7 +4,7 @@
 
 namespace
 {
-    const bool SHOW_HIT_BOX = false;
+    const bool SHOW_HIT_BOX = true;
 
     const int SCREEN_WIDTH = 1920;
     const int SCREEN_HEIGHT = 1080;
@@ -36,7 +36,7 @@ namespace
     const int WATER_OBSTACLE_HEIGHT = 53;
 
     const int SIGNBOARD_OBSTACLE_WIDTH = 200;
-    const int SIGNBOARD_OBSTACLE_HEIGHT = SCREEN_HEIGHT - PLAYER_WIDTH*2;
+    const int SIGNBOARD_OBSTACLE_HEIGHT = SCREEN_HEIGHT - PLAYER_WIDTH*2+20;
 
     const float FIXED_PLAYER_X = 220.0f;
 
@@ -709,13 +709,18 @@ void schoolrun::RenderPlayer(HDC hDC)
 
     if (m_isSliding && !m_playerSlideImage.IsNull())
     {
+        int drawWidth = m_playerSlideImage.GetWidth();
+        int drawHeight = m_playerSlideImage.GetHeight();
+        int drawX = playerRect.left + ((PLAYER_WIDTH - drawWidth) / 2);
+        int drawY = GROUND_TOP - drawHeight;
+
         DrawImage(
             hDC,
             m_playerSlideImage,
-            playerRect.left,
-            GROUND_TOP - PLAYER_STAND_HEIGHT,
-            PLAYER_WIDTH,
-            PLAYER_STAND_HEIGHT);
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight);
         return;
     }
 
