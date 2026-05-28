@@ -30,6 +30,11 @@ void GameManager::Initialize(HWND hWnd)
 
     audioManager.Initialize();
     audioManager.RegisterBgm(L"title", L"resource\\sound\\title.mp3");
+    audioManager.RegisterBgm(L"minigame1", L"resource\\sound\\minigame1.mp3");
+    audioManager.RegisterBgm(L"minigame4", L"resource\\sound\\minigame4.mp3");
+    audioManager.RegisterBgm(L"happyending", L"resource\\sound\\ending\\happy_ending.mp3");
+    audioManager.RegisterBgm(L"badending", L"resource\\sound\\ending\\bad_ending.mp3");
+    audioManager.RegisterBgm(L"hiddenending", L"resource\\sound\\ending\\hidden_ending.mp3");
     audioManager.RegisterSfx(L"click", L"resource\\sound\\Click.wav");
 
     // 히로인 선택 횟수를 초기화한다.
@@ -1298,8 +1303,42 @@ void GameManager::ApplyPendingSceneChange()
     {
         audioManager.PlayBgmFadeIn(L"title", 50, 450, 5000);
     }
+    else if (now_game_mode == game_mode_info::MiniGame1)
+    {
+        audioManager.PlayBgmFadeIn(L"minigame1", 80, 350, 2000);
+    }
+    else if (now_game_mode == game_mode_info::MiniGame4)
+    {
+        audioManager.PlayBgmFadeIn(L"minigame4", 80, 350, 2000);
+    }
+    else if (now_game_mode == game_mode_info::EndingDialogue ||
+        now_game_mode == game_mode_info::Ending)
+    {
+        int endingType = CalculateEndingType(finalHeroineIndex);
+
+        if (endingType == 0)
+        {
+            audioManager.PlayBgmFadeIn(L"happyending", 60, 330, 3000);
+        }
+        else if (endingType == 1)
+        {
+            audioManager.PlayBgmFadeIn(L"badending", 60, 330, 3000);
+        }
+        else
+        {
+            audioManager.PlayBgmFadeIn(L"hiddenending", 60, 330, 3000);
+        }
+    }
     else if (now_game_mode == game_mode_info::NameInput) {
         audioManager.FadeOutBgm(10000);
+    }
+    else if (audioManager.GetCurrentBgmKey() == L"minigame1")
+    {
+        audioManager.FadeOutBgm(1500);
+    }
+    else if (audioManager.GetCurrentBgmKey() == L"minigame4")
+    {
+        audioManager.FadeOutBgm(1500);
     }
     else if (now_game_mode != game_mode_info::NameInput && audioManager.GetCurrentBgmKey() == L"title")
     {
