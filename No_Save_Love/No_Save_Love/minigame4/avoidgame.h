@@ -158,7 +158,9 @@ private:
     static constexpr float DELIVER_ACTIVE_DURATION = 4.0f; // [조절값] 배달 지속
     static constexpr float DELIVER_SPEED = 90.0f; // [조절값] 배달 속도
 
-    static const int PLAYER_RUNNING_FRAME_COUNT = 8; // [조절값] 달리기 프레임 수
+    static const int PLAYER_RUNNING_FRAME_COUNT = 7; // [조절값] 달리기 프레임 수
+    static const int PLAYER_SHEET_FRAME_COUNT = 8; // 달리기 7프레임 + 점프 1프레임
+    static const int PLAYER_JUMP_FRAME_INDEX = 7; // 점프 프레임 번호
     static constexpr float PLAYER_ANIMATION_INTERVAL = 0.08f; // [조절값] 달리기 프레임 속도
 
 private:
@@ -197,6 +199,8 @@ private:
     void DestroyReelsImageCache(); // 릴스 캐시 해제
     void DrawGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight); // 이미지 출력
     void DrawGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount); // 프레임 출력
+    void DrawRedTintedGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight); // 붉은 이미지 출력
+    void DrawRedTintedGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount); // 붉은 프레임 출력
 
     void ResetPlayer(); // 플레이어 초기화
     void UpdatePlayer(); // 플레이어 갱신

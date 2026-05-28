@@ -115,21 +115,11 @@ void avoidgame::LoadImages()
     }
     if (m_playerRunningLeftImage == nullptr)
     {
-        m_playerRunningLeftImage = new Gdiplus::Image(L"resource\\minigame4\\running_left.png");
-        if (m_playerRunningLeftImage->GetLastStatus() != Gdiplus::Ok)
-        {
-            delete m_playerRunningLeftImage;
-            m_playerRunningLeftImage = new Gdiplus::Image(L"resource\\minigame4\\char_running_left.png");
-        }
+        m_playerRunningLeftImage = new Gdiplus::Image(L"resource\\minigame4\\run_jump_left.png");
     }
     if (m_playerRunningRightImage == nullptr)
     {
-        m_playerRunningRightImage = new Gdiplus::Image(L"resource\\minigame4\\running_right.png");
-        if (m_playerRunningRightImage->GetLastStatus() != Gdiplus::Ok)
-        {
-            delete m_playerRunningRightImage;
-            m_playerRunningRightImage = new Gdiplus::Image(L"resource\\minigame4\\char_running_right.png");
-        }
+        m_playerRunningRightImage = new Gdiplus::Image(L"resource\\minigame4\\run_jump_right.png");
     }
     if (m_kakaoPopupImage == nullptr)
     {
@@ -389,6 +379,86 @@ void avoidgame::DrawGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int
         Gdiplus::UnitPixel);
 }
 
+void avoidgame::DrawRedTintedGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight)
+{
+    if (image == nullptr || image->GetLastStatus() != Gdiplus::Ok)
+    {
+        return;
+    }
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    Gdiplus::ColorMatrix colorMatrix =
+    {
+        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.35f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.35f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.7f, 0.0f,
+        0.35f, 0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    Gdiplus::ImageAttributes imageAttributes;
+    imageAttributes.SetColorMatrix(&colorMatrix);
+
+    Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
+    graphics.DrawImage(
+        image,
+        drawRect,
+        0,
+        0,
+        static_cast<int>(image->GetWidth()),
+        static_cast<int>(image->GetHeight()),
+        Gdiplus::UnitPixel,
+        &imageAttributes);
+}
+
+void avoidgame::DrawRedTintedGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount)
+{
+    if (image == nullptr || image->GetLastStatus() != Gdiplus::Ok || frameCount <= 0)
+    {
+        return;
+    }
+
+    int frameWidth = static_cast<int>(image->GetWidth()) / frameCount;
+    int frameHeight = static_cast<int>(image->GetHeight());
+    int safeFrame = frameIndex % frameCount;
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    Gdiplus::ColorMatrix colorMatrix =
+    {
+        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.35f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.35f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.7f, 0.0f,
+        0.35f, 0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    Gdiplus::ImageAttributes imageAttributes;
+    imageAttributes.SetColorMatrix(&colorMatrix);
+
+    Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
+    graphics.DrawImage(
+        image,
+        drawRect,
+        safeFrame * frameWidth,
+        0,
+        frameWidth,
+        frameHeight,
+        Gdiplus::UnitPixel,
+        &imageAttributes);
+}
+
 void avoidgame::Reset()
 {
     CreatePlatforms();
@@ -608,21 +678,46 @@ void avoidgame::RenderPlayer(HDC hDC)
         static_cast<LONG>(m_player.x + PLAYER_WIDTH),
         static_cast<LONG>(m_player.y + PLAYER_HEIGHT)
     };
-    bool isRunning = (m_player.velocityX != 0.0f);
+    bool isJumping = !m_player.isGrounded;
+    bool isRunning = !isJumping && (m_player.velocityX != 0.0f);
+    bool usesFrameImage = false;
+    bool isInvincible = (m_game.invincibleTimer > 0.0f);
+    int frameIndex = m_player.animationFrame;
     Gdiplus::Image* playerImage = nullptr;
 
-    if (m_game.invincibleTimer > 0.0f &&
+    if (isInvincible &&
         m_lastHitImageIndex >= 0 &&
         m_lastHitImageIndex < 4 &&
         m_hitImages[m_lastHitImageIndex] != nullptr &&
         m_hitImages[m_lastHitImageIndex]->GetLastStatus() == Gdiplus::Ok)
     {
-        playerImage = m_hitImages[m_lastHitImageIndex];
-        isRunning = false;
+        Gdiplus::Image* hitImage = m_hitImages[m_lastHitImageIndex];
+        int drawWidth = PLAYER_WIDTH;
+        int drawHeight = PLAYER_HEIGHT;
+        int sourceWidth = static_cast<int>(hitImage->GetWidth());
+        int sourceHeight = static_cast<int>(hitImage->GetHeight());
+
+        if (sourceHeight > 0 && sourceWidth != sourceHeight)
+        {
+            drawWidth = static_cast<int>((drawHeight * sourceWidth + sourceHeight / 2) / sourceHeight);
+        }
+
+        int drawX = playerRect.left + ((PLAYER_WIDTH - drawWidth) / 2);
+        int drawY = playerRect.bottom - drawHeight;
+        DrawRedTintedGdiImage(hDC, hitImage, drawX, drawY, drawWidth, drawHeight);
+        return;
+    }
+
+    if (isJumping)
+    {
+        playerImage = m_player.faceRight ? m_playerRunningRightImage : m_playerRunningLeftImage;
+        usesFrameImage = true;
+        frameIndex = PLAYER_JUMP_FRAME_INDEX;
     }
     else if (isRunning)
     {
         playerImage = m_player.faceRight ? m_playerRunningRightImage : m_playerRunningLeftImage;
+        usesFrameImage = true;
     }
     else
     {
@@ -636,9 +731,9 @@ void avoidgame::RenderPlayer(HDC hDC)
         int drawHeight = PLAYER_HEIGHT;
         int sourceWidth = static_cast<int>(playerImage->GetWidth());
         int sourceHeight = static_cast<int>(playerImage->GetHeight());
-        if (isRunning)
+        if (usesFrameImage)
         {
-            sourceWidth = sourceWidth / PLAYER_RUNNING_FRAME_COUNT;
+            sourceWidth = sourceWidth / PLAYER_SHEET_FRAME_COUNT;
         }
 
         if (sourceHeight > 0 && sourceWidth != sourceHeight)
@@ -649,13 +744,27 @@ void avoidgame::RenderPlayer(HDC hDC)
         int drawX = playerRect.left + ((PLAYER_WIDTH - drawWidth) / 2);
         int drawY = playerRect.bottom - drawHeight;
 
-        if (isRunning)
+        if (usesFrameImage)
         {
-            DrawGdiImageFrame(hDC, playerImage, drawX, drawY, drawWidth, drawHeight, m_player.animationFrame, PLAYER_RUNNING_FRAME_COUNT);
+            if (isInvincible)
+            {
+                DrawRedTintedGdiImageFrame(hDC, playerImage, drawX, drawY, drawWidth, drawHeight, frameIndex, PLAYER_SHEET_FRAME_COUNT);
+            }
+            else
+            {
+                DrawGdiImageFrame(hDC, playerImage, drawX, drawY, drawWidth, drawHeight, frameIndex, PLAYER_SHEET_FRAME_COUNT);
+            }
         }
         else
         {
-            DrawGdiImage(hDC, playerImage, drawX, drawY, drawWidth, drawHeight);
+            if (isInvincible)
+            {
+                DrawRedTintedGdiImage(hDC, playerImage, drawX, drawY, drawWidth, drawHeight);
+            }
+            else
+            {
+                DrawGdiImage(hDC, playerImage, drawX, drawY, drawWidth, drawHeight);
+            }
         }
 
         return;
