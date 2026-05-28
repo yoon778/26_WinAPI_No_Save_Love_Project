@@ -1299,7 +1299,7 @@ void GameManager::ApplyPendingSceneChange()
         audioManager.PlayBgmFadeIn(L"title", 50, 450, 5000);
     }
     else if (now_game_mode == game_mode_info::NameInput) {
-        audioManager.PlayBgmFadeIn(L"title", 450, 50, 3000);
+        audioManager.FadeOutBgm(10000);
     }
     else if (now_game_mode != game_mode_info::NameInput && audioManager.GetCurrentBgmKey() == L"title")
     {

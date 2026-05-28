@@ -11,6 +11,10 @@ AudioManager::AudioManager()
     bgmFadeInDuration = 0;
     bgmFadeInStartVolume = 0;
     bgmFadeInTargetVolume = 250;
+    isBgmFadeOutActive = false;
+    bgmFadeOutStartTime = 0;
+    bgmFadeOutDuration = 0;
+    bgmFadeOutStartVolume = 0;
 }
 
 AudioManager::~AudioManager()
@@ -42,6 +46,7 @@ void AudioManager::Shutdown()
     sfxPaths.clear();
     sfxAliases.clear();
     isBgmFadeInActive = false;
+    isBgmFadeOutActive = false;
 
     initialized = false;
 }
@@ -86,6 +91,9 @@ void AudioManager::PlayBgm(const std::wstring& key, bool repeat)
     {
         return;
     }
+
+    isBgmFadeInActive = false;
+    isBgmFadeOutActive = false;
 
     CloseCurrentBgm();
 
@@ -134,6 +142,7 @@ void AudioManager::PlayBgmFadeIn(const std::wstring& key, int startVolume, int t
     bgmFadeInDuration = durationMs;
     bgmFadeInStartTime = GetTickCount();
     isBgmFadeInActive = durationMs > 0;
+    isBgmFadeOutActive = false;
 
     SetBgmVolume(startVolume);
     PlayBgm(key, repeat);
@@ -144,9 +153,31 @@ void AudioManager::PlayBgmFadeIn(const std::wstring& key, int startVolume, int t
     }
 }
 
+void AudioManager::FadeOutBgm(DWORD durationMs)
+{
+    if (currentBgmKey.empty())
+    {
+        return;
+    }
+
+    isBgmFadeInActive = false;
+
+    if (durationMs == 0)
+    {
+        StopBgm();
+        return;
+    }
+
+    isBgmFadeOutActive = true;
+    bgmFadeOutStartTime = GetTickCount();
+    bgmFadeOutDuration = durationMs;
+    bgmFadeOutStartVolume = bgmVolume;
+}
+
 void AudioManager::StopBgm()
 {
     isBgmFadeInActive = false;
+    isBgmFadeOutActive = false;
     CloseCurrentBgm();
     currentBgmKey.clear();
 }
@@ -168,6 +199,24 @@ void AudioManager::PlaySfx(const std::wstring& key)
 
 void AudioManager::Update()
 {
+    if (isBgmFadeOutActive && !currentBgmKey.empty())
+    {
+        DWORD currentTime = GetTickCount();
+        DWORD elapsedTime = currentTime - bgmFadeOutStartTime;
+
+        if (elapsedTime >= bgmFadeOutDuration)
+        {
+            StopBgm();
+            return;
+        }
+
+        int nextVolume = bgmFadeOutStartVolume -
+            static_cast<int>(bgmFadeOutStartVolume * elapsedTime / bgmFadeOutDuration);
+
+        SetBgmVolume(nextVolume);
+        return;
+    }
+
     if (!isBgmFadeInActive || currentBgmKey.empty())
     {
         return;
