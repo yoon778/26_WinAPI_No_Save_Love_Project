@@ -31,6 +31,7 @@ void GameManager::Initialize(HWND hWnd)
     audioManager.Initialize();
     audioManager.RegisterBgm(L"title", L"resource\\sound\\title.mp3");
     audioManager.RegisterBgm(L"minigame1", L"resource\\sound\\minigame1.mp3");
+    audioManager.RegisterBgm(L"minigame3", L"resource\\sound\\minigame3.mp3");
     audioManager.RegisterBgm(L"minigame4", L"resource\\sound\\minigame4.mp3");
     audioManager.RegisterBgm(L"happyending", L"resource\\sound\\ending\\happy_ending.mp3");
     audioManager.RegisterBgm(L"badending", L"resource\\sound\\ending\\bad_ending.mp3");
@@ -1307,6 +1308,10 @@ void GameManager::ApplyPendingSceneChange()
     {
         audioManager.PlayBgmFadeIn(L"minigame1", 80, 350, 2000);
     }
+    else if (now_game_mode == game_mode_info::MiniGame3)
+    {
+        audioManager.PlayBgmFadeIn(L"minigame3", 80, 350, 2000);
+    }
     else if (now_game_mode == game_mode_info::MiniGame4)
     {
         audioManager.PlayBgmFadeIn(L"minigame4", 80, 350, 2000);
@@ -1333,6 +1338,10 @@ void GameManager::ApplyPendingSceneChange()
         audioManager.FadeOutBgm(10000);
     }
     else if (audioManager.GetCurrentBgmKey() == L"minigame1")
+    {
+        audioManager.FadeOutBgm(1500);
+    }
+    else if (audioManager.GetCurrentBgmKey() == L"minigame3")
     {
         audioManager.FadeOutBgm(1500);
     }
