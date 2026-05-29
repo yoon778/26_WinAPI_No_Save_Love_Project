@@ -248,7 +248,7 @@ void StoryData::Initialize()
     // 선택 이벤트 스토리: 공통 도입 + 선택 히로인 대사 + 공통 마무리.
     storyScripts[0][0] =
     {
-        { L"", L"다음 날, 교실은 평소보다 조금 소란스러웠다.",L"school_day" },
+        { L"", L"다음 날, 교실은 평소보다 조금 소란스러웠다.", L"school_day", L"", L"", L"story2.1"},
         { L"담임", L"오늘은 둘씩 짝을 지어서 활동지를 작성할 거다.",L"school_day" },
         { L"{PLAYER}", L"짝 활동……",L"school_day" },
         { L"", L"{PLAYER}는 조용히 빈자리를 찾았다.",L"school_day" },
@@ -292,7 +292,7 @@ void StoryData::Initialize()
 
     storyScripts[0][1] =
     {
-        { L"", L"다음 날, 교실은 평소보다 조금 소란스러웠다.",L"school_day" },
+        { L"", L"다음 날, 교실은 평소보다 조금 소란스러웠다.", L"school_day", L"", L"", L"story2.1"},
         { L"담임", L"오늘은 둘씩 짝을 지어서 활동지를 작성할 거다.",L"school_day" },
         { L"{PLAYER}", L"짝 활동……",L"school_day" },
         { L"", L"{PLAYER}는 조용히 빈자리를 찾았다.",L"school_day" },
@@ -334,7 +334,7 @@ void StoryData::Initialize()
 
     storyScripts[0][2] =
     {
-        { L"", L"다음 날, 교실은 평소보다 조금 소란스러웠다.",L"school_day" },
+        { L"", L"다음 날, 교실은 평소보다 조금 소란스러웠다.", L"school_day", L"", L"", L"story2.1"},
         { L"담임", L"오늘은 둘씩 짝을 지어서 활동지를 작성할 거다.",L"school_day" },
         { L"{PLAYER}", L"짝 활동……",L"school_day" },
         { L"", L"{PLAYER}는 조용히 빈자리를 찾았다.",L"school_day" },

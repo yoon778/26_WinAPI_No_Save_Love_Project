@@ -35,6 +35,7 @@ void GameManager::Initialize(HWND hWnd)
     audioManager.RegisterBgm(L"story3", L"resource\\sound\\story_part1\\story3.mp3");
     audioManager.RegisterBgm(L"story4", L"resource\\sound\\story_part1\\story4.mp3");
     audioManager.RegisterBgm(L"story5", L"resource\\sound\\story_part1\\story5.mp3");
+    audioManager.RegisterBgm(L"story2.1", L"resource\\sound\\story_part2\\story2.1.mp3");
     audioManager.RegisterBgm(L"minigame1", L"resource\\sound\\minigame\\minigame1.mp3");
     audioManager.RegisterBgm(L"minigame3", L"resource\\sound\\minigame\\minigame3.mp3");
     audioManager.RegisterBgm(L"minigame4", L"resource\\sound\\minigame\\minigame4.mp3");
