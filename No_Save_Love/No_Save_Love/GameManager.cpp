@@ -30,13 +30,18 @@ void GameManager::Initialize(HWND hWnd)
 
     audioManager.Initialize();
     audioManager.RegisterBgm(L"title", L"resource\\sound\\title.mp3");
-    audioManager.RegisterBgm(L"minigame1", L"resource\\sound\\minigame1.mp3");
-    audioManager.RegisterBgm(L"minigame3", L"resource\\sound\\minigame3.mp3");
-    audioManager.RegisterBgm(L"minigame4", L"resource\\sound\\minigame4.mp3");
+    audioManager.RegisterBgm(L"story1", L"resource\\sound\\story_part1\\story1.mp3");
+    audioManager.RegisterBgm(L"story2", L"resource\\sound\\story_part1\\story2.mp3");
+    audioManager.RegisterBgm(L"story3", L"resource\\sound\\story_part1\\story3.mp3");
+    audioManager.RegisterBgm(L"story4", L"resource\\sound\\story_part1\\story4.mp3");
+    audioManager.RegisterBgm(L"story5", L"resource\\sound\\story_part1\\story5.mp3");
+    audioManager.RegisterBgm(L"minigame1", L"resource\\sound\\minigame\\minigame1.mp3");
+    audioManager.RegisterBgm(L"minigame3", L"resource\\sound\\minigame\\minigame3.mp3");
+    audioManager.RegisterBgm(L"minigame4", L"resource\\sound\\minigame\\minigame4.mp3");
     audioManager.RegisterBgm(L"happyending", L"resource\\sound\\ending\\happy_ending.mp3");
     audioManager.RegisterBgm(L"badending", L"resource\\sound\\ending\\bad_ending.mp3");
     audioManager.RegisterBgm(L"hiddenending", L"resource\\sound\\ending\\hidden_ending.mp3");
-    audioManager.RegisterSfx(L"click", L"resource\\sound\\Click.wav");
+    audioManager.RegisterSfx(L"click", L"resource\\sound\\Sfx\\Click.wav");
 
     // 히로인 선택 횟수를 초기화한다.
     characters = {
@@ -160,6 +165,7 @@ void GameManager::OnMouseClick(int x, int y)
         bool isSkipClicked = storyScene.IsClickSkipButton(x, y);
 
         storyScene.OnMouseClick(x, y);
+        ApplyStoryBgmChange();
 
         if (storyScene.IsFinished())
         {
@@ -281,6 +287,7 @@ void GameManager::OnMouseClick(int x, int y)
         bool isSkipClicked = storyScene.IsClickSkipButton(x, y);
 
         storyScene.OnMouseClick(x, y);
+        ApplyStoryBgmChange();
 
         // 엔딩 대사가 모두 끝나면 THE END 화면으로 이동한다.
         if (storyScene.IsFinished())
@@ -592,6 +599,29 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
 
     // Result 이후 Choice와 Story를 거쳐 다음 미니게임 슬롯으로 넘어가게 한다.
     currentMiniGameIndex++;
+}
+
+void GameManager::ApplyStoryBgmChange()
+{
+    if (now_game_mode != game_mode_info::Story &&
+        now_game_mode != game_mode_info::EndingDialogue)
+    {
+        return;
+    }
+
+    std::wstring bgmKey = storyScene.ConsumePendingBgmKey();
+    if (bgmKey.empty())
+    {
+        return;
+    }
+
+    if (bgmKey == L"stop")
+    {
+        audioManager.FadeOutBgm(1500);
+        return;
+    }
+
+    audioManager.PlayBgmFadeIn(bgmKey, 60, 330, 2000);
 }
 
 void GameManager::ReleasePendingMiniGame()
@@ -1349,10 +1379,16 @@ void GameManager::ApplyPendingSceneChange()
     {
         audioManager.FadeOutBgm(1500);
     }
+    else if (audioManager.GetCurrentBgmKey() == L"story1")
+    {
+        audioManager.FadeOutBgm(1500);
+    }
     else if (now_game_mode != game_mode_info::NameInput && audioManager.GetCurrentBgmKey() == L"title")
     {
         audioManager.StopBgm();
     }
+
+    ApplyStoryBgmChange();
 
     ReleasePendingMiniGame();
 

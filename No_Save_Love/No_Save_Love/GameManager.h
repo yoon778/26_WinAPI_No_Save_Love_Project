@@ -184,6 +184,9 @@ private:
     // 미니게임이 끝났을 때 점수를 계산하고 ResultScene으로 이동한다.
     void FinishCurrentMiniGameIfNeeded();
 
+    // StoryScene 대사에 지정된 BGM 변경 요청을 적용한다.
+    void ApplyStoryBgmChange();
+
     // Scene 전환이 실제로 끝난 뒤 미니게임 리소스를 정리한다.
     void ReleasePendingMiniGame();
 

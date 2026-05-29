@@ -137,20 +137,21 @@ void AudioManager::PlayBgmFadeIn(const std::wstring& key, int startVolume, int t
         return;
     }
 
-    bgmFadeInStartVolume = startVolume;
-    bgmFadeInTargetVolume = targetVolume;
-    bgmFadeInDuration = durationMs;
-    bgmFadeInStartTime = GetTickCount();
-    isBgmFadeInActive = durationMs > 0;
-    isBgmFadeOutActive = false;
-
     SetBgmVolume(startVolume);
     PlayBgm(key, repeat);
 
     if (durationMs == 0)
     {
         SetBgmVolume(targetVolume);
+        return;
     }
+
+    bgmFadeInStartVolume = startVolume;
+    bgmFadeInTargetVolume = targetVolume;
+    bgmFadeInDuration = durationMs;
+    bgmFadeInStartTime = GetTickCount();
+    isBgmFadeInActive = true;
+    isBgmFadeOutActive = false;
 }
 
 void AudioManager::FadeOutBgm(DWORD durationMs)

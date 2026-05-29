@@ -18,6 +18,7 @@ struct DialogueLineInfo
     std::wstring backgroundKey = L""; // 배경 이미지 이름 또는 키
     std::wstring characterKey = L"";  // 캐릭터 이미지 이름 또는 키
     std::wstring effectKey = L"";     // 흔들림, 페이드 같은 효과
+    std::wstring bgmKey = L"";        // 이 대사에서 변경할 BGM 키
 };
 //페이드 아웃 인 
 enum class FadeState
@@ -71,6 +72,9 @@ public:
     // immediateApply가 true면 페이드 없이 바로 적용한다.
     void ApplyCurrentLineVisualInfo(bool immediateApply);
 
+    // 현재 대사에서 요청한 BGM 변경 키를 한 번만 가져온다.
+    std::wstring ConsumePendingBgmKey();
+
     // SKIP 버튼을 그린다.
     void DrawSkipButton(HDC hDC);
 
@@ -109,6 +113,9 @@ private:
 
     // 현재 줄이 노트인지 보고 책 등장 fade 상태를 맞춘다.
     void UpdateBookFadeState();
+
+    // 현재 줄이 BGM 변경을 요청하는지 확인한다.
+    void QueueCurrentLineBgmChange();
 
     // GDI+가 정상적으로 시작되었는지 확인하는 값이다.
     bool isGdiPlusStarted = false;
@@ -215,6 +222,9 @@ private:
 
     // 대사 묶음이 끝났는지 여부
     bool finished = false;
+
+    std::wstring pendingBgmKey = L"";
+    bool hasPendingBgmKey = false;
 
 
     // 캐릭터별 색상 스타일

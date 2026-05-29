@@ -55,6 +55,8 @@ void StoryScene::Initialize()
     visibleTextCount = 0;
     isTypingFinished = false;
     finished = false;
+    pendingBgmKey = L"";
+    hasPendingBgmKey = false;
 }
 
 void StoryScene::Shutdown()
@@ -132,6 +134,8 @@ void StoryScene::Shutdown()
     visibleTextCount = 0;
     isTypingFinished = false;
     finished = false;
+    pendingBgmKey = L"";
+    hasPendingBgmKey = false;
 }
 
 void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
@@ -164,6 +168,8 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
     pendingCharacterFade = false;
     bookAlpha = 0;
     isBookShowing = false;
+    pendingBgmKey = L"";
+    hasPendingBgmKey = false;
 
     // 대사가 없으면 바로 종료 상태로 만든다.
     if (dialogues.empty())
@@ -174,6 +180,7 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 
     // 첫 번째 줄의 배경/캐릭터는 페이드 없이 바로 적용한다.
     ApplyCurrentLineVisualInfo(false);
+    QueueCurrentLineBgmChange();
 }
 
 void StoryScene::OnMouseClick(int x, int y)
@@ -234,6 +241,7 @@ void StoryScene::OnMouseClick(int x, int y)
 
         // 새 대사로 넘어갔으므로 배경/캐릭터 정보를 갱신한다.
         ApplyCurrentLineVisualInfo(false);
+        QueueCurrentLineBgmChange();
     }
     else
     {
@@ -251,6 +259,17 @@ bool StoryScene::IsClickSkipButton(int x, int y) const
 bool StoryScene::IsFinished() const
 {
     return finished;
+}
+
+std::wstring StoryScene::ConsumePendingBgmKey()
+{
+    if (!hasPendingBgmKey)
+    {
+        return L"";
+    }
+
+    hasPendingBgmKey = false;
+    return pendingBgmKey;
 }
 
 StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker) const
@@ -861,6 +880,28 @@ void StoryScene::UpdateBookFadeState()
 
     isBookShowing = false;
     bookAlpha = 0;
+}
+
+void StoryScene::QueueCurrentLineBgmChange()
+{
+    if (dialogues.empty())
+    {
+        return;
+    }
+
+    if (currentDialogueIndex < 0 || currentDialogueIndex >= static_cast<int>(dialogues.size()))
+    {
+        return;
+    }
+
+    const std::wstring& bgmKey = dialogues[currentDialogueIndex].bgmKey;
+    if (bgmKey.empty())
+    {
+        return;
+    }
+
+    pendingBgmKey = bgmKey;
+    hasPendingBgmKey = true;
 }
 
 void StoryScene::StartFadeTransition(
