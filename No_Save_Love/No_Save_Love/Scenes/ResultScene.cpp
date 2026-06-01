@@ -152,44 +152,7 @@ Player_state ResultScene::CalculateStat(int whichGame, int score)
 
     case 2:
     {
-        // 미니게임 3: 유혹 피하기 / 대화 스킬, 재력
-        if (score >= 90)
-        {
-            plusState.speech = 50;
-            plusState.money = 30;
-        }
-        else if (score >= 80)
-        {
-            plusState.speech = 40;
-            plusState.money = 24;
-        }
-        else if (score >= 60)
-        {
-            plusState.speech = 30;
-            plusState.money = 18;
-        }
-        else if (score >= 40)
-        {
-            plusState.speech = 20;
-            plusState.money = 10;
-        }
-        else if (score >= 20)
-        {
-            plusState.speech = 10;
-            plusState.money = 5;
-        }
-        else
-        {
-            plusState.speech = 0;
-            plusState.money = 0;
-        }
-
-        break;
-    }
-
-    case 3:
-    {
-        // 미니게임 4: 등교길 / 외모, 매력
+        // 미니게임 3: 등교길 / 외모, 매력
         if (score >= 90)
         {
             plusState.appearance = 50;
@@ -224,6 +187,43 @@ Player_state ResultScene::CalculateStat(int whichGame, int score)
         break;
     }
 
+    case 3:
+    {
+        // 미니게임 4: 유혹 피하기 / 대화 스킬, 재력
+        if (score >= 90)
+        {
+            plusState.speech = 50;
+            plusState.money = 30;
+        }
+        else if (score >= 80)
+        {
+            plusState.speech = 40;
+            plusState.money = 24;
+        }
+        else if (score >= 60)
+        {
+            plusState.speech = 30;
+            plusState.money = 18;
+        }
+        else if (score >= 40)
+        {
+            plusState.speech = 20;
+            plusState.money = 10;
+        }
+        else if (score >= 20)
+        {
+            plusState.speech = 10;
+            plusState.money = 5;
+        }
+        else
+        {
+            plusState.speech = 0;
+            plusState.money = 0;
+        }
+
+        break;
+    }
+
     default:
     {
         // 잘못된 미니게임 번호면 상승량 없음
@@ -246,10 +246,10 @@ std::wstring ResultScene::GetGameName(int whichGame) const
         return m_playerName + L"의 노래 연습";
 
     case 2:
-        return L"유혹 피하기";
+        return m_playerName + L"의 등교길";
 
     case 3:
-        return m_playerName + L"의 등교길";
+        return L"유혹 피하기";
 
     default:
         return L"알 수 없는 미니게임";
