@@ -182,7 +182,8 @@ private:
     void RenderCurrentMiniGame(HDC hDC);
 
     // 미니게임이 끝났을 때 점수를 계산하고 ResultScene으로 이동한다.
-    void FinishCurrentMiniGameIfNeeded();
+    // forceFinish가 true면 Q 디버그 입력으로 현재 점수를 즉시 반환한다.
+    void FinishCurrentMiniGameIfNeeded(bool forceFinish = false);
 
     // StoryScene 대사에 지정된 BGM 변경 요청을 적용한다.
     void ApplyStoryBgmChange();

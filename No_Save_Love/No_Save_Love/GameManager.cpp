@@ -369,6 +369,8 @@ void GameManager::StartCurrentMiniGame()
     if (currentMiniGameIndex == 1)
     {
         // 미니게임 2는 리듬게임을 사용한다.
+        // 리듬게임은 자체 BGM을 재생하므로 이전 공용 BGM을 먼저 정지한다.
+        audioManager.StopBgm();
         minigame2.Release();
         minigame2.Init(m_hWnd);
         ForceSystemCursorHidden();
@@ -405,6 +407,7 @@ void GameManager::DebugEnterMiniGameByIndex(int miniGameIndex)
 
     // F1~F4는 앞부분 진행을 건너뛰고 원하는 미니게임 슬롯으로 바로 들어간다.
     currentMiniGameIndex = miniGameIndex;
+    currentStoryRound = miniGameIndex;
     StartCurrentMiniGame();
 }
 
@@ -541,13 +544,13 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
     minigame1.PAINT(hDC);
 }
 
-void GameManager::FinishCurrentMiniGameIfNeeded()
+void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
 {
     // 미니게임 4는 avoidgame의 종료 여부와 점수를 사용한다.
     // 결과 처리도 현재 실행 화면 기준으로 판단한다.
     if (now_game_mode == game_mode_info::MiniGame4)
     {
-        if (!minigame4.IsFinished())
+        if (!forceFinish && !minigame4.IsFinished())
         {
             return;
         }
@@ -558,6 +561,11 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
     }
     if (now_game_mode == game_mode_info::MiniGame2)
     {
+        if (forceFinish)
+        {
+            minigame2.FinishImmediately();
+        }
+
         if (!minigame2.IsGameOver())
         {
             return;
@@ -571,7 +579,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
     }
     if (now_game_mode == game_mode_info::MiniGame3)
     {
-        if (!minigame3.IsFinished())
+        if (!forceFinish && !minigame3.IsFinished())
         {
             return;
         }
@@ -582,7 +590,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
         return;
     }
     // 임시 연결된 미니게임 1이 끝나지 않았으면 Result로 이동하지 않는다.
-    if (!minigame1.isfinished())
+    if (!forceFinish && !minigame1.isfinished())
     {
         return;
     }
@@ -1199,6 +1207,17 @@ void GameManager::OnKeyDown(WPARAM wParam)
 
     default:
         break;
+    }
+
+    // Q는 테스트 중인 미니게임을 현재 점수로 즉시 종료한다.
+    if (wParam == 'Q' &&
+        (now_game_mode == game_mode_info::MiniGame1 ||
+            now_game_mode == game_mode_info::MiniGame2 ||
+            now_game_mode == game_mode_info::MiniGame3 ||
+            now_game_mode == game_mode_info::MiniGame4))
+    {
+        FinishCurrentMiniGameIfNeeded(true);
+        return;
     }
 
     // 미니게임 4는 방향키를 사용하므로 특수 키 입력을 직접 전달한다.

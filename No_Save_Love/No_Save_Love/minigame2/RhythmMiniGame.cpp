@@ -1458,6 +1458,19 @@ bool RhythmMiniGame::IsGameOver() const
     return isGameOver;
 }
 
+void RhythmMiniGame::FinishImmediately()
+{
+    if (isGameOver)
+    {
+        return;
+    }
+
+    StopBGM();
+    ClearAllNotes();
+    CalculateResult();
+    isGameOver = true;
+}
+
 
 void RhythmMiniGame::CreateHitCircle(int x, int y)
 {

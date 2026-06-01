@@ -544,6 +544,7 @@ public:
     void OnMouseMove(int x, int y);
 
     bool IsGameOver() const;
+    void FinishImmediately();
     int GetResultScore100() const;
     int GetFinalScore() const;
 };
