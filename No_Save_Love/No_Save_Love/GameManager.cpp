@@ -82,6 +82,9 @@ void GameManager::Shutdown()
 {
     audioManager.Shutdown();
 
+    minigam1_tutorial1.Shutdown();
+    minigame2TutorialScene.Shutdown();
+
     ReleasePendingMiniGame();
 
     if (m_isMiniGame2Initialized)
@@ -186,7 +189,6 @@ void GameManager::OnMouseClick(int x, int y)
             if (currentMiniGameIndex < 4)
             {
                 // 현재 회차 번호에 맞는 미니게임 튜토리얼로 이동한다.
-                // 지금은 1~4번 슬롯 모두 미니게임 1 튜토리얼을 임시로 사용한다.
                 EnterCurrentMiniGameTutorial();
             }
             else if (!m_finalChoiceIntroShown)
@@ -206,8 +208,7 @@ void GameManager::OnMouseClick(int x, int y)
         break;
     }
 
-    case game_mode_info::MiniGameTutor1: 
-    case game_mode_info::MiniGameTutor2:
+    case game_mode_info::MiniGameTutor1:
     case game_mode_info::MiniGameTutor3:
     case game_mode_info::MiniGameTutor4:
     {
@@ -217,6 +218,18 @@ void GameManager::OnMouseClick(int x, int y)
             audioManager.PlaySfx(L"click");
 
             minigam1_tutorial1.Shutdown();
+            StartCurrentMiniGame();
+        }
+        break;
+    }
+    case game_mode_info::MiniGameTutor2:
+    {
+        minigame2TutorialScene.OnMouseClick(x, y);
+        if (minigame2TutorialScene.IsFinished())
+        {
+            audioManager.PlaySfx(L"click");
+
+            minigame2TutorialScene.Shutdown();
             StartCurrentMiniGame();
         }
         break;
@@ -351,9 +364,16 @@ void GameManager::EnterResult(int whichGame, int score)
 
 void GameManager::EnterCurrentMiniGameTutorial()
 {
-    // 지금은 1~4번 미니게임 튜토리얼 모두 미니게임 1 튜토리얼 화면을 임시로 사용한다.
-    // 나중에 MiniGame2TutorialScene 같은 클래스가 생기면 여기에서 번호별로 바꾸면 된다.
-    minigam1_tutorial1.Initialize();
+    if (currentMiniGameIndex == 1)
+    {
+        minigame2TutorialScene.Initialize();
+    }
+    else
+    {
+        // 미니게임 3, 4 튜토리얼이 추가되기 전까지는 미니게임 1 화면을 임시로 사용한다.
+        minigam1_tutorial1.Initialize();
+    }
+
     RequestSceneChange(GetTutorialModeByIndex(currentMiniGameIndex));
 }
 
@@ -711,11 +731,15 @@ void GameManager::Render(HDC hDC)
         break;
     }
     case game_mode_info::MiniGameTutor1:
-    case game_mode_info::MiniGameTutor2:
     case game_mode_info::MiniGameTutor3:
     case game_mode_info::MiniGameTutor4:
     {
         minigam1_tutorial1.Render(hDC);
+        break;
+    }
+    case game_mode_info::MiniGameTutor2:
+    {
+        minigame2TutorialScene.Render(hDC);
         break;
     }
     case game_mode_info::MiniGame1:

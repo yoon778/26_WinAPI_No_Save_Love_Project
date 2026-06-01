@@ -84,6 +84,9 @@
     <ClCompile Include="Scenes\MiniGame1TutorialScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="Scenes\MiniGame2TutorialScene.cpp">
+      <Filter>소스 파일\Scenes</Filter>
+    </ClCompile>
     <ClCompile Include="SceneTransition.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -135,6 +138,9 @@
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="Scenes\MiniGame1TutorialScene.h">
+      <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Scenes\MiniGame2TutorialScene.h">
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="SceneTransition.h">
