@@ -56,10 +56,22 @@ private:
         std::vector<PatternObstacle> obstacles; // 패턴 장애물 목록
     };
 
+    struct Cloud
+    {
+        float x;                    // 구름 X 위치
+        float y;                    // 구름 Y 위치
+        int width;                  // 구름 너비
+        int height;                 // 구름 높이
+    };
+
 private:
     RECT GetPlayerRect() const;     // 현재 플레이어 영역
     RECT GetHitBoxRect() const;     // 현재 충돌 박스
     RECT GetObstacleRect(const Obstacle& obstacle) const; // 장애물 영역
+    bool TryJump();                 // 점프 가능하면 실행
+    void UpdateBackground();        // 배경 이동
+    void ResetClouds();             // 구름 상태 초기화
+    void UpdateClouds();            // 구름 이동
     void UpdateObstacles();         // 장애물 이동
     void UpdatePlayerAnimation();    // 플레이어 애니메이션 갱신
     void CheckObstacleCollisions();  // 장애물 충돌 확인
@@ -67,6 +79,8 @@ private:
     void CreateObstaclePatterns();   // 장애물 패턴 생성
     void SetObstacleSpec(Obstacle& obstacle, ObstacleType type) const; // 장애물 크기와 위치 설정
     CImage* GetObstacleImage(ObstacleType type); // 장애물 이미지 반환
+    void RenderBackground(HDC hDC); // 원경 배경 출력
+    void RenderClouds(HDC hDC);     // 구름 출력
     void RenderGround(HDC hDC);     // 이동 바닥 출력
     void RenderObstacles(HDC hDC);          // 장애물 출력
     void RenderPlayer(HDC hDC);             // 플레이어 출력
@@ -87,6 +101,7 @@ private:
     float m_jumpPower;              // 점프 힘
 
     float m_gameSpeed;              // 진행 속도
+    float m_backgroundOffset;       // 배경 이동값
     float m_scrollOffset;           // 바닥선 이동값
     int m_distanceScore;            // 거리 점수
     int m_nextObstacleDistance;     // 다음 장애물 생성 거리
@@ -100,15 +115,19 @@ private:
     bool m_isSliding;               // 슬라이드 여부
     bool m_isDownKeyPressed;        // 아래키 눌림 여부
     int m_jumpCount;                // 점프 횟수
+    float m_jumpBufferTime;         // 예약된 점프 남은 시간
     int m_playerFrameIndex;         // 현재 프레임
     float m_playerAnimationTime;     // 프레임 타이머
 
     std::vector<Obstacle> m_obstacles; // 장애물 목록
     std::vector<ObstaclePattern> m_obstaclePatterns; // 장애물 패턴 목록
+    std::vector<Cloud> m_clouds;    // 배경 구름 목록
     int m_nextObstaclePatternIndex; // 다음 패턴 번호
 
     CImage m_playerRunImage;        // 달리기/점프 이미지
     CImage m_playerSlideImage;      // 슬라이드 이미지
+    CImage m_backgroundImage;       // 등굣길 배경 이미지
+    CImage m_backgroundImage2;      // 등굣길 배경 연결 이미지
     CImage m_heartImage;            // 목숨 이미지
     CImage m_groundImage;           // 바닥 이미지
     CImage m_groundObstacleImage;   // 지상 장애물 이미지
@@ -117,4 +136,5 @@ private:
     CImage m_boxObstacleImage;      // 상자 이미지
     CImage m_waterObstacleImage;    // 물웅덩이 이미지
     CImage m_signboardObstacleImage; // 간판 이미지
+    CImage m_cloudImage;            // 배경 구름 이미지
 };
