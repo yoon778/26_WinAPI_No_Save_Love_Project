@@ -2,12 +2,14 @@
 
 #include <windows.h>
 #include <string>
+#include <vector>
 #include <atlimage.h>
 
 class MiniGame1TutorialScene
 {
 public:
     void Initialize();
+    void Initialize(int miniGameNumber);
     void Shutdown();
     void Reset();
     void Render(HDC hDC);
@@ -36,6 +38,9 @@ private:
     // 2페이지: 성공/실패 점수 설명을 그린다.
     void DrawPageScoreGuide(HDC hDC);
 
+    // 2페이지: 목표와 주의점을 그린다.
+    void DrawPageGoalGuide(HDC hDC);
+
     // 하단 버튼을 그린다.
     void DrawBottomButtons(HDC hDC);
 
@@ -50,6 +55,15 @@ private:
 
     // 텍스트를 그린다.
     void DrawTextInRect(HDC hDC, const std::wstring& text, RECT rc, int fontSize, COLORREF color, UINT format, int fontWeight = FW_NORMAL);
+
+    // 튜토리얼 번호에 맞는 문구와 이미지 경로를 설정한다.
+    void ConfigureForMiniGame(int miniGameNumber);
+
+    // 현재 튜토리얼 이미지들을 로드한다.
+    void LoadTutorialImages();
+
+    // 설명 목록을 그린다.
+    void DrawGuideLines(HDC hDC, const std::vector<std::wstring>& lines, int left, int top, int right, int lineHeight, int fontSize);
 
     // 다음 페이지로 이동하거나, 마지막 페이지라면 종료 상태로 만든다.
     void GoNext();
@@ -69,6 +83,18 @@ private:
 
     // 설명 화면 종료 여부
     bool finished = false;
+
+    // 현재 튜토리얼 번호
+    int currentMiniGameNumber = 1;
+
+    // 공통 문구
+    std::wstring titleText;
+    std::wstring subTitleText;
+    std::wstring mainImagePath;
+    std::wstring highlightText;
+    std::wstring goalTitleText;
+    std::vector<std::wstring> controlGuideLines;
+    std::vector<std::wstring> goalGuideLines;
 
     
     // 설명 이미지

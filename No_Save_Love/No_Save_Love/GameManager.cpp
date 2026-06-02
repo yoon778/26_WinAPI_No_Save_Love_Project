@@ -177,7 +177,6 @@ void GameManager::OnMouseClick(int x, int y)
             if (currentMiniGameIndex < 4)
             {
                 // 현재 회차 번호에 맞는 미니게임 튜토리얼로 이동한다.
-                // 지금은 1~4번 슬롯 모두 미니게임 1 튜토리얼을 임시로 사용한다.
                 EnterCurrentMiniGameTutorial();
             }
             else if (!m_finalChoiceIntroShown)
@@ -342,9 +341,8 @@ void GameManager::EnterResult(int whichGame, int score)
 
 void GameManager::EnterCurrentMiniGameTutorial()
 {
-    // 지금은 1~4번 미니게임 튜토리얼 모두 미니게임 1 튜토리얼 화면을 임시로 사용한다.
-    // 나중에 MiniGame2TutorialScene 같은 클래스가 생기면 여기에서 번호별로 바꾸면 된다.
-    minigam1_tutorial1.Initialize();
+    // MiniGame1TutorialScene은 번호별 내용을 바꿔 쓰는 통합 튜토리얼 씬이다.
+    minigam1_tutorial1.Initialize(currentMiniGameIndex + 1);
     RequestSceneChange(GetTutorialModeByIndex(currentMiniGameIndex));
 }
 

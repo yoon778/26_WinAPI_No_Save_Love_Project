@@ -5,14 +5,22 @@
 
 void MiniGame1TutorialScene::Initialize()
 {
+    Initialize(1);
+}
+
+void MiniGame1TutorialScene::Initialize(int miniGameNumber)
+{
     // 혹시 이미 이미지가 로드되어 있다면 먼저 정리한다.
     Shutdown();
 
+    // 현재 미니게임 번호에 맞게 문구와 이미지 경로를 설정한다.
+    ConfigureForMiniGame(miniGameNumber);
+
     // 설명 상태를 초기화한다.
     Reset();
-    mainGuideImage.Load(L"resource\\minigame1\\미니1가이드.png");
-    successImage.Load(L"resource\\minigame1\\미니1성공.png");
-    failImage.Load(L"resource\\minigame1\\미니1실패.png");
+
+    // 현재 튜토리얼에서 쓰는 이미지를 로드한다.
+    LoadTutorialImages();
 }
 
 void MiniGame1TutorialScene::Shutdown()
@@ -55,9 +63,13 @@ void MiniGame1TutorialScene::Render(HDC hDC)
     {
         DrawPageControlGuide(hDC);
     }
-    else
+    else if (currentMiniGameNumber == 1)
     {
         DrawPageScoreGuide(hDC);
+    }
+    else
+    {
+        DrawPageGoalGuide(hDC);
     }
 
     // 공통 하단 버튼을 그린다.
@@ -119,6 +131,110 @@ bool MiniGame1TutorialScene::IsValidImage(const CImage& image) const
     return !image.IsNull();
 }
 
+void MiniGame1TutorialScene::ConfigureForMiniGame(int miniGameNumber)
+{
+    currentMiniGameNumber = miniGameNumber;
+    if (currentMiniGameNumber < 1 || currentMiniGameNumber > 4)
+    {
+        currentMiniGameNumber = 1;
+    }
+
+    controlGuideLines.clear();
+    goalGuideLines.clear();
+
+    switch (currentMiniGameNumber)
+    {
+    case 2:
+        titleText = L"미니게임 2 - 노래방 리듬게임";
+        subTitleText = L"박자에 맞춰 노트를 클릭하고 슬라이더를 따라가세요.";
+        mainImagePath = L"resource\\minigame2\\minigame2_tuto_image.PNG";
+        highlightText = L"정확한 타이밍과 콤보 유지가 핵심입니다!";
+        goalTitleText = L"높은 점수 받기";
+        controlGuideLines =
+        {
+            L"1. 원이 겹치는 타이밍에 노트를 클릭합니다.",
+            L"2. 슬라이더는 마우스를 누른 채 끝까지 따라갑니다.",
+            L"3. 판정이 좋을수록 점수와 콤보가 올라갑니다."
+        };
+        goalGuideLines =
+        {
+            L"300 판정을 많이 받을수록 점수가 크게 오릅니다.",
+            L"슬라이더는 시작점부터 끝점까지 놓치지 마세요.",
+            L"콤보를 이어가면 최종 점수가 더 좋아집니다."
+        };
+        break;
+
+    case 3:
+        titleText = L"미니게임 3 - 등교길";
+        subTitleText = L"장애물을 피하며 제한시간 동안 학교까지 달려가세요.";
+        mainImagePath = L"resource\\minigame3\\minigame3_tuto_image.PNG";
+        highlightText = L"하트 3개 안에서 최대한 멀리 달리세요!";
+        goalTitleText = L"장애물 피하기";
+        controlGuideLines =
+        {
+            L"1. SPACE로 점프합니다. 한 번 더 누르면 2단 점프합니다.",
+            L"2. 아래 방향키를 누르고 있으면 슬라이딩합니다.",
+            L"3. 장애물에 맞으면 하트가 줄어듭니다."
+        };
+        goalGuideLines =
+        {
+            L"공사 표지판과 바닥 장애물은 점프로 넘으세요.",
+            L"공중 장애물은 슬라이딩으로 피하세요.",
+            L"멀리 달릴수록 점수가 올라갑니다."
+        };
+        break;
+
+    case 4:
+        titleText = L"미니게임 4 - 유혹 피하기";
+        subTitleText = L"떨어지는 유혹과 경고 영역을 피하며 버티세요.";
+        mainImagePath = L"resource\\minigame4\\minigame4_tuto_image.PNG";
+        highlightText = L"경고가 보이면 바로 자리를 비우세요!";
+        goalTitleText = L"생존 요령";
+        controlGuideLines =
+        {
+            L"1. 왼쪽/오른쪽 방향키로 이동합니다.",
+            L"2. 위 방향키 또는 SPACE로 점프합니다.",
+            L"3. 빨간 경고 영역과 날아오는 물체를 피합니다."
+        };
+        goalGuideLines =
+        {
+            L"하트가 모두 사라지기 전까지 버티세요.",
+            L"말파는 위치가 잠깐 고정된 뒤 돌진합니다.",
+            L"발판과 점프를 활용해 위험한 위치를 벗어나세요."
+        };
+        break;
+
+    case 1:
+    default:
+        titleText = L"미니게임 1 - PC방 라면 맛집";
+        subTitleText = L"손님의 주문에 맞게 라면을 만들고 좌석을 클릭해 배달하세요.";
+        mainImagePath = L"resource\\minigame1\\미니1가이드.png";
+        highlightText = L"제한시간 안에 최대한 많은 주문을 성공시키세요!";
+        goalTitleText = L"성공과 실패";
+        controlGuideLines =
+        {
+            L"1. 물과 재료를 클릭해 라면을 조합합니다.",
+            L"2. 손님의 말풍선에 있는 주문을 확인합니다.",
+            L"3. 주문에 맞는 라면을 만들었다면 좌석을 클릭해 배달합니다."
+        };
+        break;
+    }
+}
+
+void MiniGame1TutorialScene::LoadTutorialImages()
+{
+    if (!mainImagePath.empty())
+    {
+        mainGuideImage.Load(mainImagePath.c_str());
+    }
+
+    if (currentMiniGameNumber == 1)
+    {
+        successImage.Load(L"resource\\minigame1\\미니1성공.png");
+        failImage.Load(L"resource\\minigame1\\미니1실패.png");
+    }
+}
+
 void MiniGame1TutorialScene::DrawBackground(HDC hDC)
 {
     // 전체 배경
@@ -148,7 +264,7 @@ void MiniGame1TutorialScene::DrawHeader(HDC hDC)
     RECT titleRect = { 100, 35, 1550, 110 };
     DrawTextInRect(
         hDC,
-        L"미니게임 1 - PC방 라면 맛집",
+        titleText,
         titleRect,
         46,
         RGB(255, 220, 110),
@@ -160,7 +276,7 @@ void MiniGame1TutorialScene::DrawHeader(HDC hDC)
     RECT subTitleRect = { 100, 92, 1600, 135 };
     DrawTextInRect(
         hDC,
-        L"손님의 주문에 맞게 라면을 만들고 좌석을 클릭해 배달하세요.",
+        subTitleText,
         subTitleRect,
         26,
         RGB(230, 230, 235),
@@ -193,7 +309,7 @@ void MiniGame1TutorialScene::DrawPageControlGuide(HDC hDC)
     {
         DrawTextInRect(
             hDC,
-            L"전체 게임 화면 이미지\n경로를 SetImagePaths()에 넣어주세요.",
+            L"튜토리얼 이미지가 없습니다.",
             imageRect,
             30,
             RGB(220, 220, 230),
@@ -217,43 +333,12 @@ void MiniGame1TutorialScene::DrawPageControlGuide(HDC hDC)
         FW_BOLD
     );
 
-    RECT step1 = { 1230, 310, 1770, 390 };
-    DrawTextInRect(
-        hDC,
-        L"1. 물과 재료를 클릭해 라면을 조합합니다.",
-        step1,
-        28,
-        RGB(245, 245, 245),
-        DT_LEFT | DT_TOP | DT_WORDBREAK,
-        FW_NORMAL
-    );
-
-    RECT step2 = { 1230, 430, 1770, 510 };
-    DrawTextInRect(
-        hDC,
-        L"2. 손님의 말풍선에 있는 주문을 확인합니다.",
-        step2,
-        28,
-        RGB(245, 245, 245),
-        DT_LEFT | DT_TOP | DT_WORDBREAK,
-        FW_NORMAL
-    );
-
-    RECT step3 = { 1230, 550, 1770, 630 };
-    DrawTextInRect(
-        hDC,
-        L"3. 주문에 맞는 라면을 만들었다면 좌석을 클릭해 배달합니다.",
-        step3,
-        28,
-        RGB(245, 245, 245),
-        DT_LEFT | DT_TOP | DT_WORDBREAK,
-        FW_NORMAL
-    );
+    DrawGuideLines(hDC, controlGuideLines, 1230, 310, 1770, 120, 28);
 
     RECT warning = { 1230, 710, 1770, 830 };
     DrawTextInRect(
         hDC,
-        L"제한시간 안에 최대한 많은 주문을 성공시키세요!",
+        highlightText,
         warning,
         30,
         RGB(255, 210, 90),
@@ -371,6 +456,59 @@ void MiniGame1TutorialScene::DrawPageScoreGuide(HDC hDC)
         54,
         RGB(255, 120, 120),
         DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+        FW_BOLD
+    );
+}
+
+void MiniGame1TutorialScene::DrawPageGoalGuide(HDC hDC)
+{
+    // 왼쪽 이미지 카드
+    RECT imageCard = { 110, 175, 1145, 905 };
+    DrawRoundCard(hDC, imageCard, RGB(22, 21, 28), RGB(105, 95, 125));
+
+    RECT imageRect = { 135, 205, 1120, 875 };
+    if (IsValidImage(mainGuideImage))
+    {
+        DrawImageFit(hDC, mainGuideImage, imageRect);
+    }
+    else
+    {
+        DrawTextInRect(
+            hDC,
+            L"튜토리얼 이미지가 없습니다.",
+            imageRect,
+            30,
+            RGB(220, 220, 230),
+            DT_CENTER | DT_VCENTER | DT_WORDBREAK,
+            FW_BOLD
+        );
+    }
+
+    // 오른쪽 목표 카드
+    RECT guideCard = { 1190, 175, 1810, 905 };
+    DrawRoundCard(hDC, guideCard, RGB(42, 37, 48), RGB(135, 115, 90));
+
+    RECT guideTitle = { 1230, 215, 1770, 270 };
+    DrawTextInRect(
+        hDC,
+        goalTitleText,
+        guideTitle,
+        40,
+        RGB(255, 220, 110),
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE,
+        FW_BOLD
+    );
+
+    DrawGuideLines(hDC, goalGuideLines, 1230, 320, 1770, 120, 28);
+
+    RECT warning = { 1230, 710, 1770, 830 };
+    DrawTextInRect(
+        hDC,
+        highlightText,
+        warning,
+        30,
+        RGB(255, 210, 90),
+        DT_CENTER | DT_VCENTER | DT_WORDBREAK,
         FW_BOLD
     );
 }
@@ -557,6 +695,30 @@ void MiniGame1TutorialScene::DrawTextInRect(
     // 기존 폰트를 복구하고 직접 만든 폰트를 삭제한다.
     SelectObject(hDC, oldFont);
     DeleteObject(font);
+}
+
+void MiniGame1TutorialScene::DrawGuideLines(HDC hDC, const std::vector<std::wstring>& lines, int left, int top, int right, int lineHeight, int fontSize)
+{
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        RECT lineRect =
+        {
+            left,
+            top + static_cast<int>(i) * lineHeight,
+            right,
+            top + static_cast<int>(i + 1) * lineHeight
+        };
+
+        DrawTextInRect(
+            hDC,
+            lines[i],
+            lineRect,
+            fontSize,
+            RGB(245, 245, 245),
+            DT_LEFT | DT_TOP | DT_WORDBREAK,
+            FW_NORMAL
+        );
+    }
 }
 
 void MiniGame1TutorialScene::GoNext()
