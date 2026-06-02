@@ -81,10 +81,30 @@ private:
     {
         RECT warningRect; // 경고 영역
         RECT riderRect; // 배달 영역
+        int riderBaseTop; // 점프 전 기준 높이
         float warningTimer; // 경고 남은 시간
         float activeTimer; // 활성 남은 시간
+        float jumpTimer; // 점프 진행 시간
         bool isWarning; // 경고 중
         bool isActive; // 활성 중
+        bool isJumping; // 점프 중
+        bool hasJumped; // 점프 완료 여부
+    };
+
+    struct MalphitePatternState
+    {
+        RECT warningRect; // 궁 경고 영역
+        RECT bodyRect; // 말파이트 영역
+        float x; // 현재 위치
+        float y;
+        float startX; // 돌진 시작 위치
+        float startY;
+        float targetX; // 돌진 목표 위치
+        float targetY;
+        float phaseTimer; // 단계 진행 시간
+        int phase; // 현재 단계
+        bool isTargetLocked; // 돌진 위치 고정 여부
+        bool isActive; // 패턴 진행 여부
     };
 
     struct AttackWarning
@@ -121,7 +141,7 @@ private:
     static const int MAX_JUMP_COUNT = 2; // 최대 점프
 
     static constexpr float UPDATE_DELTA_SECONDS = 0.06f; // 타이머 간격
-    static constexpr float GAME_TIME_LIMIT = 40.0f; // 제한 시간
+    static constexpr float GAME_TIME_LIMIT = 50.0f; // 제한 시간
     static constexpr float INVINCIBLE_DURATION = 2.0f; // 무적 지속
 
     static const int PATTERN_NONE = 0; // 패턴 없음
@@ -129,7 +149,14 @@ private:
     static const int PATTERN_REELS = 2; // 릴스 패턴
     static const int PATTERN_FOOD = 3; // 음식 패턴
     static const int PATTERN_DELIVER = 4; // 배달 패턴
+    static const int PATTERN_MALPHITE = 5; // 말파 궁 패턴
     static constexpr float PATTERN_DELAY = 1.0f; // 패턴 사이 대기
+
+    static const int MALPHITE_PHASE_NONE = 0; // 말파 없음
+    static const int MALPHITE_PHASE_ENTER = 1; // 등장
+    static const int MALPHITE_PHASE_WARN = 2; // 경고
+    static const int MALPHITE_PHASE_DASH = 3; // 돌진
+    static const int MALPHITE_PHASE_FADE = 4; // 사라짐
 
     static const int ATTACK_TYPE_KAKAO = 0; // 카톡 공격
     static const int ATTACK_TYPE_REELS = 1; // 릴스 공격
@@ -157,6 +184,19 @@ private:
     static constexpr float DELIVER_WARNING_DURATION = 2.5f; // [조절값] 배달 경고
     static constexpr float DELIVER_ACTIVE_DURATION = 4.0f; // [조절값] 배달 지속
     static constexpr float DELIVER_SPEED = 90.0f; // [조절값] 배달 속도
+    static constexpr float DELIVER_JUMP_DURATION = 0.72f; // [조절값] 배달 점프 시간
+    static constexpr float DELIVER_JUMP_HEIGHT = 260.0f; // [조절값] 배달 점프 높이
+
+    static const int MALPHITE_STAND_WIDTH = 420; // [조절값] 말파 대기 가로
+    static const int MALPHITE_STAND_HEIGHT = 438; // [조절값] 말파 대기 세로
+    static const int MALPHITE_ULT_WIDTH = 620; // [조절값] 말파 돌진 가로
+    static const int MALPHITE_ULT_HEIGHT = 374; // [조절값] 말파 돌진 세로
+    static const int MALPHITE_WARNING_SIZE = 300; // [조절값] 궁 경고 크기
+    static constexpr float MALPHITE_ENTER_DURATION = 0.72f; // [조절값] 등장 시간
+    static constexpr float MALPHITE_WARN_DURATION = 1.35f; // [조절값] 추적 경고 시간
+    static constexpr float MALPHITE_TARGET_LOCK_BEFORE_DASH = 0.8f; // [조절값] 위치 고정 후 돌진 대기 시간
+    static constexpr float MALPHITE_DASH_DURATION = 0.36f; // [조절값] 돌진 시간
+    static constexpr float MALPHITE_FADE_DURATION = 0.72f; // [조절값] 사라짐 시간
 
     static const int PLAYER_RUNNING_FRAME_COUNT = 7; // [조절값] 달리기 프레임 수
     static const int PLAYER_SHEET_FRAME_COUNT = 8; // 달리기 7프레임 + 점프 1프레임
@@ -170,6 +210,7 @@ private:
     KakaoPatternState m_kakao; // 카톡 상태
     FoodPatternState m_foodPattern; // 음식 상태
     DeliverPatternState m_deliver; // 배달 상태
+    MalphitePatternState m_malphite; // 말파 궁 상태
 
     std::vector<Platform> m_platforms; // 발판 목록
     std::vector<AttackWarning> m_attacks; // 장판 공격
@@ -183,6 +224,8 @@ private:
     Gdiplus::Image* m_playerRunningRightImage; // 오른쪽 달리기
     Gdiplus::Image* m_kakaoPopupImage; // 카톡 팝업
     Gdiplus::Image* m_ridderImage; // 배달 기사
+    Gdiplus::Image* m_malphiteStandImage; // 말파 대기
+    Gdiplus::Image* m_malphiteUltImage; // 말파 궁
     Gdiplus::Image* m_foodImages[3]; // 음식 이미지
     Gdiplus::Image* m_hitImages[4]; // 피격 이미지
     Gdiplus::Image* m_phoneImage; // 릴스 폰 틀
@@ -198,6 +241,7 @@ private:
     void BuildReelsImageCache(); // 릴스 캐시 생성
     void DestroyReelsImageCache(); // 릴스 캐시 해제
     void DrawGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight); // 이미지 출력
+    void DrawGdiImageAlpha(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, float alpha); // 투명 이미지 출력
     void DrawGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount); // 프레임 출력
     void DrawRedTintedGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight); // 붉은 이미지 출력
     void DrawRedTintedGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount); // 붉은 프레임 출력
@@ -236,6 +280,11 @@ private:
     void StartDeliverPattern(); // 배달 시작
     void UpdateDeliverPattern(); // 배달 갱신
     void DrawDeliver(HDC hDC); // 배달 출력
+
+    void StartMalphitePattern(); // 말파 궁 시작
+    void UpdateMalphiteWarningRect(); // 말파 궁 경고 위치 갱신
+    void UpdateMalphitePattern(); // 말파 궁 갱신
+    void DrawMalphite(HDC hDC); // 말파 궁 출력
 
     void UpdateAttacks(); // 장판 갱신
     void DrawAttacks(HDC hDC); // 장판 출력

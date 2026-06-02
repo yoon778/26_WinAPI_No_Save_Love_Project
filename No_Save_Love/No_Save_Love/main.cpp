@@ -75,6 +75,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_KEYDOWN:
     {
+        const bool isRepeatedKey = (lParam & (1 << 30)) != 0;
+        if (isRepeatedKey)
+        {
+            return 0;
+        }
+
         // F1~F4 같은 특수 키 입력을 GameManager로 넘긴다.
         g_gameManager.OnKeyDown(wParam);
 

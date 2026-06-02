@@ -7,9 +7,9 @@ avoidgame::avoidgame()
 {
     // 플레이어 기본값
     m_player = {};
-    m_player.gravity = 2.0f;
-    m_player.jumpPower = 28.0f;
-    m_player.moveSpeed = 12.0f;
+    m_player.gravity = 40.0f;
+    m_player.jumpPower = 100.0f;
+    m_player.moveSpeed = 80.0f;
 
     // 게임 기본값
     m_game = {};
@@ -25,6 +25,7 @@ avoidgame::avoidgame()
     m_kakao = {};
     m_foodPattern = {};
     m_deliver = {};
+    m_malphite = {};
 
     m_gdiplusToken = 0;
     m_isGdiplusStarted = false;
@@ -34,6 +35,8 @@ avoidgame::avoidgame()
     m_playerRunningRightImage = nullptr;
     m_kakaoPopupImage = nullptr;
     m_ridderImage = nullptr;
+    m_malphiteStandImage = nullptr;
+    m_malphiteUltImage = nullptr;
     m_phoneImage = nullptr;
     m_reelsPhoneCache = nullptr;
     m_lastHitImageIndex = HIT_IMAGE_NONE;
@@ -84,6 +87,7 @@ void avoidgame::Release()
     m_kakao = {};
     m_foodPattern = {};
     m_deliver = {};
+    m_malphite = {};
     m_lastHitImageIndex = HIT_IMAGE_NONE;
 }
 
@@ -128,6 +132,14 @@ void avoidgame::LoadImages()
     if (m_ridderImage == nullptr)
     {
         m_ridderImage = new Gdiplus::Image(L"resource\\minigame4\\ridder.png");
+    }
+    if (m_malphiteStandImage == nullptr)
+    {
+        m_malphiteStandImage = new Gdiplus::Image(L"resource\\minigame4\\malphite_stand.png");
+    }
+    if (m_malphiteUltImage == nullptr)
+    {
+        m_malphiteUltImage = new Gdiplus::Image(L"resource\\minigame4\\malphite_ult.png");
     }
     if (m_foodImages[0] == nullptr)
     {
@@ -211,6 +223,16 @@ void avoidgame::DestroyImages()
     {
         delete m_ridderImage;
         m_ridderImage = nullptr;
+    }
+    if (m_malphiteStandImage != nullptr)
+    {
+        delete m_malphiteStandImage;
+        m_malphiteStandImage = nullptr;
+    }
+    if (m_malphiteUltImage != nullptr)
+    {
+        delete m_malphiteUltImage;
+        m_malphiteUltImage = nullptr;
     }
     if (m_phoneImage != nullptr)
     {
@@ -347,6 +369,54 @@ void avoidgame::DrawGdiImage(HDC hDC, Gdiplus::Image* image, int drawX, int draw
 
     Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
     graphics.DrawImage(image, drawRect);
+}
+
+void avoidgame::DrawGdiImageAlpha(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, float alpha)
+{
+    // 투명도 적용 이미지 출력
+    if (image == nullptr || image->GetLastStatus() != Gdiplus::Ok)
+    {
+        return;
+    }
+
+    if (alpha < 0.0f)
+    {
+        alpha = 0.0f;
+    }
+    else if (alpha > 1.0f)
+    {
+        alpha = 1.0f;
+    }
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetPageUnit(Gdiplus::UnitPixel);
+    graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
+    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    Gdiplus::ColorMatrix colorMatrix =
+    {
+        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, alpha, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    Gdiplus::ImageAttributes imageAttributes;
+    imageAttributes.SetColorMatrix(&colorMatrix);
+
+    Gdiplus::Rect drawRect(drawX, drawY, drawWidth, drawHeight);
+    graphics.DrawImage(
+        image,
+        drawRect,
+        0,
+        0,
+        static_cast<int>(image->GetWidth()),
+        static_cast<int>(image->GetHeight()),
+        Gdiplus::UnitPixel,
+        &imageAttributes);
 }
 
 void avoidgame::DrawGdiImageFrame(HDC hDC, Gdiplus::Image* image, int drawX, int drawY, int drawWidth, int drawHeight, int frameIndex, int frameCount)
@@ -512,6 +582,7 @@ void avoidgame::Render(HDC hDC)
     DrawFoodDrops(hDC);
     RenderPlatforms(hDC);
     DrawAttacks(hDC);
+    DrawMalphite(hDC);
     RenderPlayer(hDC);
     RenderHud(hDC);
 
@@ -593,9 +664,9 @@ void avoidgame::ResetPlayer()
     m_player.y = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - PLAYER_HEIGHT);
 
     // 이동 값
-    m_player.gravity = 2.0f;
-    m_player.jumpPower = 28.0f;
-    m_player.moveSpeed = 12.0f;
+    m_player.gravity = 2.4f;
+    m_player.jumpPower = 34.0f;
+    m_player.moveSpeed = 15.0f;
 
     // 물리 초기화
     m_player.velocityX = 0.0f;
@@ -988,6 +1059,7 @@ void avoidgame::ResetPatterns()
     m_foodPattern.patternTimer = 0.0f;
 
     m_deliver = {};
+    m_malphite = {};
 }
 
 void avoidgame::UpdatePatternScheduler()
@@ -999,7 +1071,7 @@ void avoidgame::UpdatePatternScheduler()
         if (m_pattern.waitTimer <= 0.0f)
         {
             int pattern = m_pattern.nextPattern;
-            m_pattern.nextPattern = (m_pattern.nextPattern + 1) % 4;
+            m_pattern.nextPattern = (m_pattern.nextPattern + 1) % 5;
 
             if (pattern == 0)
             {
@@ -1013,9 +1085,13 @@ void avoidgame::UpdatePatternScheduler()
             {
                 StartFoodPattern();
             }
-            else
+            else if (pattern == 3)
             {
                 StartDeliverPattern();
+            }
+            else
+            {
+                StartMalphitePattern();
             }
         }
 
@@ -1034,6 +1110,10 @@ void avoidgame::UpdatePatternScheduler()
     else if (m_pattern.currentPattern == PATTERN_DELIVER)
     {
         UpdateDeliverPattern();
+    }
+    else if (m_pattern.currentPattern == PATTERN_MALPHITE)
+    {
+        UpdateMalphitePattern();
     }
 }
 
@@ -1072,6 +1152,14 @@ void avoidgame::FinishPatternIfEmpty()
     else if (m_pattern.currentPattern == PATTERN_DELIVER)
     {
         if (!m_deliver.isWarning && !m_deliver.isActive)
+        {
+            m_pattern.currentPattern = PATTERN_NONE;
+            m_pattern.waitTimer = PATTERN_DELAY;
+        }
+    }
+    else if (m_pattern.currentPattern == PATTERN_MALPHITE)
+    {
+        if (!m_malphite.isActive)
         {
             m_pattern.currentPattern = PATTERN_NONE;
             m_pattern.waitTimer = PATTERN_DELAY;
@@ -1314,10 +1402,14 @@ void avoidgame::StartDeliverPattern()
 
     m_deliver.warningRect = RECT{ 0, top, SCREEN_WIDTH, bottom };
     m_deliver.riderRect = RECT{ SCREEN_WIDTH, riderY, SCREEN_WIDTH + riderSize, riderY + riderSize };
+    m_deliver.riderBaseTop = riderY;
     m_deliver.warningTimer = DELIVER_WARNING_DURATION;
     m_deliver.activeTimer = DELIVER_ACTIVE_DURATION;
+    m_deliver.jumpTimer = 0.0f;
     m_deliver.isWarning = true;
     m_deliver.isActive = false;
+    m_deliver.isJumping = false;
+    m_deliver.hasJumped = false;
 }
 
 void avoidgame::UpdateDeliverPattern()
@@ -1343,6 +1435,34 @@ void avoidgame::UpdateDeliverPattern()
     m_deliver.activeTimer -= UPDATE_DELTA_SECONDS;
     m_deliver.riderRect.left -= static_cast<LONG>(DELIVER_SPEED);
     m_deliver.riderRect.right -= static_cast<LONG>(DELIVER_SPEED);
+
+    int riderHeight = m_deliver.riderRect.bottom - m_deliver.riderRect.top;
+    int riderCenterX = (m_deliver.riderRect.left + m_deliver.riderRect.right) / 2;
+    int jumpStartCenterX = SCREEN_WIDTH / 2 + static_cast<int>((DELIVER_SPEED * DELIVER_JUMP_DURATION) / (2.0f * UPDATE_DELTA_SECONDS));
+
+    if (!m_deliver.hasJumped && riderCenterX <= jumpStartCenterX)
+    {
+        m_deliver.isJumping = true;
+        m_deliver.hasJumped = true;
+        m_deliver.jumpTimer = 0.0f;
+    }
+
+    int riderTop = m_deliver.riderBaseTop;
+    if (m_deliver.isJumping)
+    {
+        m_deliver.jumpTimer += UPDATE_DELTA_SECONDS;
+        float jumpProgress = m_deliver.jumpTimer / DELIVER_JUMP_DURATION;
+        if (jumpProgress >= 1.0f)
+        {
+            jumpProgress = 1.0f;
+            m_deliver.isJumping = false;
+        }
+
+        float jumpOffset = std::sin(jumpProgress * 3.14159265f) * DELIVER_JUMP_HEIGHT;
+        riderTop = m_deliver.riderBaseTop - static_cast<int>(jumpOffset + 0.5f);
+    }
+    m_deliver.riderRect.top = riderTop;
+    m_deliver.riderRect.bottom = riderTop + riderHeight;
 
     if (IsRectOverlap(GetPlayerRect(), m_deliver.riderRect))
     {
@@ -1396,6 +1516,225 @@ void avoidgame::DrawDeliver(HDC hDC)
     HBRUSH riderBrush = CreateSolidBrush(RGB(255, 190, 80));
     FillRect(hDC, &m_deliver.riderRect, riderBrush);
     DeleteObject(riderBrush);
+}
+
+void avoidgame::StartMalphitePattern()
+{
+    // 말파 궁 패턴 시작
+    m_pattern.currentPattern = PATTERN_MALPHITE;
+    m_malphite = {};
+
+    int floorTop = SCREEN_HEIGHT - FLOOR_HEIGHT;
+    m_malphite.x = static_cast<float>(-MALPHITE_STAND_WIDTH);
+    m_malphite.y = static_cast<float>(floorTop - MALPHITE_STAND_HEIGHT);
+    m_malphite.phase = MALPHITE_PHASE_ENTER;
+    m_malphite.phaseTimer = 0.0f;
+    m_malphite.isTargetLocked = false;
+    m_malphite.isActive = true;
+    UpdateMalphiteWarningRect();
+    m_malphite.bodyRect = RECT
+    {
+        static_cast<LONG>(m_malphite.x),
+        static_cast<LONG>(m_malphite.y),
+        static_cast<LONG>(m_malphite.x + MALPHITE_STAND_WIDTH),
+        static_cast<LONG>(m_malphite.y + MALPHITE_STAND_HEIGHT)
+    };
+}
+
+void avoidgame::UpdateMalphiteWarningRect()
+{
+    int playerCenterX = static_cast<int>(m_player.x) + PLAYER_WIDTH / 2;
+    int playerCenterY = static_cast<int>(m_player.y) + PLAYER_HEIGHT / 2;
+    int warningHalf = MALPHITE_WARNING_SIZE / 2;
+    m_malphite.warningRect = RECT
+    {
+        playerCenterX - warningHalf,
+        playerCenterY - warningHalf,
+        playerCenterX + warningHalf,
+        playerCenterY + warningHalf
+    };
+}
+
+void avoidgame::UpdateMalphitePattern()
+{
+    // 말파 궁 단계 갱신
+    if (!m_malphite.isActive)
+    {
+        return;
+    }
+
+    m_malphite.phaseTimer += UPDATE_DELTA_SECONDS;
+    if (!m_malphite.isTargetLocked &&
+        (m_malphite.phase == MALPHITE_PHASE_ENTER || m_malphite.phase == MALPHITE_PHASE_WARN))
+    {
+        UpdateMalphiteWarningRect();
+    }
+
+    if (m_malphite.phase == MALPHITE_PHASE_ENTER)
+    {
+        float progress = m_malphite.phaseTimer / MALPHITE_ENTER_DURATION;
+        if (progress >= 1.0f)
+        {
+            progress = 1.0f;
+            m_malphite.phase = MALPHITE_PHASE_WARN;
+            m_malphite.phaseTimer = 0.0f;
+        }
+
+        float enterStartX = static_cast<float>(-MALPHITE_STAND_WIDTH);
+        float enterEndX = 40.0f;
+        m_malphite.x = enterStartX + (enterEndX - enterStartX) * progress;
+        m_malphite.y = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - MALPHITE_STAND_HEIGHT);
+        m_malphite.bodyRect = RECT
+        {
+            static_cast<LONG>(m_malphite.x),
+            static_cast<LONG>(m_malphite.y),
+            static_cast<LONG>(m_malphite.x + MALPHITE_STAND_WIDTH),
+            static_cast<LONG>(m_malphite.y + MALPHITE_STAND_HEIGHT)
+        };
+        return;
+    }
+
+    if (m_malphite.phase == MALPHITE_PHASE_WARN)
+    {
+        m_malphite.x = 40.0f;
+        m_malphite.y = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - MALPHITE_STAND_HEIGHT);
+        m_malphite.bodyRect = RECT
+        {
+            static_cast<LONG>(m_malphite.x),
+            static_cast<LONG>(m_malphite.y),
+            static_cast<LONG>(m_malphite.x + MALPHITE_STAND_WIDTH),
+            static_cast<LONG>(m_malphite.y + MALPHITE_STAND_HEIGHT)
+        };
+
+        if (!m_malphite.isTargetLocked &&
+            m_malphite.phaseTimer >= MALPHITE_WARN_DURATION - MALPHITE_TARGET_LOCK_BEFORE_DASH)
+        {
+            m_malphite.isTargetLocked = true;
+        }
+
+        if (m_malphite.phaseTimer >= MALPHITE_WARN_DURATION)
+        {
+            int targetCenterX = (m_malphite.warningRect.left + m_malphite.warningRect.right) / 2;
+            int targetCenterY = (m_malphite.warningRect.top + m_malphite.warningRect.bottom) / 2;
+
+            m_malphite.phase = MALPHITE_PHASE_DASH;
+            m_malphite.phaseTimer = 0.0f;
+            m_malphite.startX = 40.0f;
+            m_malphite.startY = static_cast<float>(SCREEN_HEIGHT - FLOOR_HEIGHT - MALPHITE_ULT_HEIGHT);
+            m_malphite.targetX = static_cast<float>(targetCenterX - MALPHITE_ULT_WIDTH / 2);
+            m_malphite.targetY = static_cast<float>(targetCenterY - MALPHITE_ULT_HEIGHT / 2);
+            m_malphite.x = m_malphite.startX;
+            m_malphite.y = m_malphite.startY;
+            m_malphite.bodyRect = RECT
+            {
+                static_cast<LONG>(m_malphite.x),
+                static_cast<LONG>(m_malphite.y),
+                static_cast<LONG>(m_malphite.x + MALPHITE_ULT_WIDTH),
+                static_cast<LONG>(m_malphite.y + MALPHITE_ULT_HEIGHT)
+            };
+        }
+        return;
+    }
+
+    if (m_malphite.phase == MALPHITE_PHASE_DASH)
+    {
+        float progress = m_malphite.phaseTimer / MALPHITE_DASH_DURATION;
+        if (progress >= 1.0f)
+        {
+            progress = 1.0f;
+            m_malphite.phase = MALPHITE_PHASE_FADE;
+            m_malphite.phaseTimer = 0.0f;
+        }
+
+        m_malphite.x = m_malphite.startX + (m_malphite.targetX - m_malphite.startX) * progress;
+        m_malphite.y = m_malphite.startY + (m_malphite.targetY - m_malphite.startY) * progress;
+        m_malphite.bodyRect = RECT
+        {
+            static_cast<LONG>(m_malphite.x),
+            static_cast<LONG>(m_malphite.y),
+            static_cast<LONG>(m_malphite.x + MALPHITE_ULT_WIDTH),
+            static_cast<LONG>(m_malphite.y + MALPHITE_ULT_HEIGHT)
+        };
+
+        RECT hitRect = m_malphite.bodyRect;
+        hitRect.left += 90;
+        hitRect.right -= 90;
+        hitRect.top += 45;
+        hitRect.bottom -= 35;
+        if (IsRectOverlap(GetPlayerRect(), hitRect))
+        {
+            DamagePlayer(HIT_IMAGE_GAME);
+        }
+        return;
+    }
+
+    if (m_malphite.phase == MALPHITE_PHASE_FADE)
+    {
+        m_malphite.bodyRect = RECT
+        {
+            static_cast<LONG>(m_malphite.x),
+            static_cast<LONG>(m_malphite.y),
+            static_cast<LONG>(m_malphite.x + MALPHITE_ULT_WIDTH),
+            static_cast<LONG>(m_malphite.y + MALPHITE_ULT_HEIGHT)
+        };
+
+        if (m_malphite.phaseTimer >= MALPHITE_FADE_DURATION)
+        {
+            m_malphite.isActive = false;
+            m_malphite.phase = MALPHITE_PHASE_NONE;
+        }
+    }
+}
+
+void avoidgame::DrawMalphite(HDC hDC)
+{
+    // 말파 궁 출력
+    if (!m_malphite.isActive)
+    {
+        return;
+    }
+
+    if (m_malphite.phase == MALPHITE_PHASE_ENTER || m_malphite.phase == MALPHITE_PHASE_WARN)
+    {
+        HBRUSH warningBrush = CreateSolidBrush(RGB(80, 0, 0));
+        HPEN warningPen = CreatePen(PS_SOLID, 5, RGB(255, 60, 60));
+
+        HGDIOBJ oldBrush = SelectObject(hDC, warningBrush);
+        HGDIOBJ oldPen = SelectObject(hDC, warningPen);
+        Ellipse(hDC, m_malphite.warningRect.left, m_malphite.warningRect.top, m_malphite.warningRect.right, m_malphite.warningRect.bottom);
+
+        SelectObject(hDC, oldBrush);
+        SelectObject(hDC, oldPen);
+        DeleteObject(warningBrush);
+        DeleteObject(warningPen);
+
+        SetBkMode(hDC, TRANSPARENT);
+        SetTextColor(hDC, RGB(255, 170, 170));
+        const wchar_t* warningText = L"궁 경고";
+        TextOutW(hDC, m_malphite.warningRect.left + 90, m_malphite.warningRect.top + 36, warningText, lstrlenW(warningText));
+    }
+
+    Gdiplus::Image* malphiteImage = (m_malphite.phase == MALPHITE_PHASE_ENTER || m_malphite.phase == MALPHITE_PHASE_WARN) ?
+        m_malphiteStandImage :
+        m_malphiteUltImage;
+
+    float alpha = 1.0f;
+    if (m_malphite.phase == MALPHITE_PHASE_FADE)
+    {
+        alpha = 1.0f - (m_malphite.phaseTimer / MALPHITE_FADE_DURATION);
+    }
+
+    int drawWidth = m_malphite.bodyRect.right - m_malphite.bodyRect.left;
+    int drawHeight = m_malphite.bodyRect.bottom - m_malphite.bodyRect.top;
+    if (malphiteImage != nullptr && malphiteImage->GetLastStatus() == Gdiplus::Ok)
+    {
+        DrawGdiImageAlpha(hDC, malphiteImage, m_malphite.bodyRect.left, m_malphite.bodyRect.top, drawWidth, drawHeight, alpha);
+        return;
+    }
+
+    HBRUSH malphiteBrush = CreateSolidBrush(RGB(120, 80, 80));
+    FillRect(hDC, &m_malphite.bodyRect, malphiteBrush);
+    DeleteObject(malphiteBrush);
 }
 
 void avoidgame::UpdateAttacks()

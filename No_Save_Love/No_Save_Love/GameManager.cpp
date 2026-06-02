@@ -623,7 +623,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
 
     // 현재 PCroomgame 점수를 100점 만점으로 환산한다.
     // 실제 미니게임 2, 3, 4는 각 게임의 점수 기준에 맞게 여기에서 분기하면 된다.
-    int convertedScore = rawScore * 100 / 2000;
+    int convertedScore = rawScore * 100 / 1000;
 
     if (convertedScore > 100)
     {

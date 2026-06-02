@@ -4,7 +4,7 @@
 
 namespace
 {
-    const bool SHOW_HIT_BOX = true;
+    const bool SHOW_HIT_BOX = false;
 
     const int SCREEN_WIDTH = 1920;
     const int SCREEN_HEIGHT = 1080;
@@ -38,11 +38,22 @@ namespace
     const int SIGNBOARD_OBSTACLE_WIDTH = 200;
     const int SIGNBOARD_OBSTACLE_HEIGHT = SCREEN_HEIGHT - PLAYER_WIDTH*2+20;
 
+    const int CLOUD_COUNT = 3;
+    const int CLOUD_WIDTHS[CLOUD_COUNT] = { 330, 250, 190 };
+    const int CLOUD_HEIGHTS[CLOUD_COUNT] = { 141, 107, 81 };
+    const float CLOUD_Y_POSITIONS[CLOUD_COUNT] = { 85.0f, 190.0f, 135.0f };
+    const float CLOUD_START_OFFSETS[CLOUD_COUNT] = { 40.0f, 620.0f, 1080.0f };
+    const float CLOUD_RESPAWN_GAP = 340.0f;
+    const float CLOUD_SPEED_MULTIPLIER = 1.15f;
+    const float BACKGROUND_SPEED_MULTIPLIER = 0.25f;
+    const int BACKGROUND_CYCLE_WIDTH = SCREEN_WIDTH * 2;
+
     const float FIXED_PLAYER_X = 220.0f;
 
     // 조절값: 점프와 낙하
     const float GRAVITY_VALUE = 10.0f;
     const float JUMP_POWER_VALUE = -80.0f;
+    const float JUMP_BUFFER_DURATION = 0.15f;
 
     // 조절값: 러닝 속도
     const float START_GAME_SPEED = 30.0f;
@@ -79,6 +90,7 @@ schoolrun::schoolrun()
     m_jumpPower = JUMP_POWER_VALUE;
 
     m_gameSpeed = START_GAME_SPEED;
+    m_backgroundOffset = 0.0f;
     m_scrollOffset = 0.0f;
     m_distanceScore = 0;
     m_nextObstacleDistance = OBSTACLE_START_DISTANCE;
@@ -93,6 +105,7 @@ schoolrun::schoolrun()
     m_isSliding = false;
     m_isDownKeyPressed = false;
     m_jumpCount = 0;
+    m_jumpBufferTime = 0.0f;
     m_playerFrameIndex = 0;
     m_playerAnimationTime = 0.0f;
 
@@ -128,6 +141,14 @@ void schoolrun::LoadImages()
     {
         m_playerSlideImage.Load(L"resource\\minigame3\\slide.png");
     }
+    if (m_backgroundImage.IsNull())
+    {
+        m_backgroundImage.Load(L"resource\\minigame3\\school_background.png");
+    }
+    if (m_backgroundImage2.IsNull())
+    {
+        m_backgroundImage2.Load(L"resource\\minigame3\\school_background2.png");
+    }
     if (m_heartImage.IsNull())
     {
         m_heartImage.Load(L"resource\\minigame3\\heart.png");
@@ -160,6 +181,10 @@ void schoolrun::LoadImages()
     {
         m_signboardObstacleImage.Load(L"resource\\minigame3\\signboard.png");
     }
+    if (m_cloudImage.IsNull())
+    {
+        m_cloudImage.Load(L"resource\\minigame3\\cloud.png");
+    }
 }
 
 void schoolrun::DestroyImages()
@@ -171,6 +196,14 @@ void schoolrun::DestroyImages()
     if (!m_playerSlideImage.IsNull())
     {
         m_playerSlideImage.Destroy();
+    }
+    if (!m_backgroundImage.IsNull())
+    {
+        m_backgroundImage.Destroy();
+    }
+    if (!m_backgroundImage2.IsNull())
+    {
+        m_backgroundImage2.Destroy();
     }
     if (!m_heartImage.IsNull())
     {
@@ -204,6 +237,10 @@ void schoolrun::DestroyImages()
     {
         m_signboardObstacleImage.Destroy();
     }
+    if (!m_cloudImage.IsNull())
+    {
+        m_cloudImage.Destroy();
+    }
 }
 
 void schoolrun::Reset()
@@ -215,6 +252,7 @@ void schoolrun::Reset()
 
     // 러닝 상태
     m_gameSpeed = START_GAME_SPEED;
+    m_backgroundOffset = 0.0f;
     m_scrollOffset = 0.0f;
     m_distanceScore = 0;
     m_nextObstacleDistance = OBSTACLE_START_DISTANCE;
@@ -230,8 +268,10 @@ void schoolrun::Reset()
     m_isSliding = false;
     m_isDownKeyPressed = false;
     m_jumpCount = 0;
+    m_jumpBufferTime = 0.0f;
     m_playerFrameIndex = 0;
     m_playerAnimationTime = 0.0f;
+    ResetClouds();
     m_obstacles.clear();
     CreateObstaclePatterns();
 }
@@ -258,7 +298,6 @@ void schoolrun::Update()
             m_invincibleTime = 0.0f;
         }
     }
-
     if (m_remainingTime <= 0.0f)
     {
         m_remainingTime = 0.0f;
@@ -287,15 +326,32 @@ void schoolrun::Update()
         m_isGrounded = false;
     }
 
+    if (m_jumpBufferTime > 0.0f)
+    {
+        TryJump();
+    }
+    if (m_jumpBufferTime > 0.0f)
+    {
+        m_jumpBufferTime -= UPDATE_DELTA_SECONDS;
+        if (m_jumpBufferTime < 0.0f)
+        {
+            m_jumpBufferTime = 0.0f;
+        }
+    }
+
     // X 위치 고정
     m_playerX = FIXED_PLAYER_X;
 
     // 바닥 이미지 이동
+    UpdateBackground();
     m_scrollOffset += m_gameSpeed;
     while (m_scrollOffset >= SCREEN_WIDTH)
     {
         m_scrollOffset -= SCREEN_WIDTH;
     }
+
+    // 배경 구름 이동
+    UpdateClouds();
 
     // 거리 점수
     m_distanceScore += DISTANCE_GAIN_PER_FRAME;
@@ -325,6 +381,12 @@ void schoolrun::Render(HDC hDC)
     FillRect(hDC, &screenRect, backgroundBrush);
     DeleteObject(backgroundBrush);
 
+    // 등굣길 원경 배경
+    RenderBackground(hDC);
+
+    // 배경 구름
+    RenderClouds(hDC);
+
     // 이동 바닥
     RenderGround(hDC);
 
@@ -350,11 +412,12 @@ void schoolrun::Render(HDC hDC)
 void schoolrun::OnKeyDown(WPARAM wParam)
 {
     // 더블점프
-    if (wParam == VK_SPACE && !m_isSliding && m_jumpCount < 2)
+    if (wParam == VK_SPACE)
     {
-        m_velocityY = m_jumpPower;
-        m_isGrounded = false;
-        m_jumpCount++;
+        if (!TryJump())
+        {
+            m_jumpBufferTime = JUMP_BUFFER_DURATION;
+        }
         return;
     }
 
@@ -378,6 +441,10 @@ void schoolrun::OnKeyUp(WPARAM wParam)
         m_isDownKeyPressed = false;
         m_isSliding = false;
         m_playerY = static_cast<float>(GROUND_TOP - PLAYER_STAND_HEIGHT);
+        if (m_jumpBufferTime > 0.0f)
+        {
+            TryJump();
+        }
     }
     else if (wParam == VK_DOWN)
     {
@@ -445,6 +512,72 @@ RECT schoolrun::GetObstacleRect(const Obstacle& obstacle) const
     };
 
     return rect;
+}
+
+bool schoolrun::TryJump()
+{
+    if (m_isSliding || m_jumpCount >= 2)
+    {
+        return false;
+    }
+
+    m_velocityY = m_jumpPower;
+    m_isGrounded = false;
+    m_jumpCount++;
+    m_jumpBufferTime = 0.0f;
+    return true;
+}
+
+void schoolrun::UpdateBackground()
+{
+    m_backgroundOffset += m_gameSpeed * BACKGROUND_SPEED_MULTIPLIER;
+    while (m_backgroundOffset >= BACKGROUND_CYCLE_WIDTH)
+    {
+        m_backgroundOffset -= BACKGROUND_CYCLE_WIDTH;
+    }
+}
+
+void schoolrun::ResetClouds()
+{
+    m_clouds.clear();
+
+    for (int i = 0; i < CLOUD_COUNT; ++i)
+    {
+        Cloud cloud = {};
+        cloud.x = static_cast<float>(SCREEN_WIDTH) + CLOUD_START_OFFSETS[i];
+        cloud.y = CLOUD_Y_POSITIONS[i];
+        cloud.width = CLOUD_WIDTHS[i];
+        cloud.height = CLOUD_HEIGHTS[i];
+        m_clouds.push_back(cloud);
+    }
+}
+
+void schoolrun::UpdateClouds()
+{
+    const float cloudSpeed = m_gameSpeed * CLOUD_SPEED_MULTIPLIER;
+
+    for (Cloud& cloud : m_clouds)
+    {
+        cloud.x -= cloudSpeed;
+    }
+
+    float rightMostX = static_cast<float>(SCREEN_WIDTH);
+    for (const Cloud& cloud : m_clouds)
+    {
+        if (cloud.x > rightMostX)
+        {
+            rightMostX = cloud.x;
+        }
+    }
+
+    for (Cloud& cloud : m_clouds)
+    {
+        if (cloud.x + cloud.width < 0.0f)
+        {
+            cloud.x = rightMostX + CLOUD_RESPAWN_GAP;
+            rightMostX = cloud.x;
+        }
+    }
 }
 
 void schoolrun::UpdateObstacles()
@@ -635,6 +768,51 @@ CImage* schoolrun::GetObstacleImage(ObstacleType type)
 
     default:
         return nullptr;
+    }
+}
+
+void schoolrun::RenderBackground(HDC hDC)
+{
+    if (m_backgroundImage.IsNull())
+    {
+        return;
+    }
+
+    int segmentIndex = static_cast<int>(m_backgroundOffset) / SCREEN_WIDTH;
+    int offsetX = static_cast<int>(m_backgroundOffset) % SCREEN_WIDTH;
+
+    for (int i = 0; i < 3; ++i)
+    {
+        CImage* backgroundImage = ((segmentIndex + i) % 2 == 0 || m_backgroundImage2.IsNull()) ?
+            &m_backgroundImage :
+            &m_backgroundImage2;
+
+        DrawImage(
+            hDC,
+            *backgroundImage,
+            -offsetX + (i * SCREEN_WIDTH),
+            0,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT);
+    }
+}
+
+void schoolrun::RenderClouds(HDC hDC)
+{
+    if (m_cloudImage.IsNull())
+    {
+        return;
+    }
+
+    for (const Cloud& cloud : m_clouds)
+    {
+        DrawImage(
+            hDC,
+            m_cloudImage,
+            static_cast<int>(cloud.x),
+            static_cast<int>(cloud.y),
+            cloud.width,
+            cloud.height);
     }
 }
 
