@@ -84,6 +84,8 @@ void GameManager::Shutdown()
 
     minigam1_tutorial1.Shutdown();
     minigame2TutorialScene.Shutdown();
+    minigame3TutorialScene.Shutdown();
+    minigame4TutorialScene.Shutdown();
 
     ReleasePendingMiniGame();
 
@@ -209,8 +211,6 @@ void GameManager::OnMouseClick(int x, int y)
     }
 
     case game_mode_info::MiniGameTutor1:
-    case game_mode_info::MiniGameTutor3:
-    case game_mode_info::MiniGameTutor4:
     {
         minigam1_tutorial1.OnMouseClick(x, y);
         if (minigam1_tutorial1.IsFinished())
@@ -230,6 +230,30 @@ void GameManager::OnMouseClick(int x, int y)
             audioManager.PlaySfx(L"click");
 
             minigame2TutorialScene.Shutdown();
+            StartCurrentMiniGame();
+        }
+        break;
+    }
+    case game_mode_info::MiniGameTutor3:
+    {
+        minigame3TutorialScene.OnMouseClick(x, y);
+        if (minigame3TutorialScene.IsFinished())
+        {
+            audioManager.PlaySfx(L"click");
+
+            minigame3TutorialScene.Shutdown();
+            StartCurrentMiniGame();
+        }
+        break;
+    }
+    case game_mode_info::MiniGameTutor4:
+    {
+        minigame4TutorialScene.OnMouseClick(x, y);
+        if (minigame4TutorialScene.IsFinished())
+        {
+            audioManager.PlaySfx(L"click");
+
+            minigame4TutorialScene.Shutdown();
             StartCurrentMiniGame();
         }
         break;
@@ -368,9 +392,16 @@ void GameManager::EnterCurrentMiniGameTutorial()
     {
         minigame2TutorialScene.Initialize();
     }
+    else if (currentMiniGameIndex == 2)
+    {
+        minigame3TutorialScene.Initialize();
+    }
+    else if (currentMiniGameIndex == 3)
+    {
+        minigame4TutorialScene.Initialize();
+    }
     else
     {
-        // 미니게임 3, 4 튜토리얼이 추가되기 전까지는 미니게임 1 화면을 임시로 사용한다.
         minigam1_tutorial1.Initialize();
     }
 
@@ -731,8 +762,6 @@ void GameManager::Render(HDC hDC)
         break;
     }
     case game_mode_info::MiniGameTutor1:
-    case game_mode_info::MiniGameTutor3:
-    case game_mode_info::MiniGameTutor4:
     {
         minigam1_tutorial1.Render(hDC);
         break;
@@ -740,6 +769,16 @@ void GameManager::Render(HDC hDC)
     case game_mode_info::MiniGameTutor2:
     {
         minigame2TutorialScene.Render(hDC);
+        break;
+    }
+    case game_mode_info::MiniGameTutor3:
+    {
+        minigame3TutorialScene.Render(hDC);
+        break;
+    }
+    case game_mode_info::MiniGameTutor4:
+    {
+        minigame4TutorialScene.Render(hDC);
         break;
     }
     case game_mode_info::MiniGame1:

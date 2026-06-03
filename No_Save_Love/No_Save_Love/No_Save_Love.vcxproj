@@ -140,6 +140,8 @@
     <ClCompile Include="Scenes\FinalChoiceScene.cpp" />
     <ClCompile Include="Scenes\MiniGame1TutorialScene.cpp" />
     <ClCompile Include="Scenes\MiniGame2TutorialScene.cpp" />
+    <ClCompile Include="Scenes\MiniGame3TutorialScene.cpp" />
+    <ClCompile Include="Scenes\MiniGame4TutorialScene.cpp" />
     <ClCompile Include="Scenes\NameInputScene.cpp" />
     <ClCompile Include="Scenes\ResultScene.cpp" />
     <ClCompile Include="Scenes\StoryScene.cpp" />
@@ -160,6 +162,8 @@
     <ClInclude Include="Scenes\FinalChoiceScene.h" />
     <ClInclude Include="Scenes\MiniGame1TutorialScene.h" />
     <ClInclude Include="Scenes\MiniGame2TutorialScene.h" />
+    <ClInclude Include="Scenes\MiniGame3TutorialScene.h" />
+    <ClInclude Include="Scenes\MiniGame4TutorialScene.h" />
     <ClInclude Include="Scenes\NameInputScene.h" />
     <ClInclude Include="Scenes\ResultScene.h" />
     <ClInclude Include="Scenes\StoryScene.h" />
