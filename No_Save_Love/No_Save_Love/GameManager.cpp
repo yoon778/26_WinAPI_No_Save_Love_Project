@@ -51,6 +51,13 @@ void GameManager::Initialize(HWND hWnd)
     audioManager.RegisterSfx(L"minigame1_water", L"resource\\minigame1\\sfx_water.wav");
     audioManager.RegisterSfx(L"minigame1_noodle_soup", L"resource\\minigame1\\sfx_noodle_soup.wav");
     audioManager.RegisterSfx(L"minigame1_topping", L"resource\\minigame1\\sfx_topping.wav");
+    audioManager.RegisterSfx(L"minigame3_jump", L"resource\\minigame3\\sfx_jump.wav");
+    audioManager.RegisterSfx(L"minigame3_slide", L"resource\\minigame3\\sfx_slide.wav");
+    audioManager.RegisterSfx(L"minigame3_hit", L"resource\\minigame3\\sfx_hit.wav");
+    audioManager.RegisterSfx(L"minigame4_lolpopup", L"resource\\minigame4\\sound\\lol.wav");
+    audioManager.RegisterSfx(L"minigame4_malpa_rock", L"resource\\minigame4\\sound\\rock.wav");
+    audioManager.RegisterSfx(L"minigame4_malpa_ult", L"resource\\minigame4\\sound\\ult.wav");
+    audioManager.RegisterSfx(L"minigame4_rider", L"resource\\minigame4\\sound\\rider.wav");
 
     // 히로인 선택 횟수를 초기화한다.
     characters = {

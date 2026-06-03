@@ -1,6 +1,10 @@
 ﻿#include "schoolrun.h"
 
+#include "../AudioManager.h"
+
 #pragma comment(lib, "msimg32.lib")
+
+extern AudioManager audioManager;
 
 namespace
 {
@@ -425,10 +429,11 @@ void schoolrun::OnKeyDown(WPARAM wParam)
     if (wParam == VK_DOWN)
     {
         m_isDownKeyPressed = true;
-        if (m_isGrounded)
+        if (m_isGrounded && !m_isSliding)
         {
             m_isSliding = true;
             m_playerY = static_cast<float>(GROUND_TOP - PLAYER_SLIDE_HEIGHT);
+            audioManager.PlaySfx(L"minigame3_slide");
         }
     }
 }
@@ -525,6 +530,7 @@ bool schoolrun::TryJump()
     m_isGrounded = false;
     m_jumpCount++;
     m_jumpBufferTime = 0.0f;
+    audioManager.PlaySfx(L"minigame3_jump");
     return true;
 }
 
@@ -631,6 +637,7 @@ void schoolrun::CheckObstacleCollisions()
         if (IntersectRect(&intersectRect, &playerHitBox, &obstacleRect))
         {
             m_life--;
+            audioManager.PlaySfx(L"minigame3_hit");
             m_invincibleTime = INVINCIBLE_DURATION;
             if (m_life <= 0)
             {

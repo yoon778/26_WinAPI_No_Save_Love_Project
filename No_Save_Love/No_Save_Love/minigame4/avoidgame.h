@@ -198,6 +198,13 @@ private:
     static constexpr float MALPHITE_DASH_DURATION = 0.36f; // [조절값] 돌진 시간
     static constexpr float MALPHITE_FADE_DURATION = 0.72f; // [조절값] 사라짐 시간
 
+    static const int MINIGAME4_BGM_VOLUME = 350; // 미니게임4 기본 배경음
+    static const int MINIGAME4_DUCKED_BGM_VOLUME = 175; // 효과음 중 배경음
+    static constexpr float LOLPOPUP_SFX_DURATION = 0.90f; // 롤 팝업 음성 길이
+    static constexpr float MALPHITE_ROCK_SFX_DURATION = 2.30f; // 말파 준비 음성 길이
+    static constexpr float MALPHITE_ULT_SFX_DURATION = 1.50f; // 말파 돌진 음성 길이
+    static constexpr float RIDER_SFX_DURATION = 2.70f; // 배달 기사 음성 길이
+
     static const int PLAYER_RUNNING_FRAME_COUNT = 7; // [조절값] 달리기 프레임 수
     static const int PLAYER_SHEET_FRAME_COUNT = 8; // 달리기 7프레임 + 점프 1프레임
     static const int PLAYER_JUMP_FRAME_INDEX = 7; // 점프 프레임 번호
@@ -234,6 +241,8 @@ private:
     Gdiplus::Bitmap* m_reelsInstarCaches[3]; // 릴스 화면 캐시
     int m_reelsInstarCacheHeights[3]; // 릴스 화면 높이
     int m_lastHitImageIndex; // 최근 피격 이미지
+    float m_bgmDuckTimer; // 배경음 감소 남은 시간
+    bool m_isBgmDucked; // 배경음 감소 여부
 
 private:
     void LoadImages(); // 이미지 로드
@@ -290,6 +299,9 @@ private:
     void DrawAttacks(HDC hDC); // 장판 출력
     void DrawKakaoPopup(HDC hDC, const AttackWarning& attack); // 카톡 이미지 출력
     void DrawReelsScroll(HDC hDC, const AttackWarning& attack); // 릴스 이미지 출력
+    void PlayPatternSfx(const wchar_t* key, float duckDuration); // 패턴 효과음 출력
+    void UpdateBgmDuck(); // 배경음 감소 갱신
+    void RestoreBgmVolume(); // 배경음 복구
     bool IsRectOverlap(const RECT& a, const RECT& b) const; // 충돌 확인
     bool IsRectCircleOverlap(const RECT& rect, const RECT& circleRect) const; // 원 충돌 확인
     void DamagePlayer(int hitImageIndex); // 피격 처리

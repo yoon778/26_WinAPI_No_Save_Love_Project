@@ -1,7 +1,11 @@
 ﻿#include "avoidgame.h"
 
+#include "../AudioManager.h"
+
 #include <cmath>
 #include <cstdlib>
+
+extern AudioManager audioManager;
 
 avoidgame::avoidgame()
 {
@@ -40,6 +44,8 @@ avoidgame::avoidgame()
     m_phoneImage = nullptr;
     m_reelsPhoneCache = nullptr;
     m_lastHitImageIndex = HIT_IMAGE_NONE;
+    m_bgmDuckTimer = 0.0f;
+    m_isBgmDucked = false;
     for (int i = 0; i < 3; i++)
     {
         m_foodImages[i] = nullptr;
@@ -76,6 +82,7 @@ void avoidgame::Initialize()
 void avoidgame::Release()
 {
     // 리소스 정리
+    RestoreBgmVolume();
     DestroyImages();
     m_platforms.clear();
     m_attacks.clear();
@@ -89,6 +96,8 @@ void avoidgame::Release()
     m_deliver = {};
     m_malphite = {};
     m_lastHitImageIndex = HIT_IMAGE_NONE;
+    m_bgmDuckTimer = 0.0f;
+    m_isBgmDucked = false;
 }
 
 void avoidgame::LoadImages()
@@ -531,6 +540,7 @@ void avoidgame::DrawRedTintedGdiImageFrame(HDC hDC, Gdiplus::Image* image, int d
 
 void avoidgame::Reset()
 {
+    RestoreBgmVolume();
     CreatePlatforms();
     ResetPlayer();
     ResetPatterns();
@@ -542,10 +552,14 @@ void avoidgame::Reset()
     m_game.isFinished = false;
     m_game.isSuccess = false;
     m_lastHitImageIndex = HIT_IMAGE_NONE;
+    m_bgmDuckTimer = 0.0f;
+    m_isBgmDucked = false;
 }
 
 void avoidgame::Update()
 {
+    UpdateBgmDuck();
+
     // 종료 상태
     if (m_game.isFinished)
     {
@@ -1423,6 +1437,7 @@ void avoidgame::UpdateDeliverPattern()
             m_deliver.warningTimer = 0.0f;
             m_deliver.isWarning = false;
             m_deliver.isActive = true;
+            PlayPatternSfx(L"minigame4_rider", RIDER_SFX_DURATION);
         }
         return;
     }
@@ -1578,6 +1593,7 @@ void avoidgame::UpdateMalphitePattern()
             progress = 1.0f;
             m_malphite.phase = MALPHITE_PHASE_WARN;
             m_malphite.phaseTimer = 0.0f;
+            PlayPatternSfx(L"minigame4_malpa_rock", MALPHITE_ROCK_SFX_DURATION);
         }
 
         float enterStartX = static_cast<float>(-MALPHITE_STAND_WIDTH);
@@ -1632,6 +1648,7 @@ void avoidgame::UpdateMalphitePattern()
                 static_cast<LONG>(m_malphite.x + MALPHITE_ULT_WIDTH),
                 static_cast<LONG>(m_malphite.y + MALPHITE_ULT_HEIGHT)
             };
+            PlayPatternSfx(L"minigame4_malpa_ult", MALPHITE_ULT_SFX_DURATION);
         }
         return;
     }
@@ -1753,6 +1770,10 @@ void avoidgame::UpdateAttacks()
             {
                 attack.warningTime = 0.0f;
                 attack.isAttackActive = true;
+                if (attack.attackType == ATTACK_TYPE_KAKAO)
+                {
+                    PlayPatternSfx(L"minigame4_lolpopup", LOLPOPUP_SFX_DURATION);
+                }
             }
         }
         else
@@ -1934,6 +1955,43 @@ void avoidgame::DrawKakaoPopup(HDC hDC, const AttackWarning& attack)
     SelectObject(hDC, oldPen);
     DeleteObject(attackBrush);
     DeleteObject(attackPen);
+}
+
+void avoidgame::PlayPatternSfx(const wchar_t* key, float duckDuration)
+{
+    audioManager.PlaySfx(key);
+    audioManager.SetBgmVolume(MINIGAME4_DUCKED_BGM_VOLUME);
+    m_isBgmDucked = true;
+    if (duckDuration > m_bgmDuckTimer)
+    {
+        m_bgmDuckTimer = duckDuration;
+    }
+}
+
+void avoidgame::UpdateBgmDuck()
+{
+    if (!m_isBgmDucked)
+    {
+        return;
+    }
+
+    m_bgmDuckTimer -= UPDATE_DELTA_SECONDS;
+    if (m_bgmDuckTimer <= 0.0f)
+    {
+        RestoreBgmVolume();
+    }
+}
+
+void avoidgame::RestoreBgmVolume()
+{
+    if (!m_isBgmDucked)
+    {
+        return;
+    }
+
+    m_bgmDuckTimer = 0.0f;
+    m_isBgmDucked = false;
+    audioManager.SetBgmVolume(MINIGAME4_BGM_VOLUME);
 }
 
 bool avoidgame::IsRectOverlap(const RECT& a, const RECT& b) const
