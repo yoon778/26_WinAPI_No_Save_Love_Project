@@ -26,7 +26,8 @@
 
 
 // 미니 게임
-#include"Scenes/MiniGame1TutorialScene.h"
+#include "Scenes/MiniGame1TutorialScene.h"
+#include "Scenes/MiniGame2TutorialScene.h"
 #include "minigame1/PCroomgame.h" // 피시방 미니게임 헤더파일
 #include "minigame4/avoidgame.h" // 유혹 피하기 미니게임 헤더파일
 #include "minigame2/RhythmMiniGame.h"
@@ -92,6 +93,7 @@ private:
     EndingScene endingScene;
 
     MiniGame1TutorialScene minigam1_tutorial1;
+    MiniGame2TutorialScene minigame2TutorialScene;
 
     PCroomgame minigame1;
     RhythmMiniGame minigame2;
@@ -182,7 +184,8 @@ private:
     void RenderCurrentMiniGame(HDC hDC);
 
     // 미니게임이 끝났을 때 점수를 계산하고 ResultScene으로 이동한다.
-    void FinishCurrentMiniGameIfNeeded();
+    // forceFinish가 true면 Q 디버그 입력으로 현재 점수를 즉시 반환한다.
+    void FinishCurrentMiniGameIfNeeded(bool forceFinish = false);
 
     // StoryScene 대사에 지정된 BGM 변경 요청을 적용한다.
     void ApplyStoryBgmChange();

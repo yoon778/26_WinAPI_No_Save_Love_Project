@@ -35,6 +35,10 @@ void GameManager::Initialize(HWND hWnd)
     audioManager.RegisterBgm(L"story3", L"resource\\sound\\story_part1\\story3.mp3");
     audioManager.RegisterBgm(L"story4", L"resource\\sound\\story_part1\\story4.mp3");
     audioManager.RegisterBgm(L"story5", L"resource\\sound\\story_part1\\story5.mp3");
+    audioManager.RegisterBgm(L"story2.1", L"resource\\sound\\story_part2\\story2.1.mp3");
+    audioManager.RegisterBgm(L"story3.1", L"resource\\sound\\story_part3\\story3.mp3");
+    audioManager.RegisterBgm(L"story4.1", L"resource\\sound\\story_part4\\story4.mp3");
+    audioManager.RegisterBgm(L"story5.1", L"resource\\sound\\story_part5\\story5.mp3");
     audioManager.RegisterBgm(L"minigame1", L"resource\\sound\\minigame\\minigame1.mp3");
     audioManager.RegisterBgm(L"minigame3", L"resource\\sound\\minigame\\minigame3.mp3");
     audioManager.RegisterBgm(L"minigame4", L"resource\\sound\\minigame\\minigame4.mp3");
@@ -42,6 +46,11 @@ void GameManager::Initialize(HWND hWnd)
     audioManager.RegisterBgm(L"badending", L"resource\\sound\\ending\\bad_ending.mp3");
     audioManager.RegisterBgm(L"hiddenending", L"resource\\sound\\ending\\hidden_ending.mp3");
     audioManager.RegisterSfx(L"click", L"resource\\sound\\Sfx\\Click.wav");
+    audioManager.RegisterSfx(L"minigame1_success", L"resource\\minigame1\\sfx_success.wav");
+    audioManager.RegisterSfx(L"minigame1_fail", L"resource\\minigame1\\sfx_fail.wav");
+    audioManager.RegisterSfx(L"minigame1_water", L"resource\\minigame1\\sfx_water.wav");
+    audioManager.RegisterSfx(L"minigame1_noodle_soup", L"resource\\minigame1\\sfx_noodle_soup.wav");
+    audioManager.RegisterSfx(L"minigame1_topping", L"resource\\minigame1\\sfx_topping.wav");
 
     // 히로인 선택 횟수를 초기화한다.
     characters = {
@@ -72,6 +81,9 @@ void GameManager::Initialize(HWND hWnd)
 void GameManager::Shutdown()
 {
     audioManager.Shutdown();
+
+    minigam1_tutorial1.Shutdown();
+    minigame2TutorialScene.Shutdown();
 
     ReleasePendingMiniGame();
 
@@ -196,8 +208,7 @@ void GameManager::OnMouseClick(int x, int y)
         break;
     }
 
-    case game_mode_info::MiniGameTutor1: 
-    case game_mode_info::MiniGameTutor2:
+    case game_mode_info::MiniGameTutor1:
     case game_mode_info::MiniGameTutor3:
     case game_mode_info::MiniGameTutor4:
     {
@@ -207,6 +218,18 @@ void GameManager::OnMouseClick(int x, int y)
             audioManager.PlaySfx(L"click");
 
             minigam1_tutorial1.Shutdown();
+            StartCurrentMiniGame();
+        }
+        break;
+    }
+    case game_mode_info::MiniGameTutor2:
+    {
+        minigame2TutorialScene.OnMouseClick(x, y);
+        if (minigame2TutorialScene.IsFinished())
+        {
+            audioManager.PlaySfx(L"click");
+
+            minigame2TutorialScene.Shutdown();
             StartCurrentMiniGame();
         }
         break;
@@ -341,8 +364,16 @@ void GameManager::EnterResult(int whichGame, int score)
 
 void GameManager::EnterCurrentMiniGameTutorial()
 {
-    // MiniGame1TutorialScene은 번호별 내용을 바꿔 쓰는 통합 튜토리얼 씬이다.
-    minigam1_tutorial1.Initialize(currentMiniGameIndex + 1);
+    if (currentMiniGameIndex == 1)
+    {
+        minigame2TutorialScene.Initialize();
+    }
+    else
+    {
+        // 미니게임 3, 4 튜토리얼이 추가되기 전까지는 미니게임 1 화면을 임시로 사용한다.
+        minigam1_tutorial1.Initialize();
+    }
+
     RequestSceneChange(GetTutorialModeByIndex(currentMiniGameIndex));
 }
 
@@ -358,6 +389,8 @@ void GameManager::StartCurrentMiniGame()
     if (currentMiniGameIndex == 1)
     {
         // 미니게임 2는 리듬게임을 사용한다.
+        // 리듬게임은 자체 BGM을 재생하므로 이전 공용 BGM을 먼저 정지한다.
+        audioManager.StopBgm();
         minigame2.Release();
         minigame2.Init(m_hWnd);
         ForceSystemCursorHidden();
@@ -394,6 +427,7 @@ void GameManager::DebugEnterMiniGameByIndex(int miniGameIndex)
 
     // F1~F4는 앞부분 진행을 건너뛰고 원하는 미니게임 슬롯으로 바로 들어간다.
     currentMiniGameIndex = miniGameIndex;
+    currentStoryRound = miniGameIndex;
     StartCurrentMiniGame();
 }
 
@@ -530,13 +564,13 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
     minigame1.PAINT(hDC);
 }
 
-void GameManager::FinishCurrentMiniGameIfNeeded()
+void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
 {
     // 미니게임 4는 avoidgame의 종료 여부와 점수를 사용한다.
     // 결과 처리도 현재 실행 화면 기준으로 판단한다.
     if (now_game_mode == game_mode_info::MiniGame4)
     {
-        if (!minigame4.IsFinished())
+        if (!forceFinish && !minigame4.IsFinished())
         {
             return;
         }
@@ -547,6 +581,11 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
     }
     if (now_game_mode == game_mode_info::MiniGame2)
     {
+        if (forceFinish)
+        {
+            minigame2.FinishImmediately();
+        }
+
         if (!minigame2.IsGameOver())
         {
             return;
@@ -560,7 +599,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
     }
     if (now_game_mode == game_mode_info::MiniGame3)
     {
-        if (!minigame3.IsFinished())
+        if (!forceFinish && !minigame3.IsFinished())
         {
             return;
         }
@@ -571,7 +610,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded()
         return;
     }
     // 임시 연결된 미니게임 1이 끝나지 않았으면 Result로 이동하지 않는다.
-    if (!minigame1.isfinished())
+    if (!forceFinish && !minigame1.isfinished())
     {
         return;
     }
@@ -692,11 +731,15 @@ void GameManager::Render(HDC hDC)
         break;
     }
     case game_mode_info::MiniGameTutor1:
-    case game_mode_info::MiniGameTutor2:
     case game_mode_info::MiniGameTutor3:
     case game_mode_info::MiniGameTutor4:
     {
         minigam1_tutorial1.Render(hDC);
+        break;
+    }
+    case game_mode_info::MiniGameTutor2:
+    {
+        minigame2TutorialScene.Render(hDC);
         break;
     }
     case game_mode_info::MiniGame1:
@@ -1188,6 +1231,17 @@ void GameManager::OnKeyDown(WPARAM wParam)
 
     default:
         break;
+    }
+
+    // Q는 테스트 중인 미니게임을 현재 점수로 즉시 종료한다.
+    if (wParam == 'Q' &&
+        (now_game_mode == game_mode_info::MiniGame1 ||
+            now_game_mode == game_mode_info::MiniGame2 ||
+            now_game_mode == game_mode_info::MiniGame3 ||
+            now_game_mode == game_mode_info::MiniGame4))
+    {
+        FinishCurrentMiniGameIfNeeded(true);
+        return;
     }
 
     // 미니게임 4는 방향키를 사용하므로 특수 키 입력을 직접 전달한다.

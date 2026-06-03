@@ -9,6 +9,7 @@ class PCroomgame {
 private:
 	std::wstring resultMessage; // 성공/실패 메시지
 	int resultTimer;            // 메시지를 보여줄 시간
+	bool lastDeliverySucceeded; // 마지막 배달 결과
 
 	int score;		// pc방 게임 점수
 	double timer;		// pc방 게임시간
@@ -20,6 +21,8 @@ private:
 	CImage waterImg;
 	CImage resetBtnImg;
 	CImage boilingWaterImg;
+	CImage successFeedbackImg;
+	CImage failFeedbackImg;
 
 	HFONT hudFont;
 	CImage hudImg;
@@ -67,6 +70,7 @@ private:
 
 	void UpdateAnimation();
 	void DrawPlayer(HDC hDC);
+	void DrawDeliveryFeedback(HDC hDC);
 
 	enum CustomerState
 	{

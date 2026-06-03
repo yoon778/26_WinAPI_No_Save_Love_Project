@@ -1,6 +1,9 @@
 ﻿#include "PCroomgame.h"
 #include "ramen.h"
+#include "../AudioManager.h"
 #include <ctime>
+
+extern AudioManager audioManager;
 
 #define DIR_FRONT 0
 #define DIR_BACK  1
@@ -48,6 +51,7 @@ PCroomgame::PCroomgame() {
 
 	resultMessage = L"";
 	resultTimer = 0;
+	lastDeliverySucceeded = false;
 	currentDir = DIR_FRONT;
 
 	waterFrame = 0;
@@ -170,6 +174,7 @@ void PCroomgame::Init() {
 
 	resultMessage = L"";
 	resultTimer = 0;
+	lastDeliverySucceeded = false;
 
 	currentFrame = 1;
 	animTick = 0;
@@ -232,6 +237,8 @@ void PCroomgame::Init() {
 	resetBtnImg.Load(L"resource/minigame1/reset.png");
 
 	boilingWaterImg.Load(L"resource/minigame1/boiling_water.png");
+	successFeedbackImg.Load(L"resource/minigame1/미니1성공.png");
+	failFeedbackImg.Load(L"resource/minigame1/미니1실패.png");
 
 	addWaterImg.Load(L"resource/minigame1/add_water.png");
 	addNoodleImg.Load(L"resource/minigame1/add_noodle.png");
@@ -395,6 +402,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		{
 			curramen.water = true;
 			StartCenterPotAnimation(POT_ADD_WATER);
+			audioManager.PlaySfx(L"minigame1_water");
 		}
 		return;
 	}
@@ -407,6 +415,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		{
 			curramen.noodle = true;
 			StartCenterPotAnimation(POT_ADD_NOODLE);
+			audioManager.PlaySfx(L"minigame1_noodle_soup");
 		}
 		return;
 	}
@@ -419,6 +428,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		{
 			curramen.soup = true;
 			StartCenterPotAnimation(POT_ADD_SOUP);
+			audioManager.PlaySfx(L"minigame1_noodle_soup");
 		}
 		return;
 	}
@@ -431,6 +441,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		{
 			curramen.egg = true;
 			StartCenterPotAnimation(POT_ADD_EGG);
+			audioManager.PlaySfx(L"minigame1_topping");
 		}
 		return;
 	}
@@ -443,6 +454,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		{
 			curramen.cheese = true;
 			StartCenterPotAnimation(POT_ADD_CHEESE);
+			audioManager.PlaySfx(L"minigame1_topping");
 		}
 		return;
 	}
@@ -455,6 +467,7 @@ void PCroomgame::MOUSE(int x, int y) {
 		{
 			curramen.dumpling = true;
 			StartCenterPotAnimation(POT_ADD_DUMPLING);
+			audioManager.PlaySfx(L"minigame1_topping");
 		}
 		return;
 	}
@@ -478,6 +491,16 @@ void PCroomgame::Update()
 	if (finished == true)
 	{
 		return;
+	}
+
+	if (resultTimer > 0)
+	{
+		resultTimer--;
+
+		if (resultTimer == 0)
+		{
+			resultMessage = L"";
+		}
 	}
 
 	// =========================
@@ -740,6 +763,8 @@ void PCroomgame::DeliverToSeat(int seatIndex)
 	{
 		score += 100;
 		resultMessage = L"주문 성공! +100";
+		lastDeliverySucceeded = true;
+		audioManager.PlaySfx(L"minigame1_success");
 
 		// 손님이 라면 먹는 상태로 30틱(약 3초) 전환
 		SetCustomerState(seatIndex, ORDER2, 30);
@@ -748,12 +773,14 @@ void PCroomgame::DeliverToSeat(int seatIndex)
 	{
 		score -= 50;
 		resultMessage = L"주문 실패! -50";
+		lastDeliverySucceeded = false;
+		audioManager.PlaySfx(L"minigame1_fail");
 
 		// 손님이 화내는 상태로 20틱(약 2초) 전환
 		SetCustomerState(seatIndex, ORDER3, 20);
 	}
 
-	resultTimer = 15;
+	resultTimer = 20;
 	curramen.clear();
 	ResetCenterPotState();
 }
@@ -833,6 +860,95 @@ void PCroomgame::DrawPlayer(HDC hDC)
 		drawX, drawY, drawW, drawH,
 		src.left, src.top, srcW, srcH
 	);
+}
+
+void PCroomgame::DrawDeliveryFeedback(HDC hDC)
+{
+	if (resultTimer <= 0 || resultMessage.empty())
+	{
+		return;
+	}
+
+	CImage& feedbackImage = lastDeliverySucceeded ? successFeedbackImg : failFeedbackImg;
+	COLORREF accentColor = lastDeliverySucceeded ? RGB(90, 220, 130) : RGB(255, 95, 95);
+
+	const int imageWidth = 250;
+	const int imageHeight = lastDeliverySucceeded ? 217 : 254;
+	const int imageX = 1358;
+	const int imageY = 330;
+
+	RECT frameRect =
+	{
+		imageX - 10,
+		imageY - 10,
+		imageX + imageWidth + 10,
+		imageY + imageHeight + 84
+	};
+
+	HBRUSH panelBrush = CreateSolidBrush(RGB(20, 20, 25));
+	HPEN panelPen = CreatePen(PS_SOLID, 6, accentColor);
+	HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, panelBrush));
+	HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, panelPen));
+
+	RoundRect(
+		hDC,
+		frameRect.left,
+		frameRect.top,
+		frameRect.right,
+		frameRect.bottom,
+		24,
+		24
+	);
+
+	SelectObject(hDC, oldBrush);
+	SelectObject(hDC, oldPen);
+	DeleteObject(panelBrush);
+	DeleteObject(panelPen);
+
+	if (!feedbackImage.IsNull())
+	{
+		feedbackImage.Draw(hDC, imageX, imageY, imageWidth, imageHeight);
+	}
+
+	HFONT messageFont = CreateFontW(
+		30,
+		0,
+		0,
+		0,
+		FW_BOLD,
+		FALSE,
+		FALSE,
+		FALSE,
+		HANGEUL_CHARSET,
+		OUT_DEFAULT_PRECIS,
+		CLIP_DEFAULT_PRECIS,
+		CLEARTYPE_NATURAL_QUALITY,
+		DEFAULT_PITCH | FF_DONTCARE,
+		L"맑은 고딕"
+	);
+
+	HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, messageFont));
+	SetBkMode(hDC, TRANSPARENT);
+	SetTextColor(hDC, accentColor);
+
+	RECT messageRect =
+	{
+		frameRect.left,
+		imageY + imageHeight + 8,
+		frameRect.right,
+		frameRect.bottom - 8
+	};
+
+	::DrawTextW(
+		hDC,
+		resultMessage.c_str(),
+		-1,
+		&messageRect,
+		DT_CENTER | DT_VCENTER | DT_SINGLELINE
+	);
+
+	SelectObject(hDC, oldFont);
+	DeleteObject(messageFont);
 }
 
 void PCroomgame::PAINT(HDC hDC)
@@ -928,6 +1044,9 @@ void PCroomgame::PAINT(HDC hDC)
 
 	// 플레이어 그리기
 	DrawPlayer(hDC);
+
+	// 배달 성공/실패 결과 팝업
+	DrawDeliveryFeedback(hDC);
 
 
 	// 게임 종료 출력
@@ -1499,6 +1618,8 @@ void PCroomgame::Release()
 	if (!resetBtnImg.IsNull()) resetBtnImg.Destroy();
 
 	if (!boilingWaterImg.IsNull()) boilingWaterImg.Destroy();
+	if (!successFeedbackImg.IsNull()) successFeedbackImg.Destroy();
+	if (!failFeedbackImg.IsNull()) failFeedbackImg.Destroy();
 
 	if (!addWaterImg.IsNull()) addWaterImg.Destroy();
 	if (!addNoodleImg.IsNull()) addNoodleImg.Destroy();
