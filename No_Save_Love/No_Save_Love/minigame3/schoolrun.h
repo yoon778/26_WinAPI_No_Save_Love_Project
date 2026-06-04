@@ -64,24 +64,60 @@ private:
         int height;                 // 구름 높이
     };
 
+    struct Jelly
+    {
+        float x;                    // 젤리 X 위치
+        float y;                    // 젤리 Y 위치
+        int width;                  // 젤리 너비
+        int height;                 // 젤리 높이
+        bool collected;             // 획득 여부
+    };
+
+    struct JellyPoint
+    {
+        float centerX;              // 젤리 중심 X 위치
+        float centerY;              // 젤리 중심 Y 위치
+    };
+
 private:
     RECT GetPlayerRect() const;     // 현재 플레이어 영역
     RECT GetHitBoxRect() const;     // 현재 충돌 박스
     RECT GetObstacleRect(const Obstacle& obstacle) const; // 장애물 영역
+    RECT GetJellyRect(const Jelly& jelly) const; // 젤리 영역
     bool TryJump();                 // 점프 가능하면 실행
     void UpdateBackground();        // 배경 이동
     void ResetClouds();             // 구름 상태 초기화
     void UpdateClouds();            // 구름 이동
     void UpdateObstacles();         // 장애물 이동
+    void UpdateJellies();           // 젤리 이동
     void UpdatePlayerAnimation();    // 플레이어 애니메이션 갱신
     void CheckObstacleCollisions();  // 장애물 충돌 확인
+    void CheckJellyCollisions();     // 젤리 획득 확인
     void SpawnObstacle();           // 장애물 생성
+    void SpawnJelliesForPattern(int patternIndex); // 패턴 회피 루트 젤리 생성
+    std::vector<Obstacle> BuildPatternObstacles(int patternIndex) const; // 패턴 장애물 생성
+    bool IsJumpObstacle(ObstacleType type) const; // 점프 회피 장애물 확인
+    bool AreObstaclesConnected(const Obstacle& left, const Obstacle& right) const; // 연속 장애물 확인
+    bool HasConnectedObstacleNeighbor(const std::vector<Obstacle>& obstacles, size_t index) const; // 연속 장애물 묶음 확인
+    bool ShouldRaisePaperJelly(const std::vector<Obstacle>& obstacles, size_t index) const; // 연속 점프 앞 종이 젤리 확인
+    float GetRaisedJellyCenterY(const Obstacle& obstacle) const; // 공중 젤리 높이 계산
+    float GetJellyCenterY(const Obstacle& obstacle) const; // 장애물 기준 젤리 높이
+    std::vector<JellyPoint> BuildInitialJellyRoute() const; // 시작 구간 젤리 루트 생성
+    std::vector<JellyPoint> BuildJellyRouteForPattern(int patternIndex) const; // 패턴 젤리 루트 생성
+    int CountJelliesForPattern(int patternIndex) const; // 패턴 젤리 개수 계산
+    int CalculateTotalJellyCount() const; // 전체 젤리 개수 계산
+    void SpawnInitialJellies();      // 시작 구간 젤리 생성
+    void AppendJellyLine(std::vector<JellyPoint>& points, float startCenterX, float endCenterX, float centerY) const; // 구간 직선 젤리 추가
+    void AppendJellyArc(std::vector<JellyPoint>& points, float startCenterX, float endCenterX, float baseCenterY, float arcHeight, int count) const; // 포물선 젤리 추가
+    void AddJellyPoint(std::vector<JellyPoint>& points, float centerX, float centerY) const; // 젤리 중심점 추가
+    void AddJelly(float centerX, float centerY); // 젤리 추가
     void CreateObstaclePatterns();   // 장애물 패턴 생성
     void SetObstacleSpec(Obstacle& obstacle, ObstacleType type) const; // 장애물 크기와 위치 설정
     CImage* GetObstacleImage(ObstacleType type); // 장애물 이미지 반환
     void RenderBackground(HDC hDC); // 원경 배경 출력
     void RenderClouds(HDC hDC);     // 구름 출력
     void RenderGround(HDC hDC);     // 이동 바닥 출력
+    void RenderJellies(HDC hDC);    // 젤리 출력
     void RenderObstacles(HDC hDC);          // 장애물 출력
     void RenderPlayer(HDC hDC);             // 플레이어 출력
     void RenderHitBoxes(HDC hDC);   // 충돌 박스 출력
@@ -122,7 +158,10 @@ private:
     std::vector<Obstacle> m_obstacles; // 장애물 목록
     std::vector<ObstaclePattern> m_obstaclePatterns; // 장애물 패턴 목록
     std::vector<Cloud> m_clouds;    // 배경 구름 목록
+    std::vector<Jelly> m_jellies;   // 획득 젤리 목록
     int m_nextObstaclePatternIndex; // 다음 패턴 번호
+    int m_jellyCount;               // 획득 젤리 수
+    int m_totalJellyCount;          // 전체 젤리 수
 
     CImage m_playerRunImage;        // 달리기/점프 이미지
     CImage m_playerSlideImage;      // 슬라이드 이미지
