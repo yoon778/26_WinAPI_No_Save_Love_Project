@@ -258,7 +258,10 @@ void EndingScene::DrawCreditLine(HDC hDC, const std::wstring& text, int y, int i
         fontWeight = FW_BOLD;
         textColor = RGB(245, 225, 245);
     }
-    else if (index == 4 || index == 7 || index == 10 || index == 13 || index == 20)
+    else if (index == 4 || index == 7 || index == 10 || index == 13 ||
+        index == 16 || index == 19 || index == 22 || index == 27 ||
+        index == 38 || index == 43 || index == 49 || index == 54 ||
+        index == 60)
     {
         fontSize = 30;
         fontWeight = FW_BOLD;
