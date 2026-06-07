@@ -54,6 +54,7 @@ void GameManager::Initialize(HWND hWnd)
     audioManager.RegisterSfx(L"minigame3_jump", L"resource\\minigame3\\sfx_jump.wav");
     audioManager.RegisterSfx(L"minigame3_slide", L"resource\\minigame3\\sfx_slide.wav");
     audioManager.RegisterSfx(L"minigame3_hit", L"resource\\minigame3\\sfx_hit.wav");
+    audioManager.RegisterSfx(L"minigame3_jelly_collect", L"resource\\minigame3\\sfx_jelly_collect.wav");
     audioManager.RegisterSfx(L"minigame4_lolpopup", L"resource\\minigame4\\sound\\lol.wav");
     audioManager.RegisterSfx(L"minigame4_malpa_rock", L"resource\\minigame4\\sound\\rock.wav");
     audioManager.RegisterSfx(L"minigame4_malpa_ult", L"resource\\minigame4\\sound\\ult.wav");

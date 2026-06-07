@@ -2,6 +2,8 @@
 
 #include "../AudioManager.h"
 
+#include <algorithm>
+
 #pragma comment(lib, "msimg32.lib")
 
 extern AudioManager audioManager;
@@ -52,6 +54,17 @@ namespace
     const float BACKGROUND_SPEED_MULTIPLIER = 0.25f;
     const int BACKGROUND_CYCLE_WIDTH = SCREEN_WIDTH * 2;
 
+    const int JELLY_WIDTH = 64;
+    const int JELLY_HEIGHT = 64;
+    const float JELLY_GAP_X = 78.0f;
+    const float JELLY_GROUND_CENTER_Y = static_cast<float>(GROUND_TOP - 50);
+    const float JELLY_OBSTACLE_CLEARANCE = 24.0f;
+    const float JELLY_MIN_JUMP_ARC_HEIGHT = 120.0f;
+    const float JELLY_CONNECTED_OBSTACLE_GAP = 120.0f;
+    const float JELLY_SAFE_SIDE_GAP = (JELLY_WIDTH * 0.5f) + JELLY_OBSTACLE_CLEARANCE;
+    const float JELLY_JUMP_EXTRA_HEIGHT = 120.0f;
+    const int JELLY_JUMP_ARC_COUNT = 5;
+
     const float FIXED_PLAYER_X = 220.0f;
 
     // 조절값: 점프와 낙하
@@ -67,11 +80,14 @@ namespace
     const int OBSTACLE_START_DISTANCE = 20;
     const int OBSTACLE_DISTANCE_STEP = 150;
     const float OBSTACLE_START_X = static_cast<float>(SCREEN_WIDTH);
+    const float FIRST_OBSTACLE_SPAWN_TRAVEL_X =
+        START_GAME_SPEED * (static_cast<float>(OBSTACLE_START_DISTANCE) / static_cast<float>(DISTANCE_GAIN_PER_FRAME));
+    const float PATTERN_SPAWN_TRAVEL_X =
+        START_GAME_SPEED * (static_cast<float>(OBSTACLE_DISTANCE_STEP) / static_cast<float>(DISTANCE_GAIN_PER_FRAME));
 
     // 조절값: 시간과 점수
     const float UPDATE_DELTA_SECONDS = 0.06f;
     const float GAME_TIME_LIMIT = 40.0f;
-    const int SCORE_MAX_DISTANCE = 1300;
     const int MAX_LIFE = 3;
     const int HEART_SIZE = 100;
     const int HEART_GAP = 8;
@@ -112,6 +128,8 @@ schoolrun::schoolrun()
     m_jumpBufferTime = 0.0f;
     m_playerFrameIndex = 0;
     m_playerAnimationTime = 0.0f;
+    m_jellyCount = 0;
+    m_totalJellyCount = 0;
 
 }
 
@@ -133,6 +151,7 @@ void schoolrun::Release()
     DestroyImages();
     m_obstacles.clear();
     m_obstaclePatterns.clear();
+    m_jellies.clear();
 }
 
 void schoolrun::LoadImages()
@@ -275,9 +294,15 @@ void schoolrun::Reset()
     m_jumpBufferTime = 0.0f;
     m_playerFrameIndex = 0;
     m_playerAnimationTime = 0.0f;
+    m_jellyCount = 0;
     ResetClouds();
     m_obstacles.clear();
+    m_jellies.clear();
     CreateObstaclePatterns();
+    m_totalJellyCount =
+        static_cast<int>(BuildInitialJellyRoute().size()) +
+        CalculateTotalJellyCount();
+    SpawnInitialJellies();
 }
 
 void schoolrun::Update()
@@ -359,16 +384,18 @@ void schoolrun::Update()
 
     // 거리 점수
     m_distanceScore += DISTANCE_GAIN_PER_FRAME;
-    m_score = m_distanceScore;
 
     // 플레이어 애니메이션
     UpdatePlayerAnimation();
 
     // 장애물 갱신
     UpdateObstacles();
+    UpdateJellies();
 
     // 충돌 확인
+    CheckJellyCollisions();
     CheckObstacleCollisions();
+    m_score = GetScore();
 
     // 장애물 생성
     if (m_distanceScore >= m_nextObstacleDistance)
@@ -393,6 +420,9 @@ void schoolrun::Render(HDC hDC)
 
     // 이동 바닥
     RenderGround(hDC);
+
+    // 젤리
+    RenderJellies(hDC);
 
     // 장애물
     RenderObstacles(hDC);
@@ -465,8 +495,13 @@ bool schoolrun::IsFinished() const
 
 int schoolrun::GetScore() const
 {
-    // 거리 점수 환산
-    int score = m_distanceScore * 100 / SCORE_MAX_DISTANCE;
+    if (m_totalJellyCount <= 0)
+    {
+        return 0;
+    }
+
+    // 전체 젤리를 다 먹으면 100점
+    int score = m_jellyCount * 100 / m_totalJellyCount;
     if (score > 100)
     {
         score = 100;
@@ -514,6 +549,19 @@ RECT schoolrun::GetObstacleRect(const Obstacle& obstacle) const
         static_cast<LONG>(obstacle.y),
         static_cast<LONG>(obstacle.x + obstacle.width),
         static_cast<LONG>(obstacle.y + obstacle.height)
+    };
+
+    return rect;
+}
+
+RECT schoolrun::GetJellyRect(const Jelly& jelly) const
+{
+    RECT rect =
+    {
+        static_cast<LONG>(jelly.x),
+        static_cast<LONG>(jelly.y),
+        static_cast<LONG>(jelly.x + jelly.width),
+        static_cast<LONG>(jelly.y + jelly.height)
     };
 
     return rect;
@@ -604,6 +652,24 @@ void schoolrun::UpdateObstacles()
     }
 }
 
+void schoolrun::UpdateJellies()
+{
+    for (Jelly& jelly : m_jellies)
+    {
+        jelly.x -= m_gameSpeed;
+    }
+
+    m_jellies.erase(
+        std::remove_if(
+            m_jellies.begin(),
+            m_jellies.end(),
+            [](const Jelly& jelly)
+            {
+                return jelly.collected || jelly.x + jelly.width < 0.0f;
+            }),
+        m_jellies.end());
+}
+
 void schoolrun::UpdatePlayerAnimation()
 {
     if (!m_isGrounded)
@@ -649,6 +715,35 @@ void schoolrun::CheckObstacleCollisions()
     }
 }
 
+void schoolrun::CheckJellyCollisions()
+{
+    RECT playerHitBox = GetHitBoxRect();
+    bool collectedAnyJelly = false;
+
+    for (Jelly& jelly : m_jellies)
+    {
+        if (jelly.collected)
+        {
+            continue;
+        }
+
+        RECT jellyRect = GetJellyRect(jelly);
+        RECT intersectRect = {};
+
+        if (IntersectRect(&intersectRect, &playerHitBox, &jellyRect))
+        {
+            jelly.collected = true;
+            m_jellyCount++;
+            collectedAnyJelly = true;
+        }
+    }
+
+    if (collectedAnyJelly)
+    {
+        audioManager.PlaySfx(L"minigame3_jelly_collect");
+    }
+}
+
 void schoolrun::SpawnObstacle()
 {
     if (m_obstaclePatterns.empty())
@@ -662,20 +757,338 @@ void schoolrun::SpawnObstacle()
         m_nextObstaclePatternIndex = 0;
     }
 
-    const ObstaclePattern& pattern = m_obstaclePatterns[m_nextObstaclePatternIndex];
-    for (const PatternObstacle& patternObstacle : pattern.obstacles)
+    const int patternIndex = m_nextObstaclePatternIndex;
+    std::vector<Obstacle> patternObstacles = BuildPatternObstacles(patternIndex);
+    for (const Obstacle& obstacle : patternObstacles)
     {
-        Obstacle obstacle = {};
-        SetObstacleSpec(obstacle, patternObstacle.type);
-        obstacle.x += patternObstacle.offsetX;
         m_obstacles.push_back(obstacle);
     }
+    SpawnJelliesForPattern(patternIndex);
 
     m_nextObstaclePatternIndex++;
     if (m_nextObstaclePatternIndex >= static_cast<int>(m_obstaclePatterns.size()))
     {
         m_nextObstaclePatternIndex = 0;
     }
+}
+
+void schoolrun::SpawnJelliesForPattern(int patternIndex)
+{
+    std::vector<JellyPoint> points = BuildJellyRouteForPattern(patternIndex);
+    for (const JellyPoint& point : points)
+    {
+        AddJelly(point.centerX, point.centerY);
+    }
+}
+
+void schoolrun::SpawnInitialJellies()
+{
+    std::vector<JellyPoint> points = BuildInitialJellyRoute();
+    for (const JellyPoint& point : points)
+    {
+        AddJelly(point.centerX, point.centerY);
+    }
+}
+
+std::vector<schoolrun::Obstacle> schoolrun::BuildPatternObstacles(int patternIndex) const
+{
+    std::vector<Obstacle> obstacles;
+    if (patternIndex < 0 || patternIndex >= static_cast<int>(m_obstaclePatterns.size()))
+    {
+        return obstacles;
+    }
+
+    const ObstaclePattern& pattern = m_obstaclePatterns[patternIndex];
+    for (const PatternObstacle& patternObstacle : pattern.obstacles)
+    {
+        Obstacle obstacle = {};
+        SetObstacleSpec(obstacle, patternObstacle.type);
+        obstacle.x += patternObstacle.offsetX;
+        obstacles.push_back(obstacle);
+    }
+
+    std::sort(
+        obstacles.begin(),
+        obstacles.end(),
+        [](const Obstacle& left, const Obstacle& right)
+        {
+            return left.x < right.x;
+        });
+
+    return obstacles;
+}
+
+bool schoolrun::IsJumpObstacle(ObstacleType type) const
+{
+    return type == GroundObstacle ||
+        type == BoxObstacle ||
+        type == ConstructionObstacle ||
+        type == WaterObstacle;
+}
+
+bool schoolrun::AreObstaclesConnected(const Obstacle& left, const Obstacle& right) const
+{
+    const float leftRight = left.x + left.width;
+    return right.x - leftRight <= JELLY_CONNECTED_OBSTACLE_GAP;
+}
+
+bool schoolrun::HasConnectedObstacleNeighbor(const std::vector<Obstacle>& obstacles, size_t index) const
+{
+    if (index > 0 && AreObstaclesConnected(obstacles[index - 1], obstacles[index]))
+    {
+        return true;
+    }
+
+    if (index + 1 < obstacles.size() && AreObstaclesConnected(obstacles[index], obstacles[index + 1]))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool schoolrun::ShouldRaisePaperJelly(const std::vector<Obstacle>& obstacles, size_t index) const
+{
+    if (index >= obstacles.size() || obstacles[index].type != PaperObstacle)
+    {
+        return false;
+    }
+
+    if (index > 0 &&
+        AreObstaclesConnected(obstacles[index - 1], obstacles[index]) &&
+        IsJumpObstacle(obstacles[index - 1].type))
+    {
+        return true;
+    }
+
+    if (index + 1 < obstacles.size() &&
+        AreObstaclesConnected(obstacles[index], obstacles[index + 1]) &&
+        IsJumpObstacle(obstacles[index + 1].type))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+float schoolrun::GetRaisedJellyCenterY(const Obstacle& obstacle) const
+{
+    const float centerY =
+        obstacle.y -
+        (JELLY_HEIGHT * 0.5f) -
+        JELLY_OBSTACLE_CLEARANCE -
+        JELLY_JUMP_EXTRA_HEIGHT;
+    return centerY > JELLY_HEIGHT * 0.5f ? centerY : JELLY_HEIGHT * 0.5f;
+}
+
+float schoolrun::GetJellyCenterY(const Obstacle& obstacle) const
+{
+    if (!IsJumpObstacle(obstacle.type))
+    {
+        return JELLY_GROUND_CENTER_Y;
+    }
+
+    return GetRaisedJellyCenterY(obstacle);
+}
+
+std::vector<schoolrun::JellyPoint> schoolrun::BuildInitialJellyRoute() const
+{
+    std::vector<JellyPoint> points;
+    const float startX = FIXED_PLAYER_X + PLAYER_WIDTH + JELLY_GAP_X;
+    const float endX =
+        OBSTACLE_START_X +
+        FIRST_OBSTACLE_SPAWN_TRAVEL_X -
+        (JELLY_GAP_X * 2.0f);
+
+    AppendJellyLine(points, startX, endX, JELLY_GROUND_CENTER_Y);
+    return points;
+}
+
+std::vector<schoolrun::JellyPoint> schoolrun::BuildJellyRouteForPattern(int patternIndex) const
+{
+    std::vector<JellyPoint> points;
+    std::vector<Obstacle> obstacles = BuildPatternObstacles(patternIndex);
+    if (obstacles.empty())
+    {
+        AppendJellyLine(points, OBSTACLE_START_X, OBSTACLE_START_X + (JELLY_GAP_X * 4.0f), JELLY_GROUND_CENTER_Y);
+        return points;
+    }
+
+    const float obstacleEndX = obstacles.back().x + obstacles.back().width + (JELLY_GAP_X * 2.0f);
+    const float nextPatternEndX =
+        OBSTACLE_START_X +
+        PATTERN_SPAWN_TRAVEL_X -
+        (JELLY_GAP_X * 2.0f);
+    const float patternEndX = obstacleEndX > nextPatternEndX ? obstacleEndX : nextPatternEndX;
+    float groundLineStartX = OBSTACLE_START_X - JELLY_GAP_X;
+
+    for (size_t i = 0; i < obstacles.size(); ++i)
+    {
+        const Obstacle& obstacle = obstacles[i];
+        const float centerX = obstacle.x + (obstacle.width * 0.5f);
+        const bool hasConnectedNeighbor = HasConnectedObstacleNeighbor(obstacles, i);
+        const bool raisePaperJelly = ShouldRaisePaperJelly(obstacles, i);
+
+        if (raisePaperJelly)
+        {
+            AppendJellyLine(points, groundLineStartX, obstacle.x - JELLY_SAFE_SIDE_GAP, JELLY_GROUND_CENTER_Y);
+            AddJellyPoint(points, centerX, GetRaisedJellyCenterY(obstacle));
+            groundLineStartX = obstacle.x + obstacle.width + JELLY_SAFE_SIDE_GAP;
+        }
+        else if (IsJumpObstacle(obstacle.type))
+        {
+            if (hasConnectedNeighbor)
+            {
+                AppendJellyLine(points, groundLineStartX, obstacle.x - JELLY_SAFE_SIDE_GAP, JELLY_GROUND_CENTER_Y);
+                AddJellyPoint(points, centerX, GetJellyCenterY(obstacle));
+                groundLineStartX = obstacle.x + obstacle.width + JELLY_SAFE_SIDE_GAP;
+            }
+            else
+            {
+                const float peakY = GetJellyCenterY(obstacle);
+                const float neededArcHeight = JELLY_GROUND_CENTER_Y - peakY;
+                const float arcHeight = neededArcHeight > JELLY_MIN_JUMP_ARC_HEIGHT ?
+                    neededArcHeight :
+                    JELLY_MIN_JUMP_ARC_HEIGHT;
+                const float arcHalfWidth =
+                    (obstacle.width * 0.5f + JELLY_WIDTH * 0.5f + JELLY_OBSTACLE_CLEARANCE) * 2.0f;
+                const float arcStartX = centerX - arcHalfWidth;
+                const float arcEndX = centerX + arcHalfWidth;
+
+                AppendJellyLine(points, groundLineStartX, arcStartX - JELLY_GAP_X, JELLY_GROUND_CENTER_Y);
+                AppendJellyArc(
+                    points,
+                    arcStartX,
+                    arcEndX,
+                    JELLY_GROUND_CENTER_Y,
+                    arcHeight,
+                    JELLY_JUMP_ARC_COUNT);
+                groundLineStartX = arcEndX + JELLY_GAP_X;
+            }
+        }
+        else
+        {
+            const float slideRouteEndX = obstacle.x + obstacle.width + JELLY_SAFE_SIDE_GAP;
+            AppendJellyLine(points, groundLineStartX, slideRouteEndX, JELLY_GROUND_CENTER_Y);
+            groundLineStartX = slideRouteEndX + JELLY_GAP_X;
+        }
+    }
+
+    AppendJellyLine(points, groundLineStartX, patternEndX, JELLY_GROUND_CENTER_Y);
+    return points;
+}
+
+int schoolrun::CountJelliesForPattern(int patternIndex) const
+{
+    return static_cast<int>(BuildJellyRouteForPattern(patternIndex).size());
+}
+
+int schoolrun::CalculateTotalJellyCount() const
+{
+    if (m_obstaclePatterns.empty())
+    {
+        return 0;
+    }
+
+    int totalJellyCount = 0;
+    int distanceScore = 0;
+    int nextObstacleDistance = OBSTACLE_START_DISTANCE;
+    int patternIndex = 0;
+    float remainingTime = GAME_TIME_LIMIT;
+
+    while (remainingTime > 0.0f)
+    {
+        remainingTime -= UPDATE_DELTA_SECONDS;
+        distanceScore += DISTANCE_GAIN_PER_FRAME;
+
+        if (distanceScore >= nextObstacleDistance)
+        {
+            totalJellyCount += CountJelliesForPattern(patternIndex);
+            patternIndex++;
+            if (patternIndex >= static_cast<int>(m_obstaclePatterns.size()))
+            {
+                patternIndex = 0;
+            }
+            nextObstacleDistance += OBSTACLE_DISTANCE_STEP;
+        }
+    }
+
+    return totalJellyCount;
+}
+
+void schoolrun::AppendJellyLine(std::vector<JellyPoint>& points, float startCenterX, float endCenterX, float centerY) const
+{
+    if (endCenterX < startCenterX)
+    {
+        return;
+    }
+
+    float lastCenterX = startCenterX - JELLY_GAP_X;
+    for (float centerX = startCenterX; centerX <= endCenterX; centerX += JELLY_GAP_X)
+    {
+        AddJellyPoint(points, centerX, centerY);
+        lastCenterX = centerX;
+    }
+
+    if (endCenterX - lastCenterX > JELLY_GAP_X * 0.45f)
+    {
+        AddJellyPoint(points, endCenterX, centerY);
+    }
+}
+
+void schoolrun::AppendJellyArc(std::vector<JellyPoint>& points, float startCenterX, float endCenterX, float baseCenterY, float arcHeight, int count) const
+{
+    if (count <= 0)
+    {
+        return;
+    }
+
+    for (int i = 0; i < count; ++i)
+    {
+        const float t = (count == 1) ? 0.0f : static_cast<float>(i) / static_cast<float>(count - 1);
+        const float centerX = startCenterX + ((endCenterX - startCenterX) * t);
+        const float centerY = baseCenterY - (arcHeight * 4.0f * t * (1.0f - t));
+        AddJellyPoint(points, centerX, centerY);
+    }
+}
+
+void schoolrun::AddJellyPoint(std::vector<JellyPoint>& points, float centerX, float centerY) const
+{
+    for (const JellyPoint& point : points)
+    {
+        float diffX = centerX - point.centerX;
+        if (diffX < 0.0f)
+        {
+            diffX = -diffX;
+        }
+
+        float diffY = centerY - point.centerY;
+        if (diffY < 0.0f)
+        {
+            diffY = -diffY;
+        }
+
+        if (diffX < JELLY_WIDTH * 0.25f && diffY < JELLY_HEIGHT * 0.25f)
+        {
+            return;
+        }
+    }
+
+    JellyPoint point = {};
+    point.centerX = centerX;
+    point.centerY = centerY;
+    points.push_back(point);
+}
+
+void schoolrun::AddJelly(float centerX, float centerY)
+{
+    Jelly jelly = {};
+    jelly.x = centerX - (JELLY_WIDTH * 0.5f);
+    jelly.y = centerY - (JELLY_HEIGHT * 0.5f);
+    jelly.width = JELLY_WIDTH;
+    jelly.height = JELLY_HEIGHT;
+    jelly.collected = false;
+    m_jellies.push_back(jelly);
 }
 
 void schoolrun::CreateObstaclePatterns()
@@ -841,6 +1254,51 @@ void schoolrun::RenderGround(HDC hDC)
     DeleteObject(groundBrush);
 }
 
+void schoolrun::RenderJellies(HDC hDC)
+{
+    if (m_jellies.empty())
+    {
+        return;
+    }
+
+    HBRUSH jellyBrush = CreateSolidBrush(RGB(255, 214, 55));
+    HBRUSH shineBrush = CreateSolidBrush(RGB(255, 250, 175));
+    HPEN outlinePen = CreatePen(PS_SOLID, 2, RGB(255, 246, 140));
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, jellyBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, outlinePen));
+
+    for (const Jelly& jelly : m_jellies)
+    {
+        if (jelly.collected)
+        {
+            continue;
+        }
+
+        RECT rect = GetJellyRect(jelly);
+        if (rect.right < 0 || rect.left > SCREEN_WIDTH)
+        {
+            continue;
+        }
+
+        SelectObject(hDC, jellyBrush);
+        Ellipse(hDC, rect.left, rect.top, rect.right, rect.bottom);
+
+        SelectObject(hDC, shineBrush);
+        Ellipse(
+            hDC,
+            rect.left + 14,
+            rect.top + 10,
+            rect.left + 31,
+            rect.top + 27);
+    }
+
+    SelectObject(hDC, oldPen);
+    SelectObject(hDC, oldBrush);
+    DeleteObject(outlinePen);
+    DeleteObject(shineBrush);
+    DeleteObject(jellyBrush);
+}
+
 void schoolrun::RenderObstacles(HDC hDC)
 {
     // 장애물 출력
@@ -957,6 +1415,12 @@ void schoolrun::RenderHitBoxes(HDC hDC)
         Rectangle(hDC, obstacleRect.left, obstacleRect.top, obstacleRect.right, obstacleRect.bottom);
     }
 
+    for (const Jelly& jelly : m_jellies)
+    {
+        RECT jellyRect = GetJellyRect(jelly);
+        Ellipse(hDC, jellyRect.left, jellyRect.top, jellyRect.right, jellyRect.bottom);
+    }
+
     SelectObject(hDC, oldPen);
     SelectObject(hDC, oldBrush);
     DeleteObject(hitBoxPen);
@@ -968,9 +1432,10 @@ void schoolrun::RenderScore(HDC hDC) const
     wchar_t scoreText[128];
     wsprintfW(
         scoreText,
-        L"시간: %d   거리: %d m   점수: %d",
+        L"시간: %d   거리: %d m   젤리: %d   점수: %d",
         static_cast<int>(m_remainingTime + 0.9f),
         m_distanceScore,
+        m_jellyCount,
         GetScore());
 
     SetBkMode(hDC, TRANSPARENT);
