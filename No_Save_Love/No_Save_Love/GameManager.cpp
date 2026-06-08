@@ -1101,7 +1101,6 @@ void GameManager::EnterEndingStory()
 
     // 엔딩 대사를 StoryScene에 넣는다.
     storyScene.SetDialogues(endingDialoguesForStory);
-    storyScene.SetEndingIllustration(endingType, finalHeroineIndex);
 
     // 이제 StoryScene으로 엔딩 대사를 출력한다.
     RequestSceneChange(game_mode_info::EndingDialogue);
