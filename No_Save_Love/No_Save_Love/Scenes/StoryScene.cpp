@@ -24,6 +24,13 @@ void StoryScene::Initialize()
     story_background_image[4].Load(L"resource\\background\\library_day.png");
     story_background_image[5].Load(L"resource\\background\\room.png");
     story_background_image[6].Load(L"resource\\background\\choice.png");
+    story_background_image[7].Load(L"resource\\endingscene\\hansea_happyend.png");
+    story_background_image[8].Load(L"resource\\endingscene\\harin_happyend.png");
+    story_background_image[9].Load(L"resource\\endingscene\\seoirin_happyend.png");
+    story_background_image[10].Load(L"resource\\endingscene\\hansea_badend.png");
+    story_background_image[11].Load(L"resource\\endingscene\\harin_badend.png");
+    story_background_image[12].Load(L"resource\\endingscene\\seoirin_badend.png");
+    story_background_image[13].Load(L"resource\\endingscene\\hidden_end.png");
 
     normal_back_ground.Load(L"resource\\background\\choicescene_background.png");
     book_image.Load(L"resource\\background\\open_book.png");
@@ -64,7 +71,7 @@ void StoryScene::Shutdown()
     dialogues.clear();
 
     // 배경 이미지는 기존 CImage 방식으로 해제한다.
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < BACKGROUND_IMAGE_COUNT; i++)
     {
         if (!story_background_image[i].IsNull())
         {
@@ -120,8 +127,6 @@ void StoryScene::Shutdown()
         bookGdiImage = nullptr;
     }
 
-    ClearEndingIllustration();
-
     // GDI+를 종료한다.
     if (isGdiPlusStarted)
     {
@@ -140,8 +145,6 @@ void StoryScene::Shutdown()
 
 void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 {
-    ClearEndingIllustration();
-
     // 새로운 대사 목록을 저장한다.
     dialogues = newDialogues;
 
@@ -371,40 +374,29 @@ void StoryScene::Render(HDC hDC)
     // =========================
     //  배경 이미지 출력
     // =========================
-    bool drawEndingIllustration = ShouldDrawEndingIllustration();
-    if (drawEndingIllustration)
+    CImage* backgroundImage = GetBackgroundImage(currentBackgroundKey);
+
+    if (backgroundImage != nullptr && !backgroundImage->IsNull())
     {
-        endingIllustration.Draw(hDC, 0, 0, 1920, 1080);
+        backgroundImage->Draw(hDC, 0, 0, 1920, 1080);
     }
     else
     {
-        CImage* backgroundImage = GetBackgroundImage(currentBackgroundKey);
-
-        if (backgroundImage != nullptr && !backgroundImage->IsNull())
-        {
-            backgroundImage->Draw(hDC, 0, 0, 1920, 1080);
-        }
-        else
-        {
-            normal_back_ground.Draw(hDC, 0, 0, 1920, 1080);
-        }
+        normal_back_ground.Draw(hDC, 0, 0, 1920, 1080);
     }
 
     // =========================
     // 캐릭터 이미지 출력
     // =========================
-    if (!drawEndingIllustration)
+    Gdiplus::Image* characterImage = GetCharacterImage(currentCharacterKey);
+
+    if (characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
     {
-        Gdiplus::Image* characterImage = GetCharacterImage(currentCharacterKey);
+        int characterX = 725;
+        int characterY = 25;
 
-        if (characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
-        {
-            int characterX = 725;
-            int characterY = 25;
-
-            // GDI+로 캐릭터 이미지를 출력한다.
-            DrawCharacterImage(hDC, characterImage, characterX, characterY);
-        }
+        // GDI+로 캐릭터 이미지를 출력한다.
+        DrawCharacterImage(hDC, characterImage, characterX, characterY);
     }
 
     if (!dialogues.empty() && dialogues[currentDialogueIndex].speaker == L"노트")
@@ -632,92 +624,6 @@ void StoryScene::SetPlayerName(const std::wstring& playerName)
 
     // 입력받은 이름을 저장한다.
     m_playerName = playerName;
-}
-
-void StoryScene::SetEndingIllustration(int endingType, int heroineIndex)
-{
-    ClearEndingIllustration();
-
-    std::wstring imagePath = GetEndingIllustrationPath(endingType, heroineIndex);
-    if (imagePath.empty())
-    {
-        return;
-    }
-
-    endingIllustration.Load(imagePath.c_str());
-    hasEndingIllustration = !endingIllustration.IsNull();
-}
-
-void StoryScene::ClearEndingIllustration()
-{
-    if (!endingIllustration.IsNull())
-    {
-        endingIllustration.Destroy();
-    }
-
-    hasEndingIllustration = false;
-}
-
-std::wstring StoryScene::GetEndingIllustrationPath(int endingType, int heroineIndex) const
-{
-    if (endingType == 2)
-    {
-        return L"resource\\endingscene\\hidden_end.png";
-    }
-
-    if (endingType == 0)
-    {
-        if (heroineIndex == 0)
-        {
-            return L"resource\\endingscene\\hansea_happyend.png";
-        }
-        else if (heroineIndex == 1)
-        {
-            return L"resource\\endingscene\\harin_happyend.png";
-        }
-        else if (heroineIndex == 2)
-        {
-            return L"resource\\endingscene\\seoirin_happyend.png";
-        }
-    }
-    else if (endingType == 1)
-    {
-        if (heroineIndex == 0)
-        {
-            return L"resource\\endingscene\\hansea_badend.png";
-        }
-        else if (heroineIndex == 1)
-        {
-            return L"resource\\endingscene\\harin_badend.png";
-        }
-        else if (heroineIndex == 2)
-        {
-            return L"resource\\endingscene\\seoirin_badend.png";
-        }
-    }
-
-    return L"";
-}
-
-bool StoryScene::ShouldDrawEndingIllustration() const
-{
-    if (!hasEndingIllustration || dialogues.empty())
-    {
-        return false;
-    }
-
-    if (currentDialogueIndex < 0 || currentDialogueIndex >= static_cast<int>(dialogues.size()))
-    {
-        return false;
-    }
-
-    const std::wstring& speaker = dialogues[currentDialogueIndex].speaker;
-
-    return
-        speaker == L"한세아" ||
-        speaker == L"유하린" ||
-        speaker == L"서이린" ||
-        speaker == L"새누";
 }
 
 std::wstring StoryScene::ReplacePlayerNameToken(const std::wstring& text) const
@@ -1046,6 +952,34 @@ CImage* StoryScene::GetBackgroundImage(const std::wstring& backgroundKey)
     else if (backgroundKey == L"school_hallway")
     {
         return &story_background_image[6];
+    }
+    else if (backgroundKey == L"hansea_happyend")
+    {
+        return &story_background_image[7];
+    }
+    else if (backgroundKey == L"harin_happyend")
+    {
+        return &story_background_image[8];
+    }
+    else if (backgroundKey == L"seoirin_happyend")
+    {
+        return &story_background_image[9];
+    }
+    else if (backgroundKey == L"hansea_badend")
+    {
+        return &story_background_image[10];
+    }
+    else if (backgroundKey == L"harin_badend")
+    {
+        return &story_background_image[11];
+    }
+    else if (backgroundKey == L"seoirin_badend")
+    {
+        return &story_background_image[12];
+    }
+    else if (backgroundKey == L"hidden_end")
+    {
+        return &story_background_image[13];
     }
 
     return nullptr;

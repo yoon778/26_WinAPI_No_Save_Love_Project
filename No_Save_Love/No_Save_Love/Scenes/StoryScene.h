@@ -47,12 +47,6 @@ public:
     //플레이어 이름 저장한다.
     void SetPlayerName(const std::wstring& playerName);
 
-    // 엔딩 대사 중 히로인/새누 대사에 같이 보여줄 일러스트를 설정한다.
-    void SetEndingIllustration(int endingType, int heroineIndex);
-
-    // 일반 스토리로 돌아갈 때 엔딩 일러스트를 끈다.
-    void ClearEndingIllustration();
-
     // 마우스 클릭 시 다음 대사로 이동한다.
     void OnMouseClick(int x, int y);
 
@@ -126,12 +120,6 @@ private:
     // 노트가 등장할 때 배경과 캐릭터를 흐리게 만든다.
     void DrawBlurOverlay(HDC hDC);
 
-    // 엔딩 종류와 히로인 번호에 맞는 일러스트 경로를 반환한다.
-    std::wstring GetEndingIllustrationPath(int endingType, int heroineIndex) const;
-
-    // 현재 대사에서 엔딩 일러스트를 보여줄지 확인한다.
-    bool ShouldDrawEndingIllustration() const;
-
     struct SpeakerStyle
     {
         COLORREF nameColor; // 이름 색상
@@ -167,10 +155,8 @@ private:
     bool ShouldFadeCharacterChange(const std::wstring& newCharacterKey) const;
 
 private:
-    CImage story_background_image[7];
-
-    CImage endingIllustration;
-    bool hasEndingIllustration = false;
+    static const int BACKGROUND_IMAGE_COUNT = 14;
+    CImage story_background_image[BACKGROUND_IMAGE_COUNT];
 
     Gdiplus::Image* bookGdiImage = nullptr;
 
