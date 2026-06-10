@@ -629,8 +629,27 @@ void StoryScene::SetPlayerName(const std::wstring& playerName)
 std::wstring StoryScene::ReplacePlayerNameToken(const std::wstring& text) const
 {
     std::wstring result = text;
-    const std::wstring token = L"{PLAYER}";
+    bool hasFinalConsonant = HasFinalConsonant(m_playerName);
 
+    auto replaceAll = [&result](const std::wstring& from, const std::wstring& to)
+    {
+        size_t position = result.find(from);
+        while (position != std::wstring::npos)
+        {
+            result.replace(position, from.length(), to);
+            position = result.find(from, position + to.length());
+        }
+    };
+
+    const std::wstring topicJosa = hasFinalConsonant ? L"은" : L"는";
+    const std::wstring subjectJosa = hasFinalConsonant ? L"이" : L"가";
+
+    replaceAll(L"{PLAYER}은(는)", m_playerName + topicJosa);
+    replaceAll(L"{PLAYER}는(은)", m_playerName + topicJosa);
+    replaceAll(L"{PLAYER}이(가)", m_playerName + subjectJosa);
+    replaceAll(L"{PLAYER}가(이)", m_playerName + subjectJosa);
+
+    const std::wstring token = L"{PLAYER}";
     size_t position = result.find(token);
     while (position != std::wstring::npos)
     {
@@ -639,6 +658,27 @@ std::wstring StoryScene::ReplacePlayerNameToken(const std::wstring& text) const
     }
 
     return result;
+}
+
+bool StoryScene::HasFinalConsonant(const std::wstring& text) const
+{
+    for (int i = static_cast<int>(text.length()) - 1; i >= 0; i--)
+    {
+        wchar_t ch = text[i];
+        if (ch == L' ' || ch == L'\t')
+        {
+            continue;
+        }
+
+        if (ch >= L'\xAC00' && ch <= L'\xD7A3')
+        {
+            return ((ch - L'\xAC00') % 28) != 0;
+        }
+
+        return false;
+    }
+
+    return false;
 }
 
 std::wstring StoryScene::GetCurrentDisplaySpeaker() const
