@@ -145,6 +145,9 @@ private:
     // {PLAYER} 토큰을 실제 플레이어 이름으로 바꾼다
     std::wstring ReplacePlayerNameToken(const std::wstring& text) const;
 
+    // 이름 마지막 글자의 받침 여부를 확인한다.
+    bool HasFinalConsonant(const std::wstring& text) const;
+
     // 현재 대사의 화자 이름을 {PLAYER} 치환까지 적용해서 반환한다.
     std::wstring GetCurrentDisplaySpeaker() const;
 
