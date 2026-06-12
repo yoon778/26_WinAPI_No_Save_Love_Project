@@ -117,7 +117,7 @@ private:
     // 노트 대사일 때 검은 노트 이미지를 화면 중앙에 출력한다.
     void DrawBookImage(HDC hDC);
 
-    // 노트가 등장할 때 배경과 캐릭터를 흐리게 만든다.
+    // 노트가 등장할 때 배경과 캐릭터를 어둡게 만든다.
     void DrawBlurOverlay(HDC hDC);
 
     struct SpeakerStyle

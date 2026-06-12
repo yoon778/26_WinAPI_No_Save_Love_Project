@@ -52,9 +52,83 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdPa
 
 GameManager g_gameManager;
 
+namespace
+{
+    HDC g_backBufferDC = nullptr;
+    HBITMAP g_backBufferBitmap = nullptr;
+    HBITMAP g_backBufferOldBitmap = nullptr;
+    int g_backBufferWidth = 0;
+    int g_backBufferHeight = 0;
+
+    void ReleaseBackBuffer()
+    {
+        if (g_backBufferDC != nullptr)
+        {
+            if (g_backBufferOldBitmap != nullptr)
+            {
+                SelectObject(g_backBufferDC, g_backBufferOldBitmap);
+                g_backBufferOldBitmap = nullptr;
+            }
+
+            if (g_backBufferBitmap != nullptr)
+            {
+                DeleteObject(g_backBufferBitmap);
+                g_backBufferBitmap = nullptr;
+            }
+
+            DeleteDC(g_backBufferDC);
+            g_backBufferDC = nullptr;
+        }
+
+        g_backBufferWidth = 0;
+        g_backBufferHeight = 0;
+    }
+
+    bool EnsureBackBuffer(HDC hDC, int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return false;
+        }
+
+        if (g_backBufferDC != nullptr &&
+            g_backBufferBitmap != nullptr &&
+            g_backBufferWidth == width &&
+            g_backBufferHeight == height)
+        {
+            return true;
+        }
+
+        ReleaseBackBuffer();
+
+        g_backBufferDC = CreateCompatibleDC(hDC);
+        if (g_backBufferDC == nullptr)
+        {
+            return false;
+        }
+
+        g_backBufferBitmap = CreateCompatibleBitmap(hDC, width, height);
+        if (g_backBufferBitmap == nullptr)
+        {
+            ReleaseBackBuffer();
+            return false;
+        }
+
+        g_backBufferOldBitmap = static_cast<HBITMAP>(SelectObject(g_backBufferDC, g_backBufferBitmap));
+        if (g_backBufferOldBitmap == nullptr)
+        {
+            ReleaseBackBuffer();
+            return false;
+        }
+
+        g_backBufferWidth = width;
+        g_backBufferHeight = height;
+        return true;
+    }
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { 
-    HDC hDC, mDC;
-    HBITMAP hBitmap, oldBitmap;
+    HDC hDC;
     RECT rt;
     switch (uMsg) {
     case WM_CREATE: {
@@ -119,21 +193,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         PAINTSTRUCT ps;
         GetClientRect(hWnd, &rt);
         hDC = BeginPaint(hWnd, &ps);
-        mDC = CreateCompatibleDC(hDC);
-        hBitmap = CreateCompatibleBitmap(hDC, rt.right, rt.bottom);
-        oldBitmap = (HBITMAP)SelectObject(mDC, (HBITMAP)hBitmap);
+
+        int bufferWidth = rt.right - rt.left;
+        int bufferHeight = rt.bottom - rt.top;
+        if (!EnsureBackBuffer(hDC, bufferWidth, bufferHeight))
+        {
+            EndPaint(hWnd, &ps);
+            return 0;
+        }
 
         // 배경 흰색으로 지우기
-        FillRect(mDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
+        FillRect(g_backBufferDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
 
-        // mDC로 그리기 하기!!!
-        g_gameManager.Render(mDC);
+        // 백버퍼로 그리기 하기!!!
+        g_gameManager.Render(g_backBufferDC);
 
 
-        BitBlt(hDC, 0, 0, rt.right, rt.bottom, mDC, 0, 0, SRCCOPY);
-        SelectObject(mDC, oldBitmap);
-        DeleteDC(mDC);
-        DeleteObject(hBitmap);
+        BitBlt(hDC, 0, 0, bufferWidth, bufferHeight, g_backBufferDC, 0, 0, SRCCOPY);
         EndPaint(hWnd, &ps);
         return 0;
     }
@@ -154,6 +230,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     case WM_DESTROY:
     {
         KillTimer(hWnd, 1);
+        ReleaseBackBuffer();
         PostQuitMessage(0);
         return 0;
     }

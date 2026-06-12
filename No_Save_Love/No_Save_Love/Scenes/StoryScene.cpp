@@ -538,51 +538,7 @@ void StoryScene::DrawBlurOverlay(HDC hDC)
 {
     const int screenWidth = 1920;
     const int screenHeight = 1080;
-    const int smallWidth = 160;
-    const int smallHeight = 90;
-
-    HDC screenCopyDC = CreateCompatibleDC(hDC);
-    HDC smallDC = CreateCompatibleDC(hDC);
-
-    HBITMAP screenBitmap = CreateCompatibleBitmap(hDC, screenWidth, screenHeight);
-    HBITMAP smallBitmap = CreateCompatibleBitmap(hDC, smallWidth, smallHeight);
-
-    HBITMAP oldScreenBitmap = static_cast<HBITMAP>(SelectObject(screenCopyDC, screenBitmap));
-    HBITMAP oldSmallBitmap = static_cast<HBITMAP>(SelectObject(smallDC, smallBitmap));
-
-    BitBlt(screenCopyDC, 0, 0, screenWidth, screenHeight, hDC, 0, 0, SRCCOPY);
-
-    int oldSmallMode = SetStretchBltMode(smallDC, HALFTONE);
-    SetBrushOrgEx(smallDC, 0, 0, nullptr);
-    StretchBlt(
-        smallDC,
-        0,
-        0,
-        smallWidth,
-        smallHeight,
-        screenCopyDC,
-        0,
-        0,
-        screenWidth,
-        screenHeight,
-        SRCCOPY
-    );
-
-    int oldScreenMode = SetStretchBltMode(hDC, HALFTONE);
-    SetBrushOrgEx(hDC, 0, 0, nullptr);
-    StretchBlt(
-        hDC,
-        0,
-        0,
-        screenWidth,
-        screenHeight,
-        smallDC,
-        0,
-        0,
-        smallWidth,
-        smallHeight,
-        SRCCOPY
-    );
+    const BYTE darkenAlpha = 90;
 
     RECT overlayRect = { 0, 0, screenWidth, screenHeight };
     HDC overlayDC = CreateCompatibleDC(hDC);
@@ -593,24 +549,14 @@ void StoryScene::DrawBlurOverlay(HDC hDC)
 
     BLENDFUNCTION blend = {};
     blend.BlendOp = AC_SRC_OVER;
-    blend.SourceConstantAlpha = 95;
+    blend.SourceConstantAlpha = darkenAlpha;
 
     AlphaBlend(hDC, 0, 0, screenWidth, screenHeight, overlayDC, 0, 0, screenWidth, screenHeight, blend);
-
-    SetStretchBltMode(smallDC, oldSmallMode);
-    SetStretchBltMode(hDC, oldScreenMode);
 
     SelectObject(overlayDC, oldOverlayBitmap);
     DeleteObject(overlayBrush);
     DeleteObject(overlayBitmap);
     DeleteDC(overlayDC);
-
-    SelectObject(smallDC, oldSmallBitmap);
-    SelectObject(screenCopyDC, oldScreenBitmap);
-    DeleteObject(smallBitmap);
-    DeleteObject(screenBitmap);
-    DeleteDC(smallDC);
-    DeleteDC(screenCopyDC);
 }
 
 void StoryScene::SetPlayerName(const std::wstring& playerName)
