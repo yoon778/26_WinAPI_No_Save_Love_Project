@@ -25,11 +25,13 @@ public:
     void StopBgm();
 
     void PlaySfx(const std::wstring& key);
+    void StopSfx(const std::wstring& key);
 
     void Update();
 
     void SetBgmVolume(int volume);
     void SetSfxVolume(int volume);
+    void SetSfxVolume(const std::wstring& key, int volume);
 
     std::wstring GetCurrentBgmKey() const;
 
@@ -37,6 +39,7 @@ private:
     std::unordered_map<std::wstring, std::wstring> bgmPaths;
     std::unordered_map<std::wstring, std::wstring> sfxPaths;
     std::unordered_map<std::wstring, std::wstring> sfxAliases;
+    std::unordered_map<std::wstring, int> sfxVolumes;
 
     std::wstring currentBgmKey;
     std::wstring currentBgmAlias;
