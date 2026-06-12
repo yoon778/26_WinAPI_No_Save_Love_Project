@@ -45,6 +45,7 @@ void AudioManager::Shutdown()
     bgmPaths.clear();
     sfxPaths.clear();
     sfxAliases.clear();
+    sfxVolumes.clear();
     isBgmFadeInActive = false;
     isBgmFadeOutActive = false;
 
@@ -65,7 +66,9 @@ void AudioManager::RegisterSfx(const std::wstring& key, const std::wstring& path
 
     SendMciCommand(L"close " + alias);
     SendMciCommand(L"open \"" + path + L"\" type waveaudio alias " + alias);
-    SendMciCommand(L"setaudio " + alias + L" volume to " + std::to_wstring(sfxVolume));
+    auto volumeIt = sfxVolumes.find(key);
+    int volume = (volumeIt == sfxVolumes.end()) ? sfxVolume : volumeIt->second;
+    SendMciCommand(L"setaudio " + alias + L" volume to " + std::to_wstring(volume));
 }
 
 void AudioManager::PlayBgm(const std::wstring& key, bool repeat)
@@ -198,6 +201,17 @@ void AudioManager::PlaySfx(const std::wstring& key)
     SendMciCommand(L"play " + alias);
 }
 
+void AudioManager::StopSfx(const std::wstring& key)
+{
+    auto it = sfxAliases.find(key);
+    if (it == sfxAliases.end())
+    {
+        return;
+    }
+
+    SendMciCommand(L"stop " + it->second);
+}
+
 void AudioManager::Update()
 {
     if (isBgmFadeOutActive && !currentBgmKey.empty())
@@ -256,8 +270,23 @@ void AudioManager::SetSfxVolume(int volume)
 
     for (const auto& pair : sfxAliases)
     {
-        SendMciCommand(L"setaudio " + pair.second + L" volume to " + std::to_wstring(sfxVolume));
+        auto volumeIt = sfxVolumes.find(pair.first);
+        int volume = (volumeIt == sfxVolumes.end()) ? sfxVolume : volumeIt->second;
+        SendMciCommand(L"setaudio " + pair.second + L" volume to " + std::to_wstring(volume));
     }
+}
+
+void AudioManager::SetSfxVolume(const std::wstring& key, int volume)
+{
+    sfxVolumes[key] = volume;
+
+    auto aliasIt = sfxAliases.find(key);
+    if (aliasIt == sfxAliases.end())
+    {
+        return;
+    }
+
+    SendMciCommand(L"setaudio " + aliasIt->second + L" volume to " + std::to_wstring(volume));
 }
 
 std::wstring AudioManager::GetCurrentBgmKey() const

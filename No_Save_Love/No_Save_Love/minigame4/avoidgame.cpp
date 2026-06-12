@@ -1058,6 +1058,8 @@ void avoidgame::RenderHud(HDC hDC)
 
 void avoidgame::ResetPatterns()
 {
+    StopReelsPatternSfx();
+
     // 패턴 상태 초기화
     m_attacks.clear();
     m_foods.clear();
@@ -1151,6 +1153,7 @@ void avoidgame::FinishPatternIfEmpty()
     {
         if (m_attacks.empty())
         {
+            StopReelsPatternSfx();
             m_pattern.currentPattern = PATTERN_NONE;
             m_pattern.waitTimer = PATTERN_DELAY;
         }
@@ -1247,6 +1250,7 @@ void avoidgame::StartReelsPattern()
 {
     // 릴스 패턴 시작
     m_pattern.currentPattern = PATTERN_REELS;
+    PlayDuckedPatternSfx(L"minigame4_reels", REELS_SFX_DURATION);
     SpawnReelsAttack();
 }
 
@@ -1288,6 +1292,7 @@ void avoidgame::StartFoodPattern()
 {
     // 음식 패턴 시작
     m_pattern.currentPattern = PATTERN_FOOD;
+    PlayPatternSfx(L"minigame4_food");
     m_foodPattern.patternTimer = FOOD_PATTERN_DURATION;
     m_foodPattern.spawnTimer = 0.0f;
 }
@@ -1437,7 +1442,7 @@ void avoidgame::UpdateDeliverPattern()
             m_deliver.warningTimer = 0.0f;
             m_deliver.isWarning = false;
             m_deliver.isActive = true;
-            PlayPatternSfx(L"minigame4_rider", RIDER_SFX_DURATION);
+            PlayPatternSfx(L"minigame4_rider");
         }
         return;
     }
@@ -1593,7 +1598,7 @@ void avoidgame::UpdateMalphitePattern()
             progress = 1.0f;
             m_malphite.phase = MALPHITE_PHASE_WARN;
             m_malphite.phaseTimer = 0.0f;
-            PlayPatternSfx(L"minigame4_malpa_rock", MALPHITE_ROCK_SFX_DURATION);
+            PlayPatternSfx(L"minigame4_malpa_rock");
         }
 
         float enterStartX = static_cast<float>(-MALPHITE_STAND_WIDTH);
@@ -1648,7 +1653,7 @@ void avoidgame::UpdateMalphitePattern()
                 static_cast<LONG>(m_malphite.x + MALPHITE_ULT_WIDTH),
                 static_cast<LONG>(m_malphite.y + MALPHITE_ULT_HEIGHT)
             };
-            PlayPatternSfx(L"minigame4_malpa_ult", MALPHITE_ULT_SFX_DURATION);
+            PlayPatternSfx(L"minigame4_malpa_ult");
         }
         return;
     }
@@ -1772,7 +1777,7 @@ void avoidgame::UpdateAttacks()
                 attack.isAttackActive = true;
                 if (attack.attackType == ATTACK_TYPE_KAKAO)
                 {
-                    PlayPatternSfx(L"minigame4_lolpopup", LOLPOPUP_SFX_DURATION);
+                    PlayPatternSfx(L"minigame4_lolpopup");
                 }
             }
         }
@@ -1957,7 +1962,12 @@ void avoidgame::DrawKakaoPopup(HDC hDC, const AttackWarning& attack)
     DeleteObject(attackPen);
 }
 
-void avoidgame::PlayPatternSfx(const wchar_t* key, float duckDuration)
+void avoidgame::PlayPatternSfx(const wchar_t* key)
+{
+    audioManager.PlaySfx(key);
+}
+
+void avoidgame::PlayDuckedPatternSfx(const wchar_t* key, float duckDuration)
 {
     audioManager.PlaySfx(key);
     audioManager.SetBgmVolume(MINIGAME4_DUCKED_BGM_VOLUME);
@@ -1966,6 +1976,12 @@ void avoidgame::PlayPatternSfx(const wchar_t* key, float duckDuration)
     {
         m_bgmDuckTimer = duckDuration;
     }
+}
+
+void avoidgame::StopReelsPatternSfx()
+{
+    audioManager.StopSfx(L"minigame4_reels");
+    RestoreBgmVolume();
 }
 
 void avoidgame::UpdateBgmDuck()
@@ -2049,6 +2065,8 @@ void avoidgame::DamagePlayer(int hitImageIndex)
         m_lastHitImageIndex = hitImageIndex;
     }
 
+    audioManager.PlaySfx(L"minigame3_hit");
+
     m_game.life--;
     if (m_game.life < 0)
     {
@@ -2067,6 +2085,7 @@ void avoidgame::UpdateGameTimer()
         m_game.remainingTime = 0.0f;
         m_game.isFinished = true;
         m_game.isSuccess = true;
+        StopReelsPatternSfx();
     }
 
     // 목숨 소진
@@ -2075,6 +2094,7 @@ void avoidgame::UpdateGameTimer()
         m_game.life = 0;
         m_game.isFinished = true;
         m_game.isSuccess = false;
+        StopReelsPatternSfx();
     }
 }
 
