@@ -200,11 +200,7 @@ private:
     // 히로인 선택 횟수를 증가시킨다.
     void AddChoiceCount(std::array<CharacterInfo, HEROINE_COUNT>& characters, int selectedCharacter);
 
-<<<<<<< HEAD
-    // 선택 횟수와 스탯을 바탕으로 최종 도입 대사를 준비한다.
-=======
-    // 최종 히로인을 계산하고 최종 도입 대사 번호를 준비한다.
->>>>>>> affe53812999b218101a33f6faefb4819605152e
+    // 선택 횟수와 스탯을 바탕으로 최종 히로인과 도입 대사를 준비한다.
     void PrepareFinalChoiceIntro();
 
     // 최종 히로인과 스탯을 바탕으로 엔딩 대사를 StoryScene에 넣는다.

@@ -207,11 +207,7 @@ void GameManager::OnMouseClick(int x, int y)
             }
             else if (!m_finalChoiceIntroShown)
             {
-<<<<<<< HEAD
                 // 마지막 선택 화면으로 가기 전에 노트가 마지막 이름을 보여주는 대사를 출력한다.
-=======
-                // 노트가 마지막 이름을 보여주는 대사를 출력한다.
->>>>>>> affe53812999b218101a33f6faefb4819605152e
                 PrepareFinalChoiceIntro();
                 storyScene.SetDialogues(storyData.GetFinalChoiceIntroStory(finalChoiceIntroIndex));
                 m_finalChoiceIntroShown = true;
