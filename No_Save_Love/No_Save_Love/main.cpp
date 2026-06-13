@@ -45,7 +45,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdPa
         TranslateMessage(&Message);
         DispatchMessage(&Message);
     }
-    return Message.wParam;
+    return static_cast<int>(Message.wParam);
 }
 
 #include "GameManager.h"

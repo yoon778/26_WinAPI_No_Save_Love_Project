@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <string>
 
 extern AudioManager audioManager;
 
@@ -82,7 +83,7 @@ void avoidgame::Initialize()
 void avoidgame::Release()
 {
     // 리소스 정리
-    RestoreBgmVolume();
+    StopReelsPatternSfx();
     DestroyImages();
     m_platforms.clear();
     m_attacks.clear();
@@ -603,19 +604,24 @@ void avoidgame::Render(HDC hDC)
     // 결과 표시
     if (m_game.isFinished)
     {
-        wchar_t resultText[64];
+        std::wstring resultText;
         if (m_game.isSuccess)
         {
-            swprintf_s(resultText, L"성공! %.0f초 버팀", GAME_TIME_LIMIT);
+            resultText = L"성공! " + std::to_wstring(static_cast<int>(GAME_TIME_LIMIT)) + L"초 버팀";
         }
         else
         {
-            wcscpy_s(resultText, L"실패! 목숨이 모두 사라짐");
+            resultText = L"실패! 목숨이 모두 사라짐";
         }
 
         SetBkMode(hDC, TRANSPARENT);
         SetTextColor(hDC, m_game.isSuccess ? RGB(120, 255, 160) : RGB(255, 90, 90));
-        TextOutW(hDC, SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT / 2, resultText, lstrlenW(resultText));
+        TextOutW(
+            hDC,
+            SCREEN_WIDTH / 2 - 120,
+            SCREEN_HEIGHT / 2,
+            resultText.c_str(),
+            static_cast<int>(resultText.length()));
     }
 }
 

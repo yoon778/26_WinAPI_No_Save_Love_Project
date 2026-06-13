@@ -138,7 +138,7 @@ void PCroomgame::Init() {
 	hudArea = { 1080, -30, 1880, 200 };
 
 	// 잘난체 폰트 등록
-	AddFontResourceExW(L"Jalnan2TTF.ttf", FR_PRIVATE, 0);
+	AddFontResourceExW(L"resource\\minigame1\\Jalnan2TTF.ttf", FR_PRIVATE, 0);
 
 	// Init이 다시 호출될 수 있으므로 기존 폰트가 있으면 제거
 	if (hudFont != NULL)
@@ -1600,7 +1600,7 @@ void PCroomgame::Release()
 		hudFont = NULL;
 	}
 
-	RemoveFontResourceExW(L"Jalnan2TTF.ttf", FR_PRIVATE, 0);
+	RemoveFontResourceExW(L"resource\\minigame1\\Jalnan2TTF.ttf", FR_PRIVATE, 0);
 
 	if (!hudImg.IsNull()) hudImg.Destroy();
 	if (!background.IsNull()) background.Destroy();

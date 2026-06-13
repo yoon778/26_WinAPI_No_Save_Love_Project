@@ -91,8 +91,6 @@ void GameManager::Initialize(HWND hWnd)
 }
 void GameManager::Shutdown()
 {
-    audioManager.Shutdown();
-
     minigam1_tutorial1.Shutdown();
     minigame2TutorialScene.Shutdown();
     minigame3TutorialScene.Shutdown();
@@ -107,6 +105,8 @@ void GameManager::Shutdown()
         m_isMiniGame2Initialized = false;
     }
     minigame3.Release();
+    minigame4.Release();
+    audioManager.Shutdown();
 
     // StoryScene 내부 데이터 정리
     storyScene.Shutdown();
@@ -311,12 +311,10 @@ void GameManager::OnMouseClick(int x, int y)
         {
             int selectedIndex = choiceScene.GetSelectedIndex();
 
-            // 선택한 히로인의 선택 횟수를 증가시킨다.
-            AddChoiceCount(characters, selectedIndex);
-
             // 분기 스토리 진입에 성공했을 때만 선택 반영 완료 처리한다.
             if (EnterBranchStory(selectedIndex))
             {
+                AddChoiceCount(characters, selectedIndex);
                 audioManager.PlaySfx(L"click");
                 m_choiceApplied = true;
             }
@@ -604,6 +602,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
         }
 
         EnterResult(3, minigame4.GetScore());
+        m_pendingMiniGameRelease = PendingMiniGameRelease4;
         currentMiniGameIndex++;
         return;
     }
@@ -708,6 +707,10 @@ void GameManager::ReleasePendingMiniGame()
 
     case PendingMiniGameRelease3:
         minigame3.Release();
+        break;
+
+    case PendingMiniGameRelease4:
+        minigame4.Release();
         break;
 
     case PendingMiniGameReleaseNone:

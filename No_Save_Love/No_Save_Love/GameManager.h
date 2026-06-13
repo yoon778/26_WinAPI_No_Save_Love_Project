@@ -107,7 +107,7 @@ private:
     struct CharacterInfo
     {
         std::wstring name; // 히로인 이름
-        int choice_time;   // 선택된 횟수
+        int choice_time = 0;   // 선택된 횟수
     };
 
     std::array<CharacterInfo, HEROINE_COUNT> characters;
@@ -213,7 +213,7 @@ private:
     SceneTransition sceneTransition;
 
     // 페이드가 완전히 검은 화면이 되었을 때 이동할 다음 모드
-    game_mode_info pendingGameMode;
+    game_mode_info pendingGameMode = game_mode_info::Title;
 
     // 예약된 Scene 변경이 있는지 확인
     bool hasPendingSceneChange = false;

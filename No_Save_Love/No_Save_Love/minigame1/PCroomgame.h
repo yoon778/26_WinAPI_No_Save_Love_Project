@@ -55,8 +55,8 @@ private:
 	POINT playerPos;			// 현재 캐릭터 위치
 	POINT targetPos;			// 목표 위치
 	POINT homePos;				// 초기 위치
-	BOOL ismoving;				// 이동 여부
-	BOOL isreturn;				// 배달 후 돌아는 여부
+	bool ismoving;				// 이동 여부
+	bool isreturn;				// 배달 후 돌아는 여부
 	int seatindex;
 	RECT waterArea[2];
 
