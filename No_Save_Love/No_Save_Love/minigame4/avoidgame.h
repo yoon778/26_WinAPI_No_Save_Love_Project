@@ -141,7 +141,7 @@ private:
     static const int MAX_JUMP_COUNT = 2; // 최대 점프
 
     static constexpr float UPDATE_DELTA_SECONDS = 0.06f; // 타이머 간격
-    static constexpr float GAME_TIME_LIMIT = 40.0f; // 제한 시간
+    static constexpr float GAME_TIME_LIMIT = 50.0f; // 제한 시간
     static constexpr float INVINCIBLE_DURATION = 2.0f; // 무적 지속
 
     static const int PATTERN_NONE = 0; // 패턴 없음
@@ -165,7 +165,7 @@ private:
     static const int HIT_IMAGE_REELS = 1; // 릴스 피격
     static const int HIT_IMAGE_FOOD = 2; // 음식 피격
     static const int HIT_IMAGE_RIDDER = 3; // 배달 피격
-    static constexpr float WARNING_DURATION = 1.4f; // 기본 경고
+    static constexpr float WARNING_DURATION = 0.8f; // 기본 경고
     static constexpr float ATTACK_DURATION = 0.6f; // 기본 공격
 
     static const int KAKAO_COMBO_COUNT = 5; // 카톡 연타

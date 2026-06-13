@@ -450,6 +450,23 @@ void StoryScene::Render(HDC hDC)
         L"맑은 고딕"
     );
 
+    HFONT nameFont = CreateFontW(
+        50,
+        0,
+        0,
+        0,
+        FW_BOLD,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
     HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, dialogueFont));
 
     SetBkMode(hDC, TRANSPARENT);
@@ -479,6 +496,7 @@ void StoryScene::Render(HDC hDC)
     LineTo(hDC, 1920, lineY);
 
     // 이름 출력
+    SelectObject(hDC, nameFont);
     SetTextColor(hDC, style.nameColor);
     DrawTextW(
         hDC,
@@ -489,6 +507,7 @@ void StoryScene::Render(HDC hDC)
     );
 
     // 대사 출력
+    SelectObject(hDC, dialogueFont);
     SetTextColor(hDC, style.textColor);
     DrawTextW(
         hDC,
@@ -505,6 +524,7 @@ void StoryScene::Render(HDC hDC)
     DeleteObject(linePen);
     DeleteObject(boxPen);
     DeleteObject(boxBrush);
+    DeleteObject(nameFont);
     DeleteObject(dialogueFont);
 
     //스킵 생성

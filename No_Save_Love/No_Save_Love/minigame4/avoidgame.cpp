@@ -13,7 +13,7 @@ avoidgame::avoidgame()
     m_player = {};
     m_player.gravity = 40.0f;
     m_player.jumpPower = 100.0f;
-    m_player.moveSpeed = 80.0f;
+    m_player.moveSpeed = 100.0f;
 
     // 게임 기본값
     m_game = {};
