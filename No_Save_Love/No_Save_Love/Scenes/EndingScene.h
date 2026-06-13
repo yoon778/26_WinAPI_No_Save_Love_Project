@@ -12,6 +12,7 @@ public:
     void Shutdown();
     void Reset();
     void SetEndingImage(int endingType, int heroineIndex);
+    void SetPlayerName(const std::wstring& playerName);
     void OnMouseClick(int x, int y);
     bool IsExitRequested() const;
     void Update();
@@ -19,6 +20,9 @@ public:
 
 private:
     std::wstring GetEndingImagePath(int endingType, int heroineIndex) const;
+    std::wstring ReplacePlayerNameToken(const std::wstring& text) const;
+    bool IsCreditHeading(const std::wstring& text) const;
+    HFONT CreateCreditFont(int fontSize, int fontWeight) const;
     void DrawBackground(HDC hDC);
     void DrawCreditLine(HDC hDC, const std::wstring& text, int y, int index);
     void DrawExitButton(HDC hDC);
@@ -26,6 +30,7 @@ private:
 
 private:
     std::vector<std::wstring> creditLines;
+    std::wstring m_playerName = L"윤서";
     CImage endingImage;
 
     int scrollOffset = 0;

@@ -39,6 +39,11 @@ void EndingScene::SetEndingImage(int endingType, int heroineIndex)
     }
 }
 
+void EndingScene::SetPlayerName(const std::wstring& playerName)
+{
+    m_playerName = playerName.empty() ? L"윤서" : playerName;
+}
+
 void EndingScene::OnMouseClick(int x, int y)
 {
     POINT mousePoint = { x, y };
@@ -140,6 +145,55 @@ std::wstring EndingScene::GetEndingImagePath(int endingType, int heroineIndex) c
     return L"";
 }
 
+std::wstring EndingScene::ReplacePlayerNameToken(const std::wstring& text) const
+{
+    std::wstring result = text;
+    const std::wstring token = L"{PLAYER}";
+    size_t position = 0;
+
+    while ((position = result.find(token, position)) != std::wstring::npos)
+    {
+        result.replace(position, token.length(), m_playerName);
+        position += m_playerName.length();
+    }
+
+    return result;
+}
+
+bool EndingScene::IsCreditHeading(const std::wstring& text) const
+{
+    return text == L"기획" ||
+        text == L"시나리오" ||
+        text == L"프로그래밍" ||
+        text == L"캐릭터 이미지" ||
+        text == L"배경 이미지" ||
+        text == L"Title BGM" ||
+        text == L"Ending BGM" ||
+        text == L"Story BGM" ||
+        text == L"특별자문" ||
+        text.rfind(L"미니게임 - ", 0) == 0;
+}
+
+HFONT EndingScene::CreateCreditFont(int fontSize, int fontWeight) const
+{
+    return CreateFontW(
+        fontSize,
+        0,
+        0,
+        0,
+        fontWeight,
+        FALSE,
+        FALSE,
+        FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"Malgun Gothic"
+    );
+}
+
 void EndingScene::DrawBackground(HDC hDC)
 {
     RECT backgroundRect = { 0, 0, 1920, 1080 };
@@ -237,7 +291,9 @@ void EndingScene::DrawExitButton(HDC hDC)
 
 void EndingScene::DrawCreditLine(HDC hDC, const std::wstring& text, int y, int index)
 {
-    if (text.empty())
+    std::wstring displayText = ReplacePlayerNameToken(text);
+
+    if (displayText.empty())
     {
         return;
     }
@@ -252,38 +308,53 @@ void EndingScene::DrawCreditLine(HDC hDC, const std::wstring& text, int y, int i
         fontWeight = FW_BOLD;
         textColor = RGB(255, 210, 230);
     }
-    else if (index == 2 || text == L"THE END")
+    else if (index == 2 || displayText == L"THE END")
     {
         fontSize = 46;
         fontWeight = FW_BOLD;
         textColor = RGB(245, 225, 245);
     }
-    else if (index == 4 || index == 7 || index == 10 || index == 13 ||
-        index == 16 || index == 19 || index == 22 || index == 27 ||
-        index == 38 || index == 43 || index == 49 || index == 54 ||
-        index == 60)
+    else if (IsCreditHeading(displayText))
     {
         fontSize = 30;
         fontWeight = FW_BOLD;
         textColor = RGB(185, 160, 220);
     }
 
-    HFONT creditFont = CreateFontW(
-        fontSize,
-        0,
-        0,
-        0,
-        fontWeight,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"Malgun Gothic"
-    );
+    const int maxTextWidth = 1760;
+    const int minFontSize = 22;
+    int effectiveFontSize = fontSize;
+    HFONT creditFont = nullptr;
+    SIZE textSize = {};
+
+    while (effectiveFontSize >= minFontSize)
+    {
+        creditFont = CreateCreditFont(effectiveFontSize, fontWeight);
+        HFONT measuringOldFont = static_cast<HFONT>(SelectObject(hDC, creditFont));
+
+        GetTextExtentPoint32W(
+            hDC,
+            displayText.c_str(),
+            static_cast<int>(displayText.length()),
+            &textSize
+        );
+
+        SelectObject(hDC, measuringOldFont);
+
+        if (textSize.cx <= maxTextWidth || effectiveFontSize == minFontSize)
+        {
+            break;
+        }
+
+        DeleteObject(creditFont);
+        creditFont = nullptr;
+        effectiveFontSize -= 2;
+    }
+
+    if (creditFont == nullptr)
+    {
+        creditFont = CreateCreditFont(effectiveFontSize, fontWeight);
+    }
 
     HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, creditFont));
 
@@ -291,7 +362,7 @@ void EndingScene::DrawCreditLine(HDC hDC, const std::wstring& text, int y, int i
     SetTextColor(hDC, textColor);
     DrawTextW(
         hDC,
-        text.c_str(),
+        displayText.c_str(),
         -1,
         &textRect,
         DT_CENTER | DT_VCENTER | DT_SINGLELINE

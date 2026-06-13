@@ -174,6 +174,7 @@ void GameManager::OnMouseClick(int x, int y)
             // 이걸 해야 StoryScene 내부 m_playerName이 "윤서"에서 입력한 이름으로 바뀐다.
             storyScene.SetPlayerName(playerName);
             resultScene.SetPlayerName(playerName);
+            endingScene.SetPlayerName(playerName);
 
             // 인트로 대사를 StoryScene에 넣는다.
             storyScene.SetDialogues(storyData.GetIntroStory());
@@ -1192,6 +1193,7 @@ void GameManager::OnChar(wchar_t inputChar)
 
                 storyScene.SetPlayerName(playerName);
                 resultScene.SetPlayerName(playerName);
+                endingScene.SetPlayerName(playerName);
 
                 storyScene.SetDialogues(storyData.GetIntroStory());
 
