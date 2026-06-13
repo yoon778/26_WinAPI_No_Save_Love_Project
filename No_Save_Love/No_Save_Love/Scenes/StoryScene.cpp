@@ -884,8 +884,13 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
         newBackgroundKey = line.backgroundKey;
     }
 
+    // 빈 characterKey는 이전 캐릭터 유지라서, none은 캐릭터 제거를 명시한다.
+    if (line.characterKey == L"none")
+    {
+        newCharacterKey = L"";
+    }
     // 현재 대사에 캐릭터 key가 있으면 새 캐릭터 후보로 설정한다.
-    if (!line.characterKey.empty())
+    else if (!line.characterKey.empty())
     {
         newCharacterKey = line.characterKey;
     }

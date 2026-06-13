@@ -1,4 +1,4 @@
-#include "EndingScene.h"
+﻿#include "EndingScene.h"
 
 void EndingScene::Initialize(const std::vector<std::wstring>& credits)
 {
