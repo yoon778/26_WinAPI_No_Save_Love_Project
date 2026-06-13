@@ -502,7 +502,7 @@ int schoolrun::GetScore() const
 
     // 전체 젤리를 다 먹으면 100점
     int score = m_jellyCount * 100 / m_totalJellyCount;
-    if (score > 100)
+    if (score > 85)
     {
         score = 100;
     }

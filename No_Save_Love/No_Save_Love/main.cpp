@@ -230,6 +230,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     case WM_DESTROY:
     {
         KillTimer(hWnd, 1);
+        g_gameManager.Shutdown();
         ReleaseBackBuffer();
         PostQuitMessage(0);
         return 0;

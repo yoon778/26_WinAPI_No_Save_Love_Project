@@ -14,7 +14,6 @@
 #include "Scenes/StoryScene.h"
 #include "Scenes/ChoiceScene.h"
 #include "Scenes/ResultScene.h"
-#include "Scenes/FinalChoiceScene.h"
 #include "Scenes/EndingScene.h"
 
 
@@ -68,7 +67,6 @@ private:
         MiniGame4,
         Result,
         Choice,
-        FinalChoice,
         EndingDialogue,
         Ending
     };
@@ -91,7 +89,6 @@ private:
     ResultScene resultScene;
     ChoiceScene choiceScene;
     StoryData storyData;
-    FinalChoiceScene finalChoiceScene;
     EndingScene endingScene;
 
     MiniGame1TutorialScene minigam1_tutorial1;
@@ -203,8 +200,12 @@ private:
     // 히로인 선택 횟수를 증가시킨다.
     void AddChoiceCount(std::array<CharacterInfo, HEROINE_COUNT>& characters, int selectedCharacter);
 
-    // 최종 히로인 계산한뒤 finalChoice에게 건네주면서 finalChoice실행
-    void EnterFinalChoice();
+<<<<<<< HEAD
+    // 선택 횟수와 스탯을 바탕으로 최종 도입 대사를 준비한다.
+=======
+    // 최종 히로인을 계산하고 최종 도입 대사 번호를 준비한다.
+>>>>>>> affe53812999b218101a33f6faefb4819605152e
+    void PrepareFinalChoiceIntro();
 
     // 최종 히로인과 스탯을 바탕으로 엔딩 대사를 StoryScene에 넣는다.
     void EnterEndingStory();

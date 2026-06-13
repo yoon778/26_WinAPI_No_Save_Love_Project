@@ -603,7 +603,16 @@ void avoidgame::Render(HDC hDC)
     // 결과 표시
     if (m_game.isFinished)
     {
-        const wchar_t* resultText = m_game.isSuccess ? L"성공! 40초 버팀" : L"실패! 목숨이 모두 사라짐";
+        wchar_t resultText[64];
+        if (m_game.isSuccess)
+        {
+            swprintf_s(resultText, L"성공! %.0f초 버팀", GAME_TIME_LIMIT);
+        }
+        else
+        {
+            wcscpy_s(resultText, L"실패! 목숨이 모두 사라짐");
+        }
+
         SetBkMode(hDC, TRANSPARENT);
         SetTextColor(hDC, m_game.isSuccess ? RGB(120, 255, 160) : RGB(255, 90, 90));
         TextOutW(hDC, SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT / 2, resultText, lstrlenW(resultText));

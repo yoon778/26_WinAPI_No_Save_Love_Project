@@ -505,9 +505,9 @@ void PCroomgame::Update()
 
 	// =========================
 	// 2. 제한시간 감소
-	// SetTimer가 100ms라면 Update() 한 번마다 0.1초 감소
+	// SetTimer가 60ms이므로 Update() 한 번마다 0.06초 감소
 	// =========================
-	timer -= 0.1;
+	timer -= 0.06;
 
 	if (timer <= 0.0)
 	{

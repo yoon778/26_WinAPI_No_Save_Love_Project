@@ -1,4 +1,5 @@
 ﻿#include "RhythmMiniGame.h"
+#include "../ResultGrade.h"
 #include <cstdlib>
 #include <cmath>
 
@@ -3456,7 +3457,7 @@ void RhythmMiniGame::CalculateResult()
     }
 
     // 윤서에게 넘길 0~100 점수
-    resultScore100 = finalScore * 100 / GRADE_S_SCORE;
+    resultScore100 = finalScore * 100 / RESULT_SCORE_MAX;
 
     if (resultScore100 > 100)
         resultScore100 = 100;
@@ -3469,19 +3470,7 @@ void RhythmMiniGame::CalculateResult()
 
 const wchar_t* RhythmMiniGame::GetGradeText() const
 {
-    if (finalScore >= GRADE_S_SCORE)
-        return L"S";
-
-    if (finalScore >= GRADE_A_SCORE)
-        return L"A";
-
-    if (finalScore >= GRADE_B_SCORE)
-        return L"B";
-
-    if (finalScore >= GRADE_C_SCORE)
-        return L"C";
-
-    return L"D";
+    return GetResultGradeText(resultScore100);
 }
 
 

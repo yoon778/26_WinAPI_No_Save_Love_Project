@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <string>
+#include "../ResultGrade.h"
 
 // 플레이어의 현재 총 스탯을 저장하는 구조체다.
 struct Player_state

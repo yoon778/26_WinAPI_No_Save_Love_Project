@@ -268,33 +268,8 @@ void ResultScene::RenderResult(HDC hDC)
     // 기본 계산
     // =========================
 
-    // 점수에 따라 등급을 정한다.
-    std::wstring gradeText = L"F";
-
-    if (m_score >= 90)
-    {
-        gradeText = L"S";
-    }
-    else if (m_score >= 80)
-    {
-        gradeText = L"A";
-    }
-    else if (m_score >= 60)
-    {
-        gradeText = L"B";
-    }
-    else if (m_score >= 40)
-    {
-        gradeText = L"C";
-    }
-    else if (m_score >= 20)
-    {
-        gradeText = L"D";
-    }
-    else
-    {
-        gradeText = L"F";
-    }
+    // 모든 결과 화면에서 같은 100점 기준 등급표를 사용한다.
+    std::wstring gradeText = GetResultGradeText(m_score);
 
     // =========================
     // 배경 출력
