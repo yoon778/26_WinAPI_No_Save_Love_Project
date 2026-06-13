@@ -137,7 +137,6 @@
     <ClCompile Include="minigame4\avoidgame.cpp" />
     <ClCompile Include="Scenes\ChoiceScene.cpp" />
     <ClCompile Include="Scenes\EndingScene.cpp" />
-    <ClCompile Include="Scenes\FinalChoiceScene.cpp" />
     <ClCompile Include="Scenes\MiniGame1TutorialScene.cpp" />
     <ClCompile Include="Scenes\MiniGame2TutorialScene.cpp" />
     <ClCompile Include="Scenes\MiniGame3TutorialScene.cpp" />
@@ -159,7 +158,6 @@
     <ClInclude Include="minigame4\avoidgame.h" />
     <ClInclude Include="Scenes\ChoiceScene.h" />
     <ClInclude Include="Scenes\EndingScene.h" />
-    <ClInclude Include="Scenes\FinalChoiceScene.h" />
     <ClInclude Include="Scenes\MiniGame1TutorialScene.h" />
     <ClInclude Include="Scenes\MiniGame2TutorialScene.h" />
     <ClInclude Include="Scenes\MiniGame3TutorialScene.h" />

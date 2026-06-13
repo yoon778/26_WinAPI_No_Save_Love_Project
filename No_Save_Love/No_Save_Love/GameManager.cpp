@@ -207,8 +207,8 @@ void GameManager::OnMouseClick(int x, int y)
             }
             else if (!m_finalChoiceIntroShown)
             {
-                // 마지막 선택 화면으로 가기 전에 노트가 마지막 이름을 보여주는 대사를 출력한다.
-                EnterFinalChoice();
+                // 노트가 마지막 이름을 보여주는 대사를 출력한다.
+                PrepareFinalChoiceIntro();
                 storyScene.SetDialogues(storyData.GetFinalChoiceIntroStory(finalChoiceIntroIndex));
                 m_finalChoiceIntroShown = true;
             }
@@ -324,21 +324,6 @@ void GameManager::OnMouseClick(int x, int y)
 
         break;
     }
-    case game_mode_info::FinalChoice:
-    {
-        // FinalChoiceScene에게 클릭 처리를 맡긴다.
-        finalChoiceScene.OnMouseClick(x, y);
-
-        // 최종 히로인 확인 화면이 끝났다면,
-        // 바로 THE END 화면으로 가지 않고 엔딩 대사로 들어간다.
-        if (finalChoiceScene.IsFinished())
-        {
-            EnterEndingStory();
-        }
-
-        break;
-    }
-
     case game_mode_info::EndingDialogue:
     {
         // 엔딩 대사도 StoryScene으로 출력하므로 클릭 처리는 StoryScene에게 맡긴다.
@@ -813,12 +798,6 @@ void GameManager::Render(HDC hDC)
         choiceScene.RenderChoice(hDC);
         break;
     }
-    case game_mode_info::FinalChoice:
-    {
-        // 최종 히로인 확인 화면을 출력한다.
-        finalChoiceScene.Render(hDC);
-        break;
-    }
     case game_mode_info::EndingDialogue:
     {
         // 엔딩 대사도 StoryScene을 재사용해서 출력한다.
@@ -1028,7 +1007,7 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
     return true;
 }
 
-void GameManager::EnterFinalChoice()
+void GameManager::PrepareFinalChoiceIntro()
 {
     // 현재 가장 높은 선택 횟수를 저장한다.
     int maxChoiceCount = characters[0].choice_time;
@@ -1050,26 +1029,15 @@ void GameManager::EnterFinalChoice()
         }
     }
 
-    // 최종 히로인 정보를 FinalChoiceScene에게 넘긴다.
-    finalChoiceScene.SetFinalHeroine(
-        finalHeroineIndex,
-        characters[finalHeroineIndex].name
-    );
-
     // 스탯이 너무 낮으면 히로인 대신 새누 히든 엔딩으로 진입한다.
     if (CalculateEndingType(finalHeroineIndex) == 2)
     {
         finalChoiceIntroIndex = 3;
-        finalChoiceScene.SetFinalHeroine(-1, L"새누");
     }
     else
     {
         finalChoiceIntroIndex = finalHeroineIndex;
     }
-
-    // FinalChoiceScene을 처음 상태로 준비한다.
-    finalChoiceScene.Reset();
-
 }
 
 void GameManager::EnterEndingStory()
