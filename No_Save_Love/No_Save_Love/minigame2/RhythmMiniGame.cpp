@@ -943,6 +943,8 @@ void RhythmMiniGame::Render(HDC hDC)
         if (hitCircles[i].isActive == true)
         {
             if (isFlowering && HideFloweringCircle(i, GetRhythmTime())) continue;
+            // 앵콜은 전용 접근 원/반복 화살표를 오버레이에서 그린다.
+            if (isFlowering && (hitCircles[i].floweringFlags & FloweringChart::Encore)) continue;
             double hitCircleScale =
                 isWindowGimmickActive
                 ? SMALL_WINDOW_HITCIRCLE_SCALE

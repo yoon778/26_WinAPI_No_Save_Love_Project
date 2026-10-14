@@ -67,7 +67,8 @@ namespace FloweringChart
                 note.flags |= EncoreRepeat;
                 notes.push_back(note);
             }
-            beat += slider ? 4 : step;
+            // 반복 입력 뒤에는 세 박자(약 1.385초)를 남겨 다음 위치로 이동한다.
+            beat += slider || encore ? 4 : step;
         }
         return notes;
     }

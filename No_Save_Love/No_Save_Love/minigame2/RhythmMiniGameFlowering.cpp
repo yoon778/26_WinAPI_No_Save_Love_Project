@@ -253,7 +253,7 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
     else if (time >= FloweringChart::BeatTime(92) && time < cueStart)
         mechanic = L"기억 꽃 · 보라색 원은 마지막 순간 숨어요. 위치와 박자를 기억!";
     else if (time >= FloweringChart::BeatTime(144) && time < FloweringChart::BeatTime(172))
-        mechanic = L"앵콜 노트 · ×2 꽃은 같은 자리에서 한 박자 간격으로 두 번!";
+        mechanic = L"앵콜 노트 · 돌아오는 화살표에 맞춰 같은 자리에서 두 번! 그다음은 세 박자 쉬어요";
     else if (time >= FloweringChart::BeatTime(172) && time < FloweringChart::BeatTime(208))
         mechanic = L"거울 무대 · 다음 배치가 좌우로 바뀝니다. 이미 나온 원은 그대로!";
     else if (time >= FloweringChart::BeatTime(208))
@@ -271,8 +271,35 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
             g.DrawEllipse(&ring, note.x - 58, note.y - 58, 116, 116);
         }
         if (note.floweringFlags & FloweringChart::Encore)
-            Label(g, note.floweringFlags & FloweringChart::EncoreRepeat ? L"2/2" : L"×2",
-                note.x - 28.f, note.y - 24.f, 34.f, Color(255, 255, 226, 124), 90.f);
+        {
+            const bool repeat = (note.floweringFlags & FloweringChart::EncoreRepeat) != 0;
+            const float x = static_cast<float>(note.x), y = static_cast<float>(note.y);
+            const float radius = hitCircleImg.GetWidth() * .5f;
+            // 반복 원은 첫 타격 시점에서 다시 줄어든다. 조기 판정에도 원이 갑자기 튀지 않는다.
+            const int approachMs = repeat ? FloweringChart::BeatTime(1) - FloweringChart::BeatTime(0)
+                : FloweringChart::ApproachMs;
+            const float remaining = (std::clamp)((static_cast<int>(note.hitTime) - time) / float(approachMs), 0.f, 1.f);
+            const float approach = radius * (1.f + .8f * remaining);
+            SolidBrush glow(Color(35, 255, 205, 145));
+            g.FillEllipse(&glow, x - radius - 12, y - radius - 12, (radius + 12) * 2, (radius + 12) * 2);
+            LinearGradientBrush face(PointF(x, y - radius), PointF(x, y + radius),
+                Color(255, 55, 78, 104), Color(255, 30, 43, 69));
+            g.FillEllipse(&face, x - radius, y - radius, radius * 2, radius * 2);
+            Pen outline(Color(255, 255, 221, 169), 3.f);
+            Pen timing(Color(230, 255, 218, 163), 3.f);
+            g.DrawEllipse(&outline, x - radius, y - radius, radius * 2, radius * 2);
+            g.DrawEllipse(&timing, x - approach, y - approach, approach * 2, approach * 2);
+            // osu!의 반복 화살표처럼 방향을 읽을 수 있는 원호. 그림/스킨은 직접 그린다.
+            Pen arrow(Color(255, 255, 232, 195), 4.f);
+            arrow.SetStartCap(LineCapRound); arrow.SetEndCap(LineCapArrowAnchor);
+            g.DrawArc(&arrow, x - 19, y - 19, 38.f, 38.f, -60.f, 275.f);
+            SolidBrush done(Color(255, 255, 221, 169));
+            SolidBrush pending(Color(255, 94, 110, 135));
+            g.FillEllipse(&done, x - 14, y + radius + 15, 9.f, 9.f);
+            g.FillEllipse(repeat ? &done : &pending, x + 5, y + radius + 15, 9.f, 9.f);
+            Label(g, repeat ? L"한 번 더" : L"앵콜 · 두 번", x - 70, y + radius + 32,
+                21.f, Color(255, 255, 231, 199), 170.f);
+        }
     }
     if (time >= cueStart && time < response)
     {

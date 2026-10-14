@@ -73,6 +73,8 @@ int wmain(int argc, wchar_t** argv)
         {
             // 클릭 하나로 동시에 다른 위치를 누르거나, 홀드 중 다음 노트를 누를 필요가 없어야 한다.
             assert(note.timeMs + note.durationMs + 350 <= chart[i + 1].timeMs);
+            if (note.flags & FloweringChart::EncoreRepeat)
+                assert(chart[i + 1].timeMs - note.timeMs >= 1384);
         }
     }
     assert(flags == (FloweringChart::Memory | FloweringChart::Encore | FloweringChart::Mirror
@@ -115,7 +117,7 @@ int wmain(int argc, wchar_t** argv)
     game.hitCircles[0].isActive = false;
     assert(!game.HideFloweringCircle(1, 2000));
     game.ClearAllNotes();
-    const int snapshots[] = {10000, 35000, 45000, 59900, 70000, 83500, 104000, 120000};
+    const int snapshots[] = {10000, 35000, 45000, 59900, 66300, 66800, 68000, 70000, 83500, 104000, 120000};
     size_t nextNote = 0;
     for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs; musicPosition += 10)
     {
@@ -228,8 +230,56 @@ int wmain(int argc, wchar_t** argv)
         manager.OnMouseClick(0, 0);
         CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::EndingDialogue);
+        // 배속으로 끝난 엔딩 대사도 타이머에서 크레딧으로 전환한다.
+        manager.storyScene.finished = true;
+        manager.OnTimer(window);
+        CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Ending);
+        manager.OnKeyDown('F');
+        assert(manager.endingScene.isFastScroll);
+        manager.endingScene.Update();
+        assert(manager.endingScene.scrollOffset == manager.endingScene.fastScrollSpeed);
+        manager.OnMouseClick(1700, 70);
+        assert(!manager.endingScene.isFastScroll);
+        manager.OnKeyDown(VK_SPACE);
+        assert(manager.endingScene.isFastScroll);
+        manager.endingScene.scrollOffset = manager.endingScene.stopOffset;
+        if (heroine == 0)
+        {
+            CImage credits;
+            credits.Create(1920, 1080, 24);
+            auto creditsDC = credits.GetDC();
+            manager.Render(creditsDC);
+            credits.ReleaseDC();
+            assert(SUCCEEDED(credits.Save((output / L"credits_return.png").c_str())));
+        }
+        manager.OnMouseClick(780, 950);
+        CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Title);
+        assert(manager.currentMiniGameIndex == 0 && manager.currentStoryRound == 0);
+        assert(!manager.m_performanceIntroShown && !manager.m_finalChoiceIntroShown);
+        assert(manager.player.speech == 0 && manager.player.charm == 0);
+        assert(manager.storyScene.history.empty() && !manager.titleScene.IsStartClicked());
+        for (const auto& character : manager.characters) assert(character.choice_time == 0);
+        manager.OnMouseClick(960, 720);
+        CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::NameInput && !manager.nameinputScene.IsFinished());
+        manager.OnChar(L'가');
+        manager.OnChar(L'\r');
+        CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Story);
+        assert(manager.playerName == L"가" && !manager.storyScene.IsFinished());
+        for (int i = 0; i < 50 && manager.storyScene.fadeState != FadeState::None; ++i) manager.storyScene.Update();
+        manager.OnKeyDown(VK_SPACE);
+        assert(manager.storyScene.currentDialogueIndex == 0 && manager.storyScene.isTypingFinished);
+        manager.OnKeyDown(VK_SPACE);
+        assert(manager.storyScene.currentDialogueIndex == 1);
+        manager.OnKeyDown('L');
+        assert(manager.storyScene.historyOpen);
+        manager.OnKeyDown(VK_ESCAPE);
+        assert(!manager.storyScene.historyOpen && !manager.m_exitConfirmOpen);
         manager.Shutdown();
     }
     DestroyWindow(window);
-    std::cout << "PASS: three heroines, tutorial, fifth reward once, four choices, updated ending\n";
+    std::cout << "PASS: three heroines, tutorial, reward once, ending, credit speed, title return, new game keyboard/log\n";
 }
