@@ -153,6 +153,7 @@
     <ClInclude Include="AudioManager.h" />
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="ResultGrade.h" />
+    <ClInclude Include="StatBalance.h" />
     <ClInclude Include="minigame1\PCroomgame.h" />
     <ClInclude Include="minigame1\ramen.h" />
     <ClInclude Include="minigame2\RhythmMiniGame.h" />

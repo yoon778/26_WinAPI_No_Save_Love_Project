@@ -119,6 +119,9 @@
     <ClInclude Include="ResultGrade.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="StatBalance.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="Scenes\ChoiceScene.h">
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>

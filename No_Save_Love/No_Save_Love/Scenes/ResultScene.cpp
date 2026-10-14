@@ -1,4 +1,4 @@
-﻿#include "ResultScene.h"
+#include "ResultScene.h"
 
 void ResultScene::Reset()
 {
@@ -20,7 +20,7 @@ void ResultScene::SetResult(int whichGame, int score)
 
     m_score = ClampStat(score);
 
-    m_plusState = CalculateStat(m_whichGame, m_score);
+    m_plusState = StatBalance::CalculateGain(m_whichGame, m_score);
 
     m_hasResult = true;
     m_finished = false;
@@ -68,171 +68,6 @@ bool ResultScene::IsFinished() const
 Player_state ResultScene::GetPlusState() const
 {
     return m_plusState;
-}
-
-Player_state ResultScene::CalculateStat(int whichGame, int score)
-{
-    Player_state plusState = {};
-
-    switch (whichGame)
-    {
-    case 0:
-    {
-        // 미니게임 1: 라면 가게 / 재력, 대화 스킬
-        if (score >= 90)
-        {
-            plusState.money = 50;
-            plusState.speech = 30;
-        }
-        else if (score >= 80)
-        {
-            plusState.money = 40;
-            plusState.speech = 24;
-        }
-        else if (score >= 60)
-        {
-            plusState.money = 30;
-            plusState.speech = 18;
-        }
-        else if (score >= 40)
-        {
-            plusState.money = 20;
-            plusState.speech = 10;
-        }
-        else if (score >= 20)
-        {
-            plusState.money = 10;
-            plusState.speech = 5;
-        }
-        else
-        {
-            plusState.money = 0;
-            plusState.speech = 0;
-        }
-
-        break;
-    }
-
-    case 1:
-    {
-        // 미니게임 2: 노래 연습 / 매력, 외모
-        if (score >= 90)
-        {
-            plusState.charm = 50;
-            plusState.appearance = 30;
-        }
-        else if (score >= 80)
-        {
-            plusState.charm = 40;
-            plusState.appearance = 24;
-        }
-        else if (score >= 60)
-        {
-            plusState.charm = 30;
-            plusState.appearance = 18;
-        }
-        else if (score >= 40)
-        {
-            plusState.charm = 20;
-            plusState.appearance = 10;
-        }
-        else if (score >= 20)
-        {
-            plusState.charm = 10;
-            plusState.appearance = 5;
-        }
-        else
-        {
-            plusState.charm = 0;
-            plusState.appearance = 0;
-        }
-
-        break;
-    }
-
-    case 2:
-    {
-        // 미니게임 3: 등교길 / 외모, 매력
-        if (score >= 90)
-        {
-            plusState.appearance = 50;
-            plusState.charm = 30;
-        }
-        else if (score >= 80)
-        {
-            plusState.appearance = 40;
-            plusState.charm = 24;
-        }
-        else if (score >= 60)
-        {
-            plusState.appearance = 30;
-            plusState.charm = 18;
-        }
-        else if (score >= 40)
-        {
-            plusState.appearance = 20;
-            plusState.charm = 10;
-        }
-        else if (score >= 20)
-        {
-            plusState.appearance = 10;
-            plusState.charm = 5;
-        }
-        else
-        {
-            plusState.appearance = 0;
-            plusState.charm = 0;
-        }
-
-        break;
-    }
-
-    case 3:
-    {
-        // 미니게임 4: 유혹 피하기 / 대화 스킬, 재력
-        if (score >= 90)
-        {
-            plusState.speech = 50;
-            plusState.money = 30;
-        }
-        else if (score >= 80)
-        {
-            plusState.speech = 40;
-            plusState.money = 24;
-        }
-        else if (score >= 60)
-        {
-            plusState.speech = 30;
-            plusState.money = 18;
-        }
-        else if (score >= 40)
-        {
-            plusState.speech = 20;
-            plusState.money = 10;
-        }
-        else if (score >= 20)
-        {
-            plusState.speech = 10;
-            plusState.money = 5;
-        }
-        else
-        {
-            plusState.speech = 0;
-            plusState.money = 0;
-        }
-
-        break;
-    }
-
-    default:
-    {
-        // 잘못된 미니게임 번호면 상승량 없음
-        plusState = {};
-        break;
-    }
-    }
-
-    return plusState;
 }
 
 std::wstring ResultScene::GetGameName(int whichGame) const
@@ -614,7 +449,7 @@ void ResultScene::RenderResult(HDC hDC)
     RECT statusSubRect = { 1320, 120, 1810, 170 };
     DrawTextW(
         hDC,
-        L"이번 미니게임으로 상승한 스탯입니다.",
+        L"점수가 높을수록 더 성장합니다.",
         -1,
         &statusSubRect,
         DT_RIGHT | DT_VCENTER | DT_SINGLELINE

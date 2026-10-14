@@ -3,32 +3,7 @@
 #include <windows.h>
 #include <string>
 #include "../ResultGrade.h"
-
-// 플레이어의 현재 총 스탯을 저장하는 구조체다.
-struct Player_state
-{
-    int money = 0;      // 재력
-    int speech = 0;     // 대화 스킬
-    int charm = 0;      // 매력
-    int appearance = 0; // 외모
-};
-
-// 0~100 범위로 스탯 값을 제한하는 함수다.
-// 헤더에 함수 정의를 둘 때는 inline을 붙여 중복 정의 문제를 막는다.
-inline int ClampStat(int value)
-{
-    if (value < 0)
-    {
-        return 0;
-    }
-
-    if (value > 100)
-    {
-        return 100;
-    }
-
-    return value;
-}
+#include "../StatBalance.h"
 
 class ResultScene
 {
@@ -60,9 +35,6 @@ public:
     void RenderResult(HDC hDC);
 
 private:
-    // 점수와 미니게임 종류에 따라 상승 스탯을 계산한다.
-    Player_state CalculateStat(int whichGame, int score);
-
     // 미니게임 번호를 이름으로 바꿔준다.
     std::wstring GetGameName(int whichGame) const;
 

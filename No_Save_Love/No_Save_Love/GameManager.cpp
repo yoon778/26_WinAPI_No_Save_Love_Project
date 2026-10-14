@@ -1084,65 +1084,9 @@ void GameManager::EnterEndingStory()
 
 int GameManager::CalculateEndingType(int heroineIndex) const
 {
-    // 0 = Happy
-    // 1 = Bad
-    // 2 = Hidden
-
-    // 전체 스탯이 낮으면 새누 히든 엔딩으로 들어간다.
-    int totalStat =
-        player.money +
-        player.speech +
-        player.charm +
-        player.appearance;
-
-    if (totalStat <= 80)
-    {
-        return 2;
-    }
-
-    switch (heroineIndex)
-    {
-    case 0:
-    {
-        // 한세아: 재력 + 대화스킬 중심
-        if (player.money + player.speech >= 120)
-        {
-            return 0;
-        }
-
-        return 1;
-    }
-
-    case 1:
-    {
-        // 유하린: 대화스킬 + 매력 중심
-        if (player.speech + player.charm >= 120)
-        {
-            return 0;
-        }
-
-        return 1;
-    }
-
-    case 2:
-    {
-        // 서이린: 매력 + 외모 중심
-        if (player.charm + player.appearance >= 120)
-        {
-            return 0;
-        }
-
-        return 1;
-    }
-
-    default:
-    {
-        // 잘못된 히로인 번호면 배드 엔딩으로 처리한다.
-        return 1;
-    }
-    }
-
+    return StatBalance::CalculateEndingType(player, heroineIndex);
 }
+
 void GameManager::OnChar(wchar_t inputChar)
 {
     if (m_exitConfirmOpen)
