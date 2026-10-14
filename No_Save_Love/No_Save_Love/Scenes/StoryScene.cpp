@@ -1,5 +1,8 @@
 ﻿#include "StoryScene.h"
 
+#include <algorithm>
+#include <cmath>
+
 void StoryScene::Initialize()
 {
     // =========================
@@ -31,6 +34,12 @@ void StoryScene::Initialize()
     story_background_image[11].Load(L"resource\\endingscene\\harin_badend.png");
     story_background_image[12].Load(L"resource\\endingscene\\seoirin_badend.png");
     story_background_image[13].Load(L"resource\\endingscene\\hidden_end.png");
+    story_background_image[14].Load(L"resource\\cutscene\\spring_rewind.png");
+    story_background_image[15].Load(L"resource\\cutscene\\rain_promise.png");
+    story_background_image[16].Load(L"resource\\cutscene\\memory_bookmark.png");
+    story_background_image[17].Load(L"resource\\cutscene\\hansea_hand.png");
+    story_background_image[18].Load(L"resource\\cutscene\\harin_umbrella.png");
+    story_background_image[19].Load(L"resource\\cutscene\\irin_reading.png");
 
     normal_back_ground.Load(L"resource\\background\\choicescene_background.png");
     book_image.Load(L"resource\\background\\open_book.png");
@@ -145,6 +154,8 @@ void StoryScene::Shutdown()
 
 void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 {
+    SetCutsceneEffect(L"");
+    nextEffectKey.clear();
     // 새로운 대사 목록을 저장한다.
     dialogues = newDialogues;
 
@@ -196,6 +207,8 @@ void StoryScene::OnMouseClick(int x, int y)
         finished = true;
         fadeState = FadeState::None;
         fadeAlpha = 0;
+        SetCutsceneEffect(L"");
+        nextEffectKey.clear();
 
         if (!dialogues.empty())
         {
@@ -378,7 +391,7 @@ void StoryScene::Render(HDC hDC)
 
     if (backgroundImage != nullptr && !backgroundImage->IsNull())
     {
-        backgroundImage->Draw(hDC, 0, 0, 1920, 1080);
+        DrawCutsceneBackground(hDC, *backgroundImage);
     }
     else
     {
@@ -390,7 +403,7 @@ void StoryScene::Render(HDC hDC)
     // =========================
     Gdiplus::Image* characterImage = GetCharacterImage(currentCharacterKey);
 
-    if (characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
+    if (!IsCutscene() && characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
     {
         int characterX = 725;
         int characterY = 25;
@@ -399,12 +412,14 @@ void StoryScene::Render(HDC hDC)
         DrawCharacterImage(hDC, characterImage, characterX, characterY);
     }
 
-    if (!dialogues.empty() && dialogues[currentDialogueIndex].speaker == L"노트")
+    if (!IsCutscene() && !dialogues.empty() && dialogues[currentDialogueIndex].speaker == L"노트")
     {
         DrawBlurOverlay(hDC);
         DrawBookImage(hDC);
     }
 
+    // 대사와 버튼은 효과 이후에 그려 흔들림/섬광 중에도 읽을 수 있게 한다.
+    DrawCutsceneEffects(hDC);
     DrawFadeOverlay(hDC);
 
     // 출력할 대사가 없으면 그리지 않는다.
@@ -434,7 +449,7 @@ void StoryScene::Render(HDC hDC)
     std::wstring visibleText = displayText.substr(0, safeVisibleCount);
 
     HFONT dialogueFont = CreateFontW(
-        42, 
+        36,
         0,
         0,
         0,
@@ -703,6 +718,13 @@ bool StoryScene::ShouldFadeCharacterChange(const std::wstring& newCharacterKey) 
 
 void StoryScene::Update()
 {
+    const ULONGLONG now = GetTickCount64();
+    if (!finished && fadeState == FadeState::None && lastCutsceneTick != 0)
+    {
+        // 창을 오래 멈춰두었다 복귀해도 컷씬이 한 번에 끝나지 않는다.
+        cutsceneSeconds += (std::min)(0.1, static_cast<double>(now - lastCutsceneTick) / 1000.0);
+    }
+    lastCutsceneTick = now;
     // 페이드 효과를 먼저 갱신한다.
     UpdateFade();
 
@@ -839,6 +861,7 @@ void StoryScene::StartFadeTransition(
         // 먼저 실제 출력할 이미지를 적용한다.
         currentBackgroundKey = newBackgroundKey;
         currentCharacterKey = newCharacterKey;
+        SetCutsceneEffect(nextEffectKey);
         characterAlpha = pendingCharacterFade ? 0 : 255;
         pendingCharacterFade = false;
 
@@ -873,6 +896,7 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
 
     // 현재 대사 정보를 가져온다.
     const DialogueLineInfo& line = dialogues[currentDialogueIndex];
+    nextEffectKey = line.effectKey;
 
     // 기본값은 현재 출력 중인 배경/캐릭터 key를 유지한다.
     std::wstring newBackgroundKey = currentBackgroundKey;
@@ -900,6 +924,7 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
     {
         currentBackgroundKey = newBackgroundKey;
         currentCharacterKey = newCharacterKey;
+        SetCutsceneEffect(line.effectKey);
         characterAlpha = 255;
         pendingCharacterFade = false;
         UpdateBookFadeState();
@@ -921,6 +946,12 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
     }
 
     // 배경은 그대로이고 캐릭터만 바뀌는 경우에는 즉시 변경한다.
+    // 같은 컷씬의 다음 대사에서는 확대와 파티클 시간을 이어간다.
+    if (currentEffectKey != line.effectKey)
+    {
+        SetCutsceneEffect(line.effectKey);
+    }
+
     if (isCharacterChanged)
     {
         bool shouldFadeCharacter = ShouldFadeCharacterChange(newCharacterKey);
@@ -936,6 +967,12 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
 
 CImage* StoryScene::GetBackgroundImage(const std::wstring& backgroundKey)
 {
+    if (backgroundKey == L"cut_rewind") return &story_background_image[14];
+    if (backgroundKey == L"cut_rain") return &story_background_image[15];
+    if (backgroundKey == L"cut_memory") return &story_background_image[16];
+    if (backgroundKey == L"cut_hansea") return &story_background_image[17];
+    if (backgroundKey == L"cut_harin") return &story_background_image[18];
+    if (backgroundKey == L"cut_irin") return &story_background_image[19];
     if (backgroundKey == L"hansea_room")
     {
         return &story_background_image[0];
@@ -1024,6 +1061,129 @@ Gdiplus::Image* StoryScene::GetCharacterImage(const std::wstring& characterKey)
     }
 
     return nullptr;
+}
+
+void StoryScene::SetCutsceneEffect(const std::wstring& effectKey)
+{
+    currentEffectKey = effectKey;
+    cutsceneSeconds = 0.0;
+    lastCutsceneTick = GetTickCount64();
+}
+
+bool StoryScene::IsCutscene() const
+{
+    return !currentEffectKey.empty() || currentBackgroundKey.rfind(L"cut_", 0) == 0;
+}
+
+void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
+{
+    if (!IsCutscene())
+    {
+        image.Draw(hDC, 0, 0, 1920, 1080);
+        return;
+    }
+
+    // 화면 비율이 다른 CG도 늘이지 않고 중앙을 기준으로 채운다.
+    const double progress = (std::min)(cutsceneSeconds / 12.0, 1.0);
+    const double eased = progress * progress * (3.0 - 2.0 * progress);
+    const double scale = (std::max)(1920.0 / image.GetWidth(), 1080.0 / image.GetHeight())
+        * (1.025 + 0.035 * eased);
+    const int width = static_cast<int>(std::ceil(image.GetWidth() * scale));
+    const int height = static_cast<int>(std::ceil(image.GetHeight() * scale));
+    int offsetX = 0;
+    int offsetY = 0;
+    if (currentEffectKey == L"rewind" && cutsceneSeconds < 1.2)
+    {
+        const double strength = (1.0 - cutsceneSeconds / 1.2) * 10.0;
+        offsetX = static_cast<int>(std::sin(cutsceneSeconds * 47.0) * strength);
+        offsetY = static_cast<int>(std::cos(cutsceneSeconds * 39.0) * strength * 0.5);
+    }
+    else if (currentEffectKey == L"glitch")
+    {
+        offsetX = static_cast<int>(std::sin(cutsceneSeconds * 11.0) * 3.0);
+    }
+    const int savedDC = SaveDC(hDC);
+    // 컷씬은 대화창 위의 넓은 영상 영역에 구도를 맞춘다.
+    // 손잡기 같은 핵심 동작이 대화창 아래에 가려지지 않게 한다.
+    RECT canvas = { 0, 0, 1920, 1080 };
+    HBRUSH matte = CreateSolidBrush(RGB(7, 8, 15));
+    FillRect(hDC, &canvas, matte);
+    DeleteObject(matte);
+    IntersectClipRect(hDC, 0, 0, 1920, 820);
+    SetStretchBltMode(hDC, HALFTONE);
+    SetBrushOrgEx(hDC, 0, 0, nullptr);
+    image.Draw(hDC, (1920 - width) / 2 + offsetX, (820 - height) / 2 + offsetY, width, height);
+    RestoreDC(hDC, savedDC);
+}
+
+void StoryScene::DrawCutsceneEffects(HDC hDC)
+{
+    if (!IsCutscene() || finished) return;
+
+    Gdiplus::Graphics graphics(hDC);
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+    const double t = cutsceneSeconds;
+    if (currentEffectKey == L"petals" || currentEffectKey == L"memory")
+    {
+        const bool memory = currentEffectKey == L"memory";
+        for (int i = 0; i < 26; ++i)
+        {
+            const float x = static_cast<float>(std::fmod(i * 173.0 + t * (14 + i % 5), 2000.0) - 40.0);
+            const float y = static_cast<float>(std::fmod(i * 97.0 + t * (memory ? -19.0 : 27.0) + 10800.0, 1160.0) - 40.0);
+            const float size = static_cast<float>(4 + i % 6);
+            Gdiplus::SolidBrush particle(memory ? Gdiplus::Color(100, 239, 227, 255) : Gdiplus::Color(140, 255, 204, 221));
+            graphics.FillEllipse(&particle, x, y, size * 1.8f, size);
+        }
+        if (memory)
+        {
+            const BYTE alpha = static_cast<BYTE>(18.0 + 24.0 * (0.5 + 0.5 * std::sin(t * 0.6)));
+            Gdiplus::SolidBrush haze(Gdiplus::Color(alpha, 226, 223, 251));
+            graphics.FillRectangle(&haze, 0, 0, 1920, 1080);
+        }
+    }
+    else if (currentEffectKey == L"rain")
+    {
+        Gdiplus::SolidBrush tint(Gdiplus::Color(25, 25, 45, 80));
+        graphics.FillRectangle(&tint, 0, 0, 1920, 1080);
+        Gdiplus::Pen rain(Gdiplus::Color(75, 193, 213, 241), 1.4f);
+        for (int i = 0; i < 62; ++i)
+        {
+            const float x = static_cast<float>((i * 137) % 1980 - 30);
+            const float y = static_cast<float>(std::fmod(i * 89.0 + t * (290 + i % 7 * 18), 1180.0) - 60.0);
+            graphics.DrawLine(&rain, x, y, x - 11.0f, y + 42.0f);
+        }
+    }
+    else if (currentEffectKey == L"rewind")
+    {
+        // 입장 때 한 번만 약한 섬광. 반복 점멸하지 않는다.
+        if (t < 0.9 && fadeState == FadeState::None)
+        {
+            Gdiplus::SolidBrush flash(Gdiplus::Color(static_cast<BYTE>(105.0 * (1.0 - t / 0.9)), 235, 241, 255));
+            graphics.FillRectangle(&flash, 0, 0, 1920, 1080);
+        }
+        Gdiplus::Pen ring(Gdiplus::Color(static_cast<BYTE>((std::max)(0.0, 100.0 - t * 35.0)), 235, 227, 255), 2.5f);
+        const float radius = static_cast<float>((std::min)(1100.0, 100.0 + t * 330.0));
+        graphics.DrawEllipse(&ring, 960.0f - radius, 500.0f - radius, radius * 2.0f, radius * 2.0f);
+    }
+    else if (currentEffectKey == L"glitch")
+    {
+        Gdiplus::SolidBrush darkness(Gdiplus::Color(65, 12, 3, 25));
+        graphics.FillRectangle(&darkness, 0, 0, 1920, 1080);
+        Gdiplus::SolidBrush scanline(Gdiplus::Color(32, 155, 36, 86));
+        for (int i = 0; i < 14; ++i)
+        {
+            const int y = static_cast<int>(std::fmod(i * 83.0 + t * 28.0, 1080.0));
+            graphics.FillRectangle(&scanline, 0, y, 1920, 3 + i % 3);
+        }
+        Gdiplus::SolidBrush tear(Gdiplus::Color(44, 91, 211, 225));
+        const int tearY = static_cast<int>(std::fmod(t * 95.0 + 150.0, 760.0));
+        graphics.FillRectangle(&tear, 140, tearY, 1320, 7);
+    }
+
+    // 얇은 레터박스. 하단 대화창 및 우측 상단 SKIP 영역은 가리지 않는다.
+    Gdiplus::SolidBrush bars(Gdiplus::Color(210, 7, 8, 15));
+    graphics.FillRectangle(&bars, 0, 0, 1920, 30);
+    graphics.FillRectangle(&bars, 0, 1050, 1920, 30);
 }
 
 void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y)
@@ -1141,6 +1301,7 @@ void StoryScene::UpdateFade()
             // 검은 화면으로 덮인 순간에 실제 이미지 key를 교체한다.
             currentBackgroundKey = nextBackgroundKey;
             currentCharacterKey = nextCharacterKey;
+            SetCutsceneEffect(nextEffectKey);
             characterAlpha = pendingCharacterFade ? 0 : 255;
             pendingCharacterFade = false;
 

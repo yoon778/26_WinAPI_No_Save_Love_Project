@@ -1,0 +1,172 @@
+// 실제 StoryData/StoryScene을 사용한 Win32 오프스크린 회귀 검사.
+// 테스트에서만 상태를 들여다본다. 게임에 디버그 조작이나 테스트 API를 추가하지 않는다.
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <atlimage.h>
+#include <gdiplus.h>
+#include <cassert>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
+#include <set>
+#define private public
+#include "../No_Save_Love/StoryData.h"
+#undef private
+// MSVC는 접근 지정자를 심벌에 포함하므로 테스트는 한 번역 단위로 컴파일한다.
+#include "../No_Save_Love/StoryData.cpp"
+#include "../No_Save_Love/Scenes/StoryScene.cpp"
+
+void FinishFade(StoryScene& scene)
+{
+    for (int i = 0; i < 60 && scene.fadeState != FadeState::None; ++i) scene.Update();
+    assert(scene.fadeState == FadeState::None);
+}
+
+std::uint64_t Digest(CImage& frame, int top, int bottom, int left = 0, int right = 1920)
+{
+    std::uint64_t hash = 1469598103934665603ULL;
+    for (int y = top; y < bottom; y += 4)
+    {
+        auto row = static_cast<const unsigned char*>(frame.GetPixelAddress(0, y));
+        for (int x = left * 3; x < right * 3; x += 11) hash = (hash ^ row[x]) * 1099511628211ULL;
+    }
+    return hash;
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    assert(argc == 2);
+    const std::filesystem::path output(argv[1]);
+    std::filesystem::create_directories(output);
+    StoryData data;
+    data.Initialize();
+    StoryScene scene;
+    scene.Initialize();
+    CImage frame;
+    frame.Create(1920, 1080, 24);
+    HDC dc = frame.GetDC();
+    std::vector<const std::vector<DialogueLineInfo>*> scripts = { &data.GetIntroStory() };
+    for (int round = 0; round < 4; ++round)
+        for (int heroine = 0; heroine < 3; ++heroine)
+            scripts.push_back(&data.GetBranchStory(round, heroine));
+    for (int heroine = 0; heroine < 4; ++heroine)
+        scripts.push_back(&data.GetFinalChoiceIntroStory(heroine));
+    for (int type = 0; type < 3; ++type)
+        for (int heroine = 0; heroine < 3; ++heroine)
+            scripts.push_back(&data.GetEndingStory(type, heroine));
+
+    const std::set<std::wstring> effects = {L"", L"rewind", L"rain", L"petals", L"memory", L"glitch"};
+    const std::set<std::wstring> music = {L"", L"stop", L"story1", L"story2", L"story3", L"story4", L"story5",
+        L"story2.1", L"story3.1", L"story4.1", L"story5.1"};
+    std::set<std::wstring> photographed;
+    int lineCount = 0;
+    int maxTextHeight = 0;
+    HFONT font = CreateFontW(36, 0, 0, 0, 600, FALSE, FALSE, FALSE, HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"맑은 고딕");
+    HGDIOBJ oldFont = SelectObject(dc, font);
+    for (const auto* script : scripts)
+    {
+        assert(!script->empty());
+        scene.SetDialogues(*script);
+        for (size_t i = 0; i < script->size(); ++i)
+        {
+            FinishFade(scene);
+            const auto& line = (*script)[i];
+            assert(scene.currentDialogueIndex == static_cast<int>(i));
+            assert(!line.text.empty());
+            assert(effects.contains(line.effectKey));
+            assert(music.contains(line.bgmKey));
+            auto* background = scene.GetBackgroundImage(scene.currentBackgroundKey);
+            assert(background && !background->IsNull());
+            assert(scene.currentEffectKey == line.effectKey);
+            if (!scene.currentCharacterKey.empty())
+            {
+                auto* character = scene.GetCharacterImage(scene.currentCharacterKey);
+                assert(character && character->GetLastStatus() == Gdiplus::Ok);
+            }
+            assert(scene.ConsumePendingBgmKey() == line.bgmKey);
+            assert(scene.ConsumePendingBgmKey().empty());
+            // 받침 유무, 최대 이름 길이로 실제 Win32 글꼴의 줄바꿈 높이를 측정한다.
+            for (const auto& name : {L"윤서", L"김철수", L"가나다라마바"})
+            {
+                scene.SetPlayerName(name);
+                std::wstring text = scene.GetCurrentDisplayText();
+                assert(text.find(L"{PLAYER}") == std::wstring::npos);
+                RECT bounds = scene.textRect;
+                const int height = DrawTextW(dc, text.c_str(), -1, &bounds, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_CALCRECT);
+                if (height > scene.textRect.bottom - scene.textRect.top)
+                {
+                    std::wcerr << L"Text overflow (" << height << L"): " << text << L'\n';
+                    return 2;
+                }
+                maxTextHeight = (std::max)(maxTextHeight, height);
+            }
+            scene.SetPlayerName(L"윤서");
+            // 첫 클릭은 글자 전체 표시, 다음 클릭은 정확히 한 줄 진행.
+            scene.OnMouseClick(960, 950);
+            assert(scene.isTypingFinished);
+            if ((line.backgroundKey.rfind(L"cut_", 0) == 0 || line.backgroundKey == L"hidden_end")
+                && photographed.insert(line.backgroundKey).second)
+            {
+                scene.cutsceneSeconds = 2.5;
+                scene.Render(dc);
+                const auto first = Digest(frame, 40, 790);
+                const auto textPixels = Digest(frame, 850, 1010, 125, 1795);
+                scene.cutsceneSeconds = 6.0;
+                scene.Render(dc);
+                assert(first != Digest(frame, 40, 790)); // 이미지/효과가 시간에 따라 변화.
+                assert(textPixels == Digest(frame, 850, 1010, 125, 1795)); // 대사창은 효과에 흔들리지 않음.
+                assert(SUCCEEDED(frame.Save((output / (line.backgroundKey + L".png")).c_str())));
+            }
+            scene.OnMouseClick(960, 950);
+            ++lineCount;
+        }
+        assert(scene.IsFinished());
+    }
+    assert(photographed.size() == 7);
+    assert(data.GetBranchStory(-1, 0).empty() && data.GetBranchStory(4, 0).empty());
+    assert(data.GetBranchStory(0, -1).empty() && data.GetBranchStory(0, 3).empty());
+    assert(data.GetEndingStory(-1, 0).empty() && data.GetEndingStory(3, 0).empty());
+    assert(data.GetEndingStory(0, -1).empty() && data.GetEndingStory(0, 3).empty());
+    assert(data.GetFinalChoiceIntroStory(-1).empty() && data.GetFinalChoiceIntroStory(4).empty());
+    for (int i = 0; i < 3; ++i)
+    {
+        assert(data.GetEndingStory(0, i).size() >= 60);
+        assert(data.GetEndingStory(1, i).size() >= 35);
+        assert(data.GetEndingStory(2, i).size() == data.GetEndingStory(2, 0).size());
+        for (size_t j = 0; j < data.GetEndingStory(2, 0).size(); ++j)
+            assert(data.GetEndingStory(2, i)[j].text == data.GetEndingStory(2, 0)[j].text);
+    }
+
+    // 같은 장면의 대사 진행으로 효과가 재시작되지 않으며, 평범한 장면에서는 해제된다.
+    scene.SetDialogues({
+        {L"", L"시작", L"cut_hansea", L"none", L"petals"},
+        {L"한세아", L"계속", L"cut_hansea", L"none", L"petals"},
+        {L"", L"일상", L"room", L"none", L""}
+    });
+    FinishFade(scene);
+    scene.cutsceneSeconds = 4.0;
+    scene.OnMouseClick(960, 950);
+    scene.OnMouseClick(960, 950);
+    assert(scene.cutsceneSeconds == 4.0);
+    scene.OnMouseClick(960, 950);
+    scene.OnMouseClick(960, 950);
+    FinishFade(scene);
+    assert(!scene.IsCutscene() && scene.cutsceneSeconds < 0.1);
+
+    // 페이드 도중에도 SKIP 가능. 다음 묶음에 효과/이미지 상태가 새지 않는다.
+    scene.SetDialogues({ {L"", L"건너뛰기", L"cut_rewind", L"none", L"rewind"} });
+    scene.OnMouseClick(1780, 65);
+    assert(scene.IsFinished() && scene.currentEffectKey.empty());
+    scene.SetDialogues({});
+    assert(scene.IsFinished() && scene.currentBackgroundKey.empty() && !scene.IsCutscene());
+
+    SelectObject(dc, oldFont);
+    DeleteObject(font);
+    frame.ReleaseDC();
+    frame.Destroy();
+    scene.Shutdown();
+    std::cout << "PASS: " << scripts.size() << " script arrays, " << lineCount
+        << " lines, 7 rendered cutscenes, max text height " << maxTextHeight << "/130, input/reset/effects checked.\n";
+}

@@ -17,7 +17,7 @@ struct DialogueLineInfo
 
     std::wstring backgroundKey = L""; // 배경 이미지 이름 또는 키
     std::wstring characterKey = L"";  // 캐릭터 이미지 이름 또는 키
-    std::wstring effectKey = L"";     // 흔들림, 페이드 같은 효과
+    std::wstring effectKey = L"";     // 컷씬 효과: rewind, rain, petals, memory, glitch. 빈 값은 해제.
     std::wstring bgmKey = L"";        // 이 대사에서 변경할 BGM 키
 };
 //페이드 아웃 인 
@@ -89,6 +89,17 @@ public:
     void UpdateFade();
 
 private:
+    // 기존 대사 흐름 안에서 컷씬을 재생한다. 시간은 실제 경과 시간 기준이다.
+    void SetCutsceneEffect(const std::wstring& effectKey);
+    void DrawCutsceneBackground(HDC hDC, CImage& image);
+    void DrawCutsceneEffects(HDC hDC);
+    bool IsCutscene() const;
+
+    std::wstring currentEffectKey;
+    std::wstring nextEffectKey;
+    double cutsceneSeconds = 0.0;
+    ULONGLONG lastCutsceneTick = 0;
+
     // fadeAlpha 값에 따라 검은 반투명 레이어를 화면에 덮는다.
     void DrawFadeOverlay(HDC hDC);
 
@@ -158,7 +169,7 @@ private:
     bool ShouldFadeCharacterChange(const std::wstring& newCharacterKey) const;
 
 private:
-    static const int BACKGROUND_IMAGE_COUNT = 14;
+    static const int BACKGROUND_IMAGE_COUNT = 20;
     CImage story_background_image[BACKGROUND_IMAGE_COUNT];
 
     Gdiplus::Image* bookGdiImage = nullptr;
@@ -245,7 +256,7 @@ private:
     RECT nameBox = { 280, 885, 430, 950 };
 
     // 대사 출력 영역
-    RECT textRect = { 520, 885, 1600, 965 };
+    RECT textRect = { 500, 880, 1740, 1010 };
 
     // 대화창 위쪽 포인트 라인 위치
     int lineY = 800;
