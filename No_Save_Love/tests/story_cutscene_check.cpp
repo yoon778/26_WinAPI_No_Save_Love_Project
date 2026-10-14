@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <set>
 #define private public
@@ -58,11 +59,17 @@ int wmain(int argc, wchar_t** argv)
             scripts.push_back(&data.GetEndingStory(type, heroine));
 
     const std::set<std::wstring> effects = {L"", L"rewind", L"rain", L"petals", L"memory", L"glitch",
-        L"anim_letter", L"anim_photo", L"anim_map", L"anim_voice", L"anim_bookmark", L"anim_ink"};
+        L"anim_letter", L"anim_photo", L"anim_map", L"anim_voice", L"anim_bookmark", L"anim_ink",
+        L"anim_bread", L"anim_label", L"anim_bandage", L"anim_milk", L"anim_projector", L"anim_message",
+        L"anim_window", L"anim_umbrella", L"anim_ribbon", L"anim_clock", L"anim_reading", L"anim_promise"};
     const std::set<std::wstring> music = {L"", L"stop", L"story1", L"story2", L"story3", L"story4", L"story5",
         L"story2.1", L"story3.1", L"story4.1", L"story5.1"};
     std::set<std::wstring> photographed;
     std::set<std::wstring> animated;
+    std::set<std::wstring> renderedAnimations;
+    std::ofstream manifest(output / L"animation_manifest.txt");
+    assert(manifest.good());
+    int animationSegments = 0;
     int previewIndex = 0;
     int lineCount = 0;
     int maxTextHeight = 0;
@@ -110,8 +117,20 @@ int wmain(int argc, wchar_t** argv)
             // 첫 클릭은 글자 전체 표시, 다음 클릭은 정확히 한 줄 진행.
             scene.OnMouseClick(960, 950);
             assert(scene.isTypingFinished);
-            if (scene.IsStoryAnimation() && animated.insert(line.effectKey).second)
+            if (scene.IsStoryAnimation())
             {
+                animated.insert(line.effectKey);
+                if (i == 0 || (*script)[i - 1].effectKey != line.effectKey) ++animationSegments;
+            }
+            const auto animationName = line.effectKey + L"_" + scene.currentCharacterKey.substr(0, scene.currentCharacterKey.find(L'_'));
+            if (scene.IsStoryAnimation() && renderedAnimations.insert(animationName).second)
+            {
+                for (wchar_t ch : animationName)
+                {
+                    assert(ch <= 127); // 효과/캐릭터 키는 ASCII 파일명이다.
+                    manifest.put(static_cast<char>(ch));
+                }
+                manifest.put('\n');
                 assert(!scene.currentCharacterKey.empty());
                 // 테스트는 시간을 직접 지정하므로 실제 프레임에서 진행되는 캐릭터 페이드도 마친다.
                 for (int tick = 0; tick < 12; ++tick) scene.UpdateObjectFades();
@@ -122,21 +141,25 @@ int wmain(int argc, wchar_t** argv)
                 const auto first = Digest(frame, 120, 780, 100, 1190);
                 const auto textPixels = Digest(frame, 835, 1035, 100, 1820);
                 const auto skipPixels = Digest(frame, 40, 100, 1700, 1860);
-                assert(SUCCEEDED(frame.Save((output / (line.effectKey + L"_start.png")).c_str())));
+                assert(SUCCEEDED(frame.Save((output / (animationName + L"_start.png")).c_str())));
                 scene.cutsceneSeconds = 3.0;
                 scene.Render(dc);
                 assert(first != Digest(frame, 120, 780, 100, 1190));
                 assert(textPixels == Digest(frame, 835, 1035, 100, 1820));
                 assert(skipPixels == Digest(frame, 40, 100, 1700, 1860));
-                assert(SUCCEEDED(frame.Save((output / (line.effectKey + L".png")).c_str())));
+                assert(SUCCEEDED(frame.Save((output / (animationName + L".png")).c_str())));
                 scene.cutsceneSeconds = 6.0;
                 scene.Render(dc);
                 assert(textPixels == Digest(frame, 835, 1035, 100, 1820));
                 assert(scene.currentDialogueIndex == static_cast<int>(i)); // 시간 경과로 대사를 넘기지 않음.
-                assert(SUCCEEDED(frame.Save((output / (line.effectKey + L"_end.png")).c_str())));
+                assert(SUCCEEDED(frame.Save((output / (animationName + L"_end.png")).c_str())));
+                scene.cutsceneSeconds = 3600.0;
+                scene.Render(dc);
+                assert(textPixels == Digest(frame, 835, 1035, 100, 1820));
+                assert(skipPixels == Digest(frame, 40, 100, 1700, 1860));
                 if (preview)
                 {
-                    const auto previewPath = output / L"animation_preview";
+                    const auto previewPath = output / L"animation_preview" / animationName;
                     std::filesystem::create_directories(previewPath);
                     CImage thumbnail;
                     thumbnail.Create(640, 360, 24);
@@ -148,7 +171,8 @@ int wmain(int argc, wchar_t** argv)
                         scene.Render(dc);
                         StretchBlt(previewDC, 0, 0, 640, 360, dc, 0, 0, 1920, 1080, SRCCOPY);
                         wchar_t fileName[32];
-                        swprintf_s(fileName, L"%04d.png", previewIndex++);
+                        swprintf_s(fileName, L"%04d.png", sample);
+                        ++previewIndex;
                         assert(SUCCEEDED(thumbnail.Save((previewPath / fileName).c_str())));
                     }
                     thumbnail.ReleaseDC();
@@ -173,7 +197,15 @@ int wmain(int argc, wchar_t** argv)
         assert(scene.IsFinished());
     }
     assert(photographed.size() == 7);
-    assert(animated.size() == 6);
+    assert(animated.size() == 18);
+    assert(renderedAnimations.size() == 22);
+    assert(animationSegments == 23);
+    for (int round = 0; round < 4; ++round)
+        for (int heroine = 0; heroine < 3; ++heroine)
+        {
+            const auto& branch = data.GetBranchStory(round, heroine);
+            assert(std::any_of(branch.begin(), branch.end(), [](const auto& line) { return line.effectKey.rfind(L"anim_", 0) == 0; }));
+        }
     assert(data.GetBranchStory(-1, 0).empty() && data.GetBranchStory(4, 0).empty());
     assert(data.GetBranchStory(0, -1).empty() && data.GetBranchStory(0, 3).empty());
     assert(data.GetEndingStory(-1, 0).empty() && data.GetEndingStory(3, 0).empty());
@@ -250,6 +282,8 @@ int wmain(int argc, wchar_t** argv)
     frame.Destroy();
     scene.Shutdown();
     std::cout << "PASS: " << scripts.size() << " script arrays, " << lineCount
-        << " lines, 7 rendered cutscenes, 6 story animations, max text height " << maxTextHeight
+        << " lines, " << photographed.size() << " rendered cutscenes, " << animated.size()
+        << " story animations, " << renderedAnimations.size() << " visual variants, " << animationSegments
+        << " segments, max text height " << maxTextHeight
         << "/130, input/reset/effects checked, preview frames " << previewIndex << ".\n";
 }

@@ -1411,6 +1411,349 @@ void StoryScene::DrawStoryAnimation(HDC hDC)
             graphics.Restore(saved);
         }
     }
+    else if (currentEffectKey == L"anim_bread")
+    {
+        const float share = StoryMotion(t, 0.8, 2.4);
+        SolidBrush plate(Color(235, 226, 232, 230));
+        graphics.FillEllipse(&shadow, RectF(-350.0f, 83.0f, 700.0f, 140.0f));
+        graphics.FillEllipse(&plate, RectF(-355.0f, 65.0f, 700.0f, 140.0f));
+        for (int half = 0; half < 2; ++half)
+        {
+            const auto saved = graphics.Save();
+            const float side = half == 0 ? -1.0f : 1.0f;
+            graphics.TranslateTransform(side * (12.0f + share * 100.0f), -share * 22.0f);
+            graphics.RotateTransform(side * share * 11.0f);
+            graphics.ScaleTransform(half == 0 ? 1.1f : -0.9f, half == 0 ? 1.1f : 0.9f);
+            GraphicsPath bun;
+            bun.AddBezier(0.0f, -125.0f, -235.0f, -145.0f, -240.0f, 130.0f, 0.0f, 135.0f);
+            bun.CloseFigure();
+            LinearGradientBrush crust(RectF(-210.0f, -130.0f, 220.0f, 270.0f),
+                Color(255, 249, 203, 117), Color(255, 173, 99, 54), LinearGradientModeVertical);
+            graphics.FillPath(&crust, &bun);
+            SolidBrush filling(Color(255, 109, 62, 61));
+            graphics.FillEllipse(&paper, RectF(-24.0f, -119.0f, 48.0f, 248.0f));
+            graphics.FillEllipse(&filling, RectF(-12.0f, -82.0f, 24.0f, 172.0f));
+            for (int seed = 0; seed < 6; ++seed)
+                graphics.FillEllipse(&paper, RectF(-72.0f - (seed % 2) * 30.0f,
+                    -60.0f + (seed / 2) * 31.0f, 5.0f, 12.0f));
+            graphics.Restore(saved);
+        }
+        SolidBrush crumbs(Color(210, 218, 173, 110));
+        for (int i = 0; i < 7; ++i)
+            graphics.FillEllipse(&crumbs, RectF(-45.0f + i * 16.0f, 80.0f + share * (30.0f + i % 3 * 16.0f), 7.0f, 5.0f));
+        label(L"큰 쪽은 네 몫", -92.0f, 240.0f);
+    }
+    else if (currentEffectKey == L"anim_label")
+    {
+        const bool archive = currentCharacterKey.rfind(L"hansea", 0) == 0;
+        const float attach = StoryMotion(t, 0.5, 2.0);
+        SolidBrush surface(archive ? Color(255, 159, 122, 90) : Color(255, 104, 137, 151));
+        graphics.RotateTransform(-4.0f);
+        graphics.FillRectangle(&shadow, RectF(-305.0f, -200.0f, 630.0f, 450.0f));
+        graphics.FillRectangle(&surface, RectF(-320.0f, -215.0f, 640.0f, 450.0f));
+        if (archive)
+        {
+            Pen handle(Color(255, 223, 204, 174), 14.0f);
+            graphics.DrawLine(&handle, -65.0f, 140.0f, 65.0f, 140.0f);
+        }
+        else
+        {
+            graphics.DrawLine(&line, -280.0f, -215.0f, -280.0f, 235.0f);
+            label(L"봄이 끝나지 않는 날", -210.0f, -150.0f, true);
+        }
+        const float y = -15.0f - (1.0f - attach) * 170.0f;
+        graphics.FillRectangle(&shadow, RectF(-193.0f, y + 13.0f, 410.0f, 112.0f));
+        graphics.FillRectangle(&paper, RectF(-205.0f, y, 410.0f, 112.0f));
+        const auto writing = graphics.Save();
+        graphics.SetClip(RectF(-180.0f, y, 370.0f * StoryMotion(t, 1.8, 1.8), 112.0f), CombineModeIntersect);
+        label(archive ? L"봉투 대피소" : L"소설 · 제자리로", -170.0f, y + 30.0f, true);
+        graphics.Restore(writing);
+        const float corner = 30.0f * (1.0f - StoryMotion(t, 3.0, 0.9));
+        const PointF fold[] = { {205.0f - corner, y}, {205.0f, y + corner}, {205.0f - corner, y + corner} };
+        SolidBrush folded(Color(255, 220, 209, 180));
+        graphics.FillPolygon(&folded, fold, 3);
+    }
+    else if (currentEffectKey == L"anim_bandage")
+    {
+        // 손 전체 대신 손가락을 가까이 보여준다. 들뜬 밴드를 눌러 붙이는 동작이다.
+        graphics.RotateTransform(-8.0f);
+        const RectF closeup(-440.0f, -240.0f, 880.0f, 480.0f);
+        LinearGradientBrush warmth(closeup, Color(255, 233, 224, 211), Color(255, 204, 190, 179), LinearGradientModeVertical);
+        graphics.FillRectangle(&warmth, closeup);
+        graphics.SetClip(closeup, CombineModeIntersect);
+        SolidBrush nail(Color(255, 255, 225, 211));
+        Pen finger(Color(255, 244, 204, 180), 116.0f);
+        finger.SetStartCap(LineCapRound);
+        finger.SetEndCap(LineCapRound);
+        graphics.DrawLine(&finger, -510.0f, 55.0f, 170.0f, 55.0f);
+        graphics.FillEllipse(&nail, RectF(105.0f, 22.0f, 90.0f, 49.0f));
+        Pen crease(Color(150, 196, 150, 128), 2.0f);
+        graphics.DrawArc(&crease, RectF(-166.0f, 23.0f, 13.0f, 52.0f), -70.0f, 140.0f);
+        graphics.DrawArc(&crease, RectF(-177.0f, 28.0f, 13.0f, 42.0f), -70.0f, 140.0f);
+        SolidBrush tape(Color(255, 226, 184, 139));
+        graphics.FillRectangle(&tape, RectF(-90.0f, 0.0f, 138.0f, 110.0f));
+        const float press = StoryMotion(t, 0.7, 1.5);
+        const float release = StoryMotion(t, 3.0, 1.6);
+        const PointF flap[] = { {-90.0f, 0.0f}, {48.0f, 0.0f},
+            {48.0f, -65.0f * (1.0f - press)}, {-90.0f, -65.0f * (1.0f - press)} };
+        graphics.FillPolygon(&tape, flap, 4);
+        SolidBrush pad(Color(255, 244, 220, 183));
+        graphics.FillRectangle(&pad, RectF(-55.0f, 16.0f, 67.0f, 77.0f));
+        for (int i = 0; i < 6; ++i)
+            graphics.FillEllipse(&shadow, RectF(-78.0f + (i % 2) * 109.0f, 20.0f + (i / 2) * 28.0f, 4.0f, 4.0f));
+        const float touchY = -150.0f * (1.0f - press) - 170.0f * release;
+        Pen touch(Color(static_cast<BYTE>(255.0f * (1.0f - release)), 255, 216, 194), 65.0f);
+        touch.SetStartCap(LineCapRound);
+        touch.SetEndCap(LineCapRound);
+        graphics.DrawLine(&touch, 490.0f, touchY - 290.0f, -20.0f, touchY - 30.0f);
+        SolidBrush touchNail(Color(static_cast<BYTE>(255.0f * (1.0f - release)), 255, 233, 218));
+        graphics.FillEllipse(&touchNail, RectF(-25.0f, touchY - 53.0f, 45.0f, 25.0f));
+        star(-23.0f, -75.0f, 15.0f * StoryMotion(t, 3.8, 0.7));
+        label(L"우리끼리만 쓰는 도장", -139.0f, 165.0f);
+    }
+    else if (currentEffectKey == L"anim_milk")
+    {
+        const float offer = StoryMotion(t, 0.6, 2.2);
+        for (int carton = 0; carton < 2; ++carton)
+        {
+            const auto saved = graphics.Save();
+            const float x = carton == 0 ? -170.0f : 370.0f - offer * 200.0f;
+            graphics.TranslateTransform(x, carton == 0 ? 0.0f : 45.0f - offer * 45.0f);
+            graphics.RotateTransform(carton == 0 ? -5.0f : 7.0f - offer * 4.0f);
+            graphics.FillRectangle(&shadow, RectF(-94.0f, -130.0f, 210.0f, 340.0f));
+            graphics.FillRectangle(&paper, RectF(-105.0f, -145.0f, 210.0f, 340.0f));
+            SolidBrush blue(Color(255, 135, 175, 199));
+            graphics.FillRectangle(&blue, RectF(-105.0f, 25.0f, 210.0f, 170.0f));
+            const PointF roof[] = { {-105.0f, -145.0f}, {-65.0f, -210.0f}, {65.0f, -210.0f}, {105.0f, -145.0f} };
+            graphics.FillPolygon(&paper, roof, 4);
+            graphics.DrawLine(&line, -65.0f, -210.0f, 65.0f, -210.0f);
+            label(L"우유", -34.0f, -80.0f, true);
+            if (carton == 0) // 건넨 팩은 새것으로 남겨둔다.
+            {
+                Pen straw(Color(255, 233, 158, 165), 11.0f);
+                const float insert = StoryMotion(t, 1.0, 1.5);
+                const PointF points[] = { {30.0f, -155.0f - (1.0f - insert) * 75.0f},
+                    {30.0f, -270.0f - (1.0f - insert) * 75.0f}, {92.0f, -290.0f - (1.0f - insert) * 75.0f} };
+                graphics.DrawLines(&straw, points, 3);
+            }
+            graphics.Restore(saved);
+        }
+    }
+    else if (currentEffectKey == L"anim_projector")
+    {
+        SolidBrush frame(Color(255, 65, 78, 94));
+        graphics.FillRectangle(&frame, RectF(-370.0f, -275.0f, 740.0f, 390.0f));
+        // 밝은 섬광 대신 화면이 천천히 꺼지고 종이 안내판이 올라온다.
+        SolidBrush screen(Color(255, 187, 203, 211));
+        graphics.FillRectangle(&screen, RectF(-350.0f, -255.0f, 700.0f, 350.0f));
+        label(L"문예부 자료 보존", -144.0f, -190.0f, true);
+        for (int i = 0; i < 3; ++i)
+            graphics.DrawLine(&line, -245.0f, -100.0f + i * 47.0f, 245.0f - i * 40.0f, -100.0f + i * 47.0f);
+        SolidBrush disconnected(Color(static_cast<BYTE>(230.0f * StoryMotion(t, 0.6, 1.5)), 24, 33, 46));
+        graphics.FillRectangle(&disconnected, RectF(-350.0f, -255.0f, 700.0f, 350.0f));
+        const float backup = StoryMotion(t, 2.1, 2.3);
+        const float y = 300.0f - backup * 290.0f;
+        graphics.FillRectangle(&shadow, RectF(-266.0f, y + 13.0f, 560.0f, 245.0f));
+        graphics.FillRectangle(&paper, RectF(-280.0f, y, 560.0f, 245.0f));
+        label(L"화면 없이도 전할 이야기", -227.0f, y + 30.0f, true);
+        label(L"고쳐 쓴 흔적까지 함께 남깁니다", -210.0f, y + 106.0f);
+        for (int i = 0; i < 3; ++i) star(-135.0f + i * 135.0f, y + 182.0f, 14.0f);
+    }
+    else if (currentEffectKey == L"anim_message")
+    {
+        SolidBrush phone(Color(255, 45, 54, 72));
+        graphics.FillRectangle(&shadow, RectF(-237.0f, -283.0f, 500.0f, 590.0f));
+        graphics.FillRectangle(&phone, RectF(-250.0f, -295.0f, 500.0f, 590.0f));
+        graphics.FillRectangle(&paper, RectF(-225.0f, -265.0f, 450.0f, 520.0f));
+        label(L"아직 보내지 않은 말", -174.0f, -233.0f, true);
+        const wchar_t* words[] = { L"엄마 일 때문에 이사해.", L"금요일까지 같이 다닐 수 있어.",
+            L"남은 시간도 평소처럼", L"대해주면 좋겠어." };
+        for (int i = 0; i < 4; ++i)
+        {
+            const auto writing = graphics.Save();
+            graphics.SetClip(RectF(-190.0f, -140.0f + i * 56.0f,
+                390.0f * StoryMotion(t, 0.5 + i * 0.65, 1.0), 50.0f), CombineModeIntersect);
+            label(words[i], -185.0f, -140.0f + i * 56.0f);
+            graphics.Restore(writing);
+        }
+        SolidBrush draft(Color(255, 215, 226, 219));
+        graphics.FillRectangle(&draft, RectF(-190.0f, 160.0f, 380.0f, 62.0f));
+        label(L"초안 · 저녁의 나에게", -137.0f, 175.0f);
+        // 자동 전송이나 보내기 버튼 연출 없이 초안으로 끝난다.
+    }
+    else if (currentEffectKey == L"anim_window")
+    {
+        const RectF pane(-340.0f, -285.0f, 680.0f, 560.0f);
+        LinearGradientBrush glass(pane, Color(235, 112, 160, 185), Color(245, 188, 211, 212), LinearGradientModeVertical);
+        graphics.FillRectangle(&glass, pane);
+        const auto paneState = graphics.Save();
+        graphics.SetClip(pane, CombineModeIntersect);
+        Pen rain(Color(100, 238, 250, 252), 4.0f);
+        for (int i = 0; i < 22; ++i)
+        {
+            const float x = -320.0f + i * 30.0f;
+            const float y = -290.0f + static_cast<float>(std::fmod(t * (33.0 + i % 4 * 8.0) + i * 71.0, 610.0));
+            graphics.DrawLine(&rain, x, y - 25.0f, x - 3.0f, y);
+        }
+        Pen trace(Color(245, 242, 253, 248), 7.0f);
+        trace.SetStartCap(LineCapRound);
+        trace.SetEndCap(LineCapRound);
+        const PointF square[] = { {-145.0f, -140.0f}, {145.0f, -140.0f}, {145.0f, 135.0f}, {-145.0f, 135.0f}, {-145.0f, -140.0f} };
+        const float draw = StoryMotion(t, 0.4, 2.0) * 4.0f;
+        for (int i = 0; i < 4; ++i)
+        {
+            const float p = (std::clamp)(draw - i, 0.0f, 1.0f);
+            graphics.DrawLine(&trace, square[i], PointF(square[i].X + (square[i + 1].X - square[i].X) * p,
+                square[i].Y + (square[i + 1].Y - square[i].Y) * p));
+        }
+        const float eyes = StoryMotion(t, 2.2, 0.6);
+        graphics.DrawLine(&trace, -58.0f, -25.0f, -58.0f, -25.0f + 13.0f * eyes);
+        graphics.DrawLine(&trace, 58.0f, -25.0f, 58.0f, -25.0f + 13.0f * eyes);
+        graphics.DrawArc(&trace, RectF(-50.0f, 35.0f, 100.0f, 22.0f), 10.0f, 160.0f * StoryMotion(t, 3.0, 1.1));
+        graphics.Restore(paneState);
+        Pen border(Color(255, 212, 223, 224), 13.0f);
+        graphics.DrawRectangle(&border, pane);
+    }
+    else if (currentEffectKey == L"anim_umbrella")
+    {
+        Pen rain(Color(110, 193, 226, 247), 3.0f);
+        for (int i = 0; i < 32; ++i)
+        {
+            const float x = -510.0f + i * 33.0f;
+            const float y = -320.0f + static_cast<float>(std::fmod(t * 120.0 + i * 41.0, 600.0));
+            // 우산 아래에는 비가 들지 않는다.
+            if (std::abs(x) > 325.0f || y < -170.0f)
+                graphics.DrawLine(&rain, x, y, x - 8.0f, y + 27.0f);
+        }
+        const float open = StoryMotion(t, 0.4, 1.7);
+        graphics.TranslateTransform(0.0f, 5.0f * static_cast<float>(std::sin(t * 1.3)));
+        Pen shaft(Color(255, 211, 217, 225), 10.0f);
+        graphics.DrawLine(&shaft, 0.0f, -255.0f, 0.0f, 185.0f);
+        graphics.DrawArc(&shaft, RectF(-64.0f, 150.0f, 64.0f, 72.0f), 0.0f, 180.0f);
+        const auto canopyState = graphics.Save();
+        graphics.ScaleTransform(0.12f + open * 0.88f, 1.0f);
+        SolidBrush blue(Color(255, 93, 152, 203));
+        GraphicsPath canopy;
+        canopy.AddBezier(-325.0f, -35.0f, -260.0f, -310.0f, 260.0f, -310.0f, 325.0f, -35.0f);
+        canopy.AddBezier(325.0f, -35.0f, 225.0f, -100.0f, 125.0f, -100.0f, 0.0f, -35.0f);
+        canopy.AddBezier(0.0f, -35.0f, -125.0f, -100.0f, -225.0f, -100.0f, -325.0f, -35.0f);
+        graphics.FillPath(&blue, &canopy);
+        Pen ribs(Color(180, 200, 225, 245), 3.0f);
+        graphics.DrawBezier(&ribs, 0.0f, -242.0f, -150.0f, -220.0f, -150.0f, -130.0f, -160.0f, -82.0f);
+        graphics.DrawBezier(&ribs, 0.0f, -242.0f, 150.0f, -220.0f, 150.0f, -130.0f, 160.0f, -82.0f);
+        graphics.DrawLine(&ribs, 0.0f, -242.0f, 0.0f, -35.0f);
+        graphics.Restore(canopyState);
+        // 두 사람의 발자국이 우산 안쪽으로 가까워진다.
+        const float together = StoryMotion(t, 2.0, 2.0);
+        SolidBrush footprints(Color(185, 217, 225, 237));
+        for (int person = 0; person < 2; ++person)
+        {
+            const float side = person == 0 ? -1.0f : 1.0f;
+            for (int foot = 0; foot < 2; ++foot)
+                graphics.FillEllipse(&footprints, RectF(side * (230.0f - together * 120.0f) + foot * 27.0f - 20.0f,
+                    155.0f + foot * 35.0f, 24.0f, 51.0f));
+        }
+    }
+    else if (currentEffectKey == L"anim_ribbon")
+    {
+        SolidBrush box(Color(255, 192, 153, 111));
+        SolidBrush lid(Color(255, 212, 175, 131));
+        graphics.FillRectangle(&shadow, RectF(-285.0f, -90.0f, 600.0f, 350.0f));
+        graphics.FillRectangle(&box, RectF(-300.0f, -105.0f, 600.0f, 350.0f));
+        graphics.FillRectangle(&lid, RectF(-315.0f, -145.0f, 630.0f, 65.0f));
+        Pen ribbon(Color(255, 179, 91, 115), 16.0f);
+        ribbon.SetStartCap(LineCapRound);
+        ribbon.SetEndCap(LineCapRound);
+        graphics.DrawLine(&ribbon, 0.0f, -130.0f, 0.0f, 245.0f);
+        const float tie = StoryMotion(t, 0.6, 2.7);
+        for (int side : {-1, 1})
+        {
+            const float reach = side * (230.0f - tie * 60.0f);
+            graphics.DrawBezier(&ribbon, 0.0f, -130.0f, reach, -130.0f - tie * 180.0f,
+                reach, -130.0f + tie * 60.0f, 0.0f, -130.0f);
+            graphics.DrawBezier(&ribbon, 0.0f, -130.0f, side * 60.0f, -80.0f,
+                side * 65.0f, 20.0f, side * (130.0f + (side == 1 ? 55.0f : 0.0f)),
+                45.0f + static_cast<float>(std::sin(t * 1.4)) * 5.0f);
+        }
+        graphics.FillEllipse(&rose, RectF(-23.0f, -153.0f, 46.0f, 46.0f));
+        label(L"같이 들고 갈 것들", -125.0f, 127.0f);
+    }
+    else if (currentEffectKey == L"anim_clock")
+    {
+        graphics.FillEllipse(&shadow, RectF(-235.0f, -235.0f, 500.0f, 500.0f));
+        graphics.FillEllipse(&paper, RectF(-250.0f, -250.0f, 500.0f, 500.0f));
+        Pen rim(Color(255, 100, 117, 143), 13.0f);
+        graphics.DrawEllipse(&rim, RectF(-250.0f, -250.0f, 500.0f, 500.0f));
+        for (int i = 0; i < 12; ++i)
+        {
+            const float angle = i * 3.14159265f / 6.0f;
+            graphics.DrawLine(&line, std::sin(angle) * 200.0f, -std::cos(angle) * 200.0f,
+                std::sin(angle) * 218.0f, -std::cos(angle) * 218.0f);
+        }
+        Pen hand(Color(255, 63, 79, 103), 10.0f);
+        graphics.DrawLine(&hand, 0.0f, 0.0f, -85.0f, -97.0f);
+        graphics.DrawLine(&hand, 0.0f, 0.0f, 146.0f, 86.0f);
+        // 한 번 멎고 떨린 뒤 다시 간다. 계속 역행하는 시계로 세계 규칙을 바꾸지 않는다.
+        double tick = t;
+        if (t > 0.8 && t < 2.5) tick = 0.8 + std::sin((t - 0.8) * 16.0) * 0.035;
+        else if (t >= 2.5) tick = t - 1.7;
+        const float angle = static_cast<float>(tick * 0.55 - 0.8);
+        Pen second(Color(255, 193, 109, 128), 4.0f);
+        graphics.DrawLine(&second, -std::sin(angle) * 30.0f, std::cos(angle) * 30.0f,
+            std::sin(angle) * 192.0f, -std::cos(angle) * 192.0f);
+        graphics.FillEllipse(&rose, RectF(-12.0f, -12.0f, 24.0f, 24.0f));
+    }
+    else if (currentEffectKey == L"anim_reading")
+    {
+        const float settle = StoryMotion(t, 0.0, 2.8);
+        graphics.RotateTransform(static_cast<float>(std::sin(t * 9.0)) * (1.0f - settle) * 1.7f);
+        graphics.FillRectangle(&shadow, RectF(-320.0f, -260.0f, 660.0f, 550.0f));
+        graphics.FillRectangle(&paper, RectF(-335.0f, -275.0f, 660.0f, 550.0f));
+        label(L"쉼표 · 작은 낭독회", -180.0f, -239.0f, true);
+        const wchar_t* sentences[] = { L"말을 고르는 동안,", L"버스가 한 대 지나갔다.",
+            L"기다리는 동안,", L"옆자리 사람이 말을 걸었다." };
+        for (int i = 0; i < 4; ++i)
+        {
+            label(sentences[i], -270.0f, -150.0f + i * 57.0f);
+            Pen underline(Color(190, 169, 140, 190), 3.5f);
+            graphics.DrawLine(&underline, -270.0f, -112.0f + i * 57.0f,
+                -270.0f + (i % 2 ? 350.0f : 230.0f) * StoryMotion(t, 0.5 + i * 0.9, 0.85), -112.0f + i * 57.0f);
+        }
+        // 원고 속 버스는 한 번만 지나간다. 낭독이 끝나도 다음 대사를 기다린다.
+        const float busX = -440.0f + StoryMotion(t, 0.4, 4.6) * 880.0f;
+        const auto drawing = graphics.Save();
+        graphics.SetClip(RectF(-300.0f, 140.0f, 600.0f, 110.0f), CombineModeIntersect);
+        SolidBrush bus(Color(255, 136, 173, 168));
+        graphics.FillRectangle(&bus, RectF(busX, 158.0f, 145.0f, 61.0f));
+        for (int i = 0; i < 3; ++i)
+            graphics.FillRectangle(&paper, RectF(busX + 12.0f + i * 43.0f, 167.0f, 32.0f, 26.0f));
+        graphics.FillEllipse(&ink, RectF(busX + 18.0f, 206.0f, 24.0f, 24.0f));
+        graphics.FillEllipse(&ink, RectF(busX + 108.0f, 206.0f, 24.0f, 24.0f));
+        graphics.Restore(drawing);
+    }
+    else if (currentEffectKey == L"anim_promise")
+    {
+        const float share = StoryMotion(t, 2.6, 2.5);
+        for (int copy = 0; copy < 2; ++copy)
+        {
+            const auto saved = graphics.Save();
+            const float side = copy == 0 ? -1.0f : 1.0f;
+            graphics.TranslateTransform(side * (12.0f + share * 235.0f), side * share * 22.0f);
+            graphics.RotateTransform(side * share * 6.0f);
+            graphics.FillRectangle(&shadow, RectF(-207.0f, -193.0f, 440.0f, 400.0f));
+            graphics.FillRectangle(&paper, RectF(-220.0f, -210.0f, 440.0f, 400.0f));
+            label(L"토요일 · 열한 시", -170.0f, -170.0f, true);
+            label(L"도서관에서", -160.0f, -105.0f);
+            graphics.DrawLine(&line, -180.0f, -48.0f, 180.0f, -48.0f);
+            const auto signatures = graphics.Save();
+            graphics.SetClip(RectF(-180.0f, -10.0f, 365.0f * StoryMotion(t, 0.7, 1.8), 150.0f), CombineModeIntersect);
+            label(L"서이린", -160.0f, 0.0f);
+            label(m_playerName.c_str(), -160.0f, 60.0f);
+            graphics.Restore(signatures);
+            star(156.0f, 122.0f, 17.0f * StoryMotion(t, 2.0, 0.8));
+            graphics.Restore(saved);
+        }
+    }
     else if (currentEffectKey == L"anim_ink")
     {
         graphics.RotateTransform(-5.0f);

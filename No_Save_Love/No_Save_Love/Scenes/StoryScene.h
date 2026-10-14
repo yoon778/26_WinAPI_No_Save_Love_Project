@@ -17,7 +17,7 @@ struct DialogueLineInfo
 
     std::wstring backgroundKey = L""; // 배경 이미지 이름 또는 키
     std::wstring characterKey = L"";  // 캐릭터 이미지 이름 또는 키
-    std::wstring effectKey = L"";     // 컷씬 효과 또는 anim_letter/photo/map/voice/bookmark/ink. 빈 값은 해제.
+    std::wstring effectKey = L"";     // 컷씬 효과 또는 anim_ 접두어의 이야기 소품 애니메이션. 빈 값은 해제.
     std::wstring bgmKey = L"";        // 이 대사에서 변경할 BGM 키
 };
 //페이드 아웃 인 
