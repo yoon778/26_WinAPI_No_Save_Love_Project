@@ -1,4 +1,4 @@
-﻿#include "GameManager.h"
+#include "GameManager.h"
 #include "AudioManager.h"
 #include <algorithm>
 
@@ -189,51 +189,11 @@ void GameManager::OnMouseClick(int x, int y)
         break;
     }
     case game_mode_info::Story:
-    {
-        bool isSkipClicked = storyScene.IsClickSkipButton(x, y);
-
+    case game_mode_info::EndingDialogue:
         storyScene.OnMouseClick(x, y);
         ApplyStoryBgmChange();
-
-        if (storyScene.IsFinished())
-        {
-            if (isSkipClicked)
-            {
-                audioManager.PlaySfx(L"click");
-            }
-
-            if (currentMiniGameIndex < 4)
-            {
-                // 현재 회차 번호에 맞는 미니게임 튜토리얼로 이동한다.
-                EnterCurrentMiniGameTutorial();
-            }
-            else if (currentMiniGameIndex == 4)
-            {
-                if (!m_performanceIntroShown)
-                {
-                    PrepareFinalChoiceIntro();
-                    storyScene.SetDialogues(storyData.GetPerformanceStory(finalHeroineIndex, false));
-                    m_performanceIntroShown = true;
-                    ApplyStoryBgmChange();
-                }
-                else EnterCurrentMiniGameTutorial();
-            }
-            else if (!m_finalChoiceIntroShown)
-            {
-                // 마지막 선택 화면으로 가기 전에 노트가 마지막 이름을 보여주는 대사를 출력한다.
-                PrepareFinalChoiceIntro();
-                storyScene.SetDialogues(storyData.GetFinalChoiceIntroStory(finalChoiceIntroIndex));
-                m_finalChoiceIntroShown = true;
-            }
-            else
-            {
-                // 최종 도입 대사가 끝나면 엔딩 대사로 들어간다.
-                EnterEndingStory();
-            }
-        }
-
+        AdvanceFinishedStory();
         break;
-    }
 
     case game_mode_info::MiniGameTutor1:
     {
@@ -345,35 +305,15 @@ void GameManager::OnMouseClick(int x, int y)
 
         break;
     }
-    case game_mode_info::EndingDialogue:
-    {
-        // 엔딩 대사도 StoryScene으로 출력하므로 클릭 처리는 StoryScene에게 맡긴다.
-        bool isSkipClicked = storyScene.IsClickSkipButton(x, y);
-
-        storyScene.OnMouseClick(x, y);
-        ApplyStoryBgmChange();
-
-        // 엔딩 대사가 모두 끝나면 THE END 화면으로 이동한다.
-        if (storyScene.IsFinished())
-        {
-            if (isSkipClicked)
-            {
-                audioManager.PlaySfx(L"click");
-            }
-
-            endingScene.SetEndingImage(CalculateEndingType(finalHeroineIndex), finalHeroineIndex);
-            endingScene.Reset();
-            RequestSceneChange(game_mode_info::Ending);
-
-        }
-
-        break;
-    }
-
-
     case game_mode_info::Ending:
     {
         endingScene.OnMouseClick(x, y);
+        if (endingScene.IsReturnRequested())
+        {
+            audioManager.PlaySfx(L"click");
+            ReturnToTitle();
+            break;
+        }
 
         if (endingScene.IsExitRequested())
         {
@@ -386,6 +326,77 @@ void GameManager::OnMouseClick(int x, int y)
     }
 
     InvalidateRect(m_hWnd, nullptr, FALSE);
+}
+
+void GameManager::AdvanceFinishedStory()
+{
+    if (sceneTransition.IsActive() || !storyScene.IsFinished()) return;
+    if (now_game_mode == game_mode_info::EndingDialogue)
+    {
+        endingScene.SetEndingImage(CalculateEndingType(finalHeroineIndex), finalHeroineIndex);
+        endingScene.Reset();
+        RequestSceneChange(game_mode_info::Ending);
+    }
+    else if (now_game_mode == game_mode_info::Story)
+    {
+        if (currentMiniGameIndex < 4)
+        {
+            // 현재 회차 번호에 맞는 미니게임 튜토리얼로 이동한다.
+            EnterCurrentMiniGameTutorial();
+        }
+        else if (currentMiniGameIndex == 4)
+        {
+            if (!m_performanceIntroShown)
+            {
+                PrepareFinalChoiceIntro();
+                storyScene.SetDialogues(storyData.GetPerformanceStory(finalHeroineIndex, false));
+                m_performanceIntroShown = true;
+                ApplyStoryBgmChange();
+            }
+            else EnterCurrentMiniGameTutorial();
+        }
+        else if (!m_finalChoiceIntroShown)
+        {
+            // 마지막 선택 화면으로 가기 전에 노트가 마지막 이름을 보여주는 대사를 출력한다.
+            PrepareFinalChoiceIntro();
+            storyScene.SetDialogues(storyData.GetFinalChoiceIntroStory(finalChoiceIntroIndex));
+            m_finalChoiceIntroShown = true;
+        }
+        else
+        {
+            // 최종 도입 대사가 끝나면 엔딩 대사로 들어간다.
+            EnterEndingStory();
+        }
+        ApplyStoryBgmChange();
+    }
+}
+
+void GameManager::ReturnToTitle()
+{
+    if (sceneTransition.IsActive()) return;
+    pendingSceneSetup = [this]()
+    {
+        currentStoryRound = currentMiniGameIndex = 0;
+        finalHeroineIndex = finalChoiceIntroIndex = 0;
+        m_choiceApplied = m_finalChoiceIntroShown = m_performanceIntroShown = false;
+        m_exitConfirmOpen = false;
+        player = {0, 0, 0, 0};
+        for (auto& character : characters) character.choice_time = 0;
+        playerName = L"윤서";
+        storyScene.SetDialogues({});
+        storyScene.ClearHistory();
+        storyScene.SetPlayerName(playerName);
+        endingScene.Reset();
+        endingScene.SetPlayerName(playerName);
+        resultScene.Reset();
+        resultScene.SetPlayerName(playerName);
+        choiceScene.Reset();
+        choiceScene.SetPlayerState(player);
+        nameinputScene.Reset();
+        titleScene.Reset();
+        ForceSystemCursorVisible();
+    };
+    RequestSceneChange(game_mode_info::Title);
 }
 
 void GameManager::EnterResult(int whichGame, int score)
@@ -1195,6 +1206,20 @@ void GameManager::OnKeyDown(WPARAM wParam)
         return;
     }
 
+    if ((now_game_mode == game_mode_info::Story || now_game_mode == game_mode_info::EndingDialogue)
+        && storyScene.OnKeyDown(wParam))
+    {
+        ApplyStoryBgmChange();
+        AdvanceFinishedStory();
+        InvalidateRect(m_hWnd, nullptr, FALSE);
+        return;
+    }
+    if (now_game_mode == game_mode_info::Ending)
+    {
+        endingScene.OnKeyDown(wParam);
+        if (endingScene.IsReturnRequested()) ReturnToTitle();
+    }
+
     if (wParam == VK_ESCAPE)
     {
         if (now_game_mode == game_mode_info::MiniGame4)
@@ -1301,6 +1326,13 @@ void GameManager::OnMouseUp(int x, int y) {
     }
 }
 
+void GameManager::OnMouseWheel(int delta)
+{
+    if (!m_exitConfirmOpen && !sceneTransition.IsActive()
+        && (now_game_mode == game_mode_info::Story || now_game_mode == game_mode_info::EndingDialogue))
+        storyScene.OnMouseWheel(delta);
+}
+
 void GameManager::OnMouseMove(int x, int y) {
     if (m_exitConfirmOpen && now_game_mode == game_mode_info::MiniGame5) return;
     if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
@@ -1325,11 +1357,10 @@ void GameManager::OnTimer(HWND hWnd)
         switch (now_game_mode)
         {
         case game_mode_info::Story:
-            storyScene.Update();
-            break;
-
         case game_mode_info::EndingDialogue:
             storyScene.Update();
+            ApplyStoryBgmChange();
+            AdvanceFinishedStory();
             break;
 
         case game_mode_info::MiniGame1:

@@ -10,6 +10,7 @@ class TitleScene
 public:
 	
 	void Initialize(); // 초기화
+    void Reset() { startClicked = false; }
 
 	void Shutdown(); // 종료시 호출함.
 

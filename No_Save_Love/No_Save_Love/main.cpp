@@ -173,6 +173,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
         return 0;
     }
+    case WM_MOUSEWHEEL:
+        g_gameManager.OnMouseWheel(static_cast<short>(HIWORD(wParam)));
+        InvalidateRect(hWnd, nullptr, FALSE);
+        return 0;
     case WM_LBUTTONDOWN:
     {
         int mouseX = LOWORD(lParam);

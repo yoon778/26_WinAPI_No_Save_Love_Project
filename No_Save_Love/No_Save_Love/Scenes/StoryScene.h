@@ -10,6 +10,8 @@
 #pragma comment(lib, "gdiplus.lib")
 
 enum class HeroineMotion { Idle, Nod, Tilt, Shy, Laugh, Surprise };
+enum class StoryPresentation { Dialogue, Tutorial, Phone };
+enum class AmbientEffect { Auto, Rain, Petals, Sunlight, Dust, None };
 
 // 대사 한 줄의 정보다.
 // StoryScene 밖에서도 사용할 수 있게 class 밖에 둔다.
@@ -23,6 +25,8 @@ struct DialogueLineInfo
     std::wstring effectKey = L"";     // 컷씬 효과 또는 anim_ 접두어의 이야기 소품 애니메이션. 빈 값은 해제.
     std::wstring bgmKey = L"";        // 이 대사에서 변경할 BGM 키
     HeroineMotion heroineMotion = HeroineMotion::Idle; // 소품 효과와 독립적으로 재생한다.
+    StoryPresentation presentation = StoryPresentation::Dialogue;
+    AmbientEffect ambient = AmbientEffect::Auto;
 };
 //페이드 아웃 인 
 enum class FadeState
@@ -53,9 +57,9 @@ public:
 
     // 마우스 클릭 시 다음 대사로 이동한다.
     void OnMouseClick(int x, int y);
-
-    // SKIP 버튼 클릭인지 확인한다.
-    bool IsClickSkipButton(int x, int y) const;
+    bool OnKeyDown(WPARAM key);
+    void OnMouseWheel(int delta);
+    void ClearHistory();
 
     // 현재 대사 묶음이 끝났는지 확인한다.
     bool IsFinished() const;
@@ -73,8 +77,7 @@ public:
     // 현재 대사에서 요청한 BGM 변경 키를 한 번만 가져온다.
     std::wstring ConsumePendingBgmKey();
 
-    // SKIP 버튼을 그린다.
-    void DrawSkipButton(HDC hDC);
+    void DrawReadingControls(HDC hDC);
 
 
 
@@ -93,6 +96,27 @@ public:
     void UpdateFade();
 
 private:
+    void AdvanceDialogue();
+    void RecordCurrentLine();
+    void ToggleHistory();
+    void DrawHistory(HDC hDC);
+    void DrawTutorial(HDC hDC);
+    void DrawPhone(HDC hDC);
+    void DrawAmbientEffects(HDC hDC);
+    AmbientEffect GetAmbientEffect() const;
+    struct HistoryEntry { std::wstring speaker, text; StoryPresentation presentation; };
+    std::vector<HistoryEntry> history;
+    bool currentLineRecorded = false;
+    bool historyOpen = false;
+    int historyEnd = 0;
+    bool fastForward = false;
+    double fastForwardWait = 0.0;
+    double ambientSeconds = 0.0;
+    RECT historyButtonRect = { 1340, 40, 1560, 100 };
+    RECT fastButtonRect = { 1590, 40, 1860, 100 };
+    RECT historyCloseRect = { 1500, 150, 1690, 210 };
+    RECT historyOlderRect = { 1170, 900, 1410, 960 };
+    RECT historyNewerRect = { 1440, 900, 1680, 960 };
     // 기존 대사 흐름 안에서 컷씬을 재생한다. 시간은 실제 경과 시간 기준이다.
     void SetCutsceneEffect(const std::wstring& effectKey);
     void DrawCutsceneBackground(HDC hDC, CImage& image);
@@ -108,11 +132,6 @@ private:
     double reactionSeconds = 0.0;
     HeroineMotion currentHeroineMotion = HeroineMotion::Idle;
     std::wstring animatedHeroineKey;
-    std::wstring rasterCharacterKey;
-    std::vector<std::uint32_t> heroinePixels;
-    Gdiplus::Bitmap* heroineFrame = nullptr;
-    int heroineSourceWidth = 0;
-    int heroineSourceHeight = 0;
 
     std::wstring currentEffectKey;
     std::wstring nextEffectKey;
@@ -164,6 +183,7 @@ private:
         // PNG 알파 채널을 더 안정적으로 출력하기 위해 CImage 대신 GDI+ Image를 사용한다.
         Gdiplus::Image* normal = nullptr;
         Gdiplus::Image* smile = nullptr;
+        Gdiplus::Image* animation = nullptr; // 3열 x 2행 표정 시트
     };
 
 
@@ -272,7 +292,7 @@ private:
     RECT dialogueBox = { 100, 830, 1820, 1030 };
 
     // 이름 출력 영역
-    RECT nameBox = { 280, 885, 430, 950 };
+    RECT nameBox = { 130, 885, 450, 950 };
 
     // 대사 출력 영역
     RECT textRect = { 500, 880, 1740, 1010 };
@@ -282,10 +302,6 @@ private:
 
     // 플레이어가 입력한 이름
     std::wstring m_playerName = L"윤서"; // 기본은 윤서
-
-
-    // 오른쪽 위 SKIP 버튼 영역
-    RECT skipButtonRect = { 1700, 40, 1860, 100 };
 
 
 };

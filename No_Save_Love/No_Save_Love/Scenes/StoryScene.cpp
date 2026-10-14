@@ -5,6 +5,46 @@
 
 namespace
 {
+
+    void ReadingPanel(HDC dc, RECT rect, COLORREF fill, COLORREF border)
+    {
+        HBRUSH brush = CreateSolidBrush(fill);
+        HPEN pen = CreatePen(PS_SOLID, 2, border);
+        auto oldBrush = SelectObject(dc, brush);
+        auto oldPen = SelectObject(dc, pen);
+        RoundRect(dc, rect.left, rect.top, rect.right, rect.bottom, 24, 24);
+        SelectObject(dc, oldBrush); SelectObject(dc, oldPen);
+        DeleteObject(brush); DeleteObject(pen);
+    }
+
+    // 긴 이름도 실제 글꼴 폭을 측정해 한 줄 안에 맞춘다.
+    void ReadingText(HDC dc, const std::wstring& text, RECT rect, int size,
+        COLORREF color, UINT flags = DT_LEFT | DT_WORDBREAK)
+    {
+        const int saved = SaveDC(dc);
+        HFONT font = nullptr;
+        for (;;)
+        {
+            font = CreateFontW(size, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
+                HANGEUL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, L"맑은 고딕");
+            auto previous = SelectObject(dc, font);
+            SIZE measured{};
+            GetTextExtentPoint32W(dc, text.c_str(), static_cast<int>(text.size()), &measured);
+            if (!(flags & DT_SINGLELINE) || measured.cx <= rect.right - rect.left || size <= 20) break;
+            SelectObject(dc, previous); DeleteObject(font); size -= 2;
+        }
+        SetBkMode(dc, TRANSPARENT); SetTextColor(dc, color);
+        DrawTextW(dc, text.c_str(), -1, &rect, flags | DT_NOPREFIX);
+        RestoreDC(dc, saved); DeleteObject(font);
+    }
+
+    void ReadingButton(HDC dc, RECT rect, const std::wstring& text, bool active = false)
+    {
+        ReadingPanel(dc, rect, active ? RGB(66, 64, 100) : RGB(27, 31, 45), RGB(139, 145, 179));
+        ReadingText(dc, text, rect, 26, RGB(241, 239, 249), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+
     // 한 번 진행한 동작은 끝 자세에 머문다. 다음 대사에서도 같은 효과 키면 이어진다.
     float StoryMotion(double seconds, double start, double duration)
     {
@@ -68,13 +108,17 @@ void StoryScene::Initialize()
     // =========================
     hansea.normal = new Gdiplus::Image(L"resource\\heroine\\hansea\\normal.png");
     hansea.smile = new Gdiplus::Image(L"resource\\heroine\\hansea\\smile.png");
+    hansea.animation = new Gdiplus::Image(L"resource\\heroine\\hansea\\animation.png");
     seoirin.normal = new Gdiplus::Image(L"resource\\heroine\\seoirin\\normal.png");
     seoirin.smile = new Gdiplus::Image(L"resource\\heroine\\seoirin\\smile.png");
+    seoirin.animation = new Gdiplus::Image(L"resource\\heroine\\seoirin\\animation.png");
     yuharin.normal = new Gdiplus::Image(L"resource\\heroine\\yuharin\\normal.png");
     yuharin.smile = new Gdiplus::Image(L"resource\\heroine\\yuharin\\smile.png");
+    yuharin.animation = new Gdiplus::Image(L"resource\\heroine\\yuharin\\animation.png");
 
 
 
+    ClearHistory();
     // 처음에는 비워둔다.
     dialogues.clear();
     currentDialogueIndex = 0;
@@ -88,10 +132,12 @@ void StoryScene::Initialize()
 void StoryScene::Shutdown()
 {
     dialogues.clear();
-    delete heroineFrame;
-    heroineFrame = nullptr;
-    heroinePixels.clear();
-    rasterCharacterKey.clear();
+    ClearHistory();
+    for (auto* heroine : {&hansea, &yuharin, &seoirin})
+    {
+        delete heroine->animation;
+        heroine->animation = nullptr;
+    }
     ResetHeroineAnimation();
 
     // 배경 이미지는 기존 CImage 방식으로 해제한다.
@@ -172,6 +218,10 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
     ResetHeroineAnimation();
     SetCutsceneEffect(L"");
     nextEffectKey.clear();
+    fastForward = false;
+    fastForwardWait = 0.0;
+    historyOpen = false;
+    currentLineRecorded = false;
     // 새로운 대사 목록을 저장한다.
     dialogues = newDialogues;
 
@@ -213,82 +263,115 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
     QueueCurrentLineBgmChange();
 }
 
+
 void StoryScene::OnMouseClick(int x, int y)
 {
-    POINT mousePoint = { x, y };
-
-      //스킵 버튼
-    if (PtInRect(&skipButtonRect, mousePoint))
+    POINT point{x, y};
+    if (historyOpen)
     {
-        finished = true;
-        fadeState = FadeState::None;
-        fadeAlpha = 0;
-        SetCutsceneEffect(L"");
-        nextEffectKey.clear();
-        ResetHeroineAnimation();
-
-        if (!dialogues.empty())
-        {
-            std::wstring displayText = GetCurrentDisplayText();
-            visibleTextCount = static_cast<int>(displayText.length());
-        }
-
-        isTypingFinished = true;
+        if (PtInRect(&historyCloseRect, point)) ToggleHistory();
+        else if (PtInRect(&historyOlderRect, point)) OnMouseWheel(WHEEL_DELTA * 5);
+        else if (PtInRect(&historyNewerRect, point)) OnMouseWheel(-WHEEL_DELTA * 5);
         return;
     }
+    if (PtInRect(&historyButtonRect, point)) { ToggleHistory(); return; }
+    if (PtInRect(&fastButtonRect, point)) { OnKeyDown('F'); return; }
+    fastForward = false;
+    AdvanceDialogue();
+}
 
-    if (fadeState != FadeState::None)
+bool StoryScene::OnKeyDown(WPARAM key)
+{
+    if (historyOpen)
     {
-        return;
+        if (key == VK_ESCAPE || key == 'L') ToggleHistory();
+        else if (key == VK_UP) OnMouseWheel(WHEEL_DELTA);
+        else if (key == VK_DOWN) OnMouseWheel(-WHEEL_DELTA);
+        else if (key == VK_PRIOR) OnMouseWheel(WHEEL_DELTA * 5);
+        else if (key == VK_NEXT) OnMouseWheel(-WHEEL_DELTA * 5);
+        else if (key == VK_HOME) historyEnd = (std::min)(5, static_cast<int>(history.size()));
+        else if (key == VK_END) historyEnd = static_cast<int>(history.size());
+        return true;
     }
-
-    if (dialogues.empty())
+    if (key == 'L') { ToggleHistory(); return true; }
+    if (key == 'F')
     {
-        finished = true;
-        return;
+        if (!finished && !dialogues.empty() && dialogues[currentDialogueIndex].presentation != StoryPresentation::Tutorial)
+            fastForward = !fastForward;
+        fastForwardWait = 0.0;
+        return true;
     }
-
-    if (finished)
+    if (key == VK_SPACE || key == VK_RETURN)
     {
-        return;
+        fastForward = false;
+        AdvanceDialogue();
+        return true;
     }
+    return false;
+}
 
-    // 현재 대사의 전체 텍스트를 가져온다
-    std::wstring displayText = GetCurrentDisplayText();
-
-    // 아직 타이핑 중이라면 전체 문장을 보여준다.
+void StoryScene::AdvanceDialogue()
+{
+    if (historyOpen || finished || fadeState != FadeState::None) return;
+    if (dialogues.empty()) { finished = true; return; }
+    fastForwardWait = 0.0;
     if (!isTypingFinished)
     {
-        visibleTextCount = static_cast<int>(displayText.length());
+        visibleTextCount = static_cast<int>(GetCurrentDisplayText().size());
         isTypingFinished = true;
+        RecordCurrentLine();
         return;
     }
-
-    // 타이핑이 끝난 상태에서 클릭하면 다음 대사로 이동
-    if (currentDialogueIndex < static_cast<int>(dialogues.size()) - 1)
+    RecordCurrentLine();
+    if (currentDialogueIndex + 1 < static_cast<int>(dialogues.size()))
     {
-        currentDialogueIndex++;
-
+        ++currentDialogueIndex;
         visibleTextCount = 0;
         isTypingFinished = false;
-
-        // 새 대사로 넘어갔으므로 배경/캐릭터 정보를 갱신한다.
+        currentLineRecorded = false;
+        if (dialogues[currentDialogueIndex].presentation == StoryPresentation::Tutorial) fastForward = false;
         ApplyCurrentLineVisualInfo(false);
         QueueCurrentLineBgmChange();
     }
     else
     {
-        // 마지막 대사에서 클릭하면 끝난 상태로 만든다.
         finished = true;
+        fastForward = false;
         ResetHeroineAnimation();
     }
 }
 
-bool StoryScene::IsClickSkipButton(int x, int y) const
+void StoryScene::RecordCurrentLine()
 {
-    POINT mousePoint = { x, y };
-    return PtInRect(&skipButtonRect, mousePoint);
+    if (!currentLineRecorded && !dialogues.empty() && isTypingFinished)
+    {
+        history.push_back({GetCurrentDisplaySpeaker(), GetCurrentDisplayText(), dialogues[currentDialogueIndex].presentation});
+        currentLineRecorded = true;
+    }
 }
+
+void StoryScene::ClearHistory()
+{
+    history.clear(); historyEnd = 0; historyOpen = false;
+    currentLineRecorded = false; fastForward = false; fastForwardWait = 0.0;
+}
+
+void StoryScene::ToggleHistory()
+{
+    historyOpen = !historyOpen;
+    fastForward = false;
+    fastForwardWait = 0.0;
+    historyEnd = static_cast<int>(history.size());
+    lastCutsceneTick = GetTickCount64();
+}
+
+void StoryScene::OnMouseWheel(int delta)
+{
+    if (!historyOpen) return;
+    const int total = static_cast<int>(history.size());
+    historyEnd = (std::clamp)(historyEnd - delta / WHEEL_DELTA, (std::min)(5, total), total);
+}
+
 
 bool StoryScene::IsFinished() const
 {
@@ -333,69 +416,96 @@ StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker
     return style;
 }
 
-void StoryScene::DrawSkipButton(HDC hDC)
+
+void StoryScene::DrawReadingControls(HDC hDC)
 {
-    HBRUSH buttonBrush = CreateSolidBrush(RGB(35, 35, 45));
-
-    HPEN buttonPen = CreatePen(PS_SOLID, 2, RGB(230, 210, 255));
-
-    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, buttonBrush));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, buttonPen));
-
-    RoundRect(
-        hDC,
-        skipButtonRect.left,
-        skipButtonRect.top,
-        skipButtonRect.right,
-        skipButtonRect.bottom,
-        18,
-        18
-    );
-
-
-    SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldPen);
-
-    DeleteObject(buttonBrush);
-    DeleteObject(buttonPen);
-
-    HFONT skipFont = CreateFontW(
-        28,
-        0,
-        0,
-        0,
-        FW_BOLD,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
-
-    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, skipFont));
-
-    // 배경 투명
-    SetBkMode(hDC, TRANSPARENT);
-
-    // 글자 색상을 지정한다.
-    SetTextColor(hDC, RGB(245, 245, 250));
-
-    // SKIP 글자를 출력한다.
-    DrawTextW(
-        hDC,
-        L"SKIP",
-        -1,
-        &skipButtonRect,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE
-    );
-    SelectObject(hDC, oldFont);
-    DeleteObject(skipFont);
+    ReadingButton(hDC, historyButtonRect, L"대화 로그  L");
+    const bool tutorial = !dialogues.empty() && dialogues[currentDialogueIndex].presentation == StoryPresentation::Tutorial;
+    ReadingButton(hDC, fastButtonRect, tutorial ? L"튜토리얼 · 직접 넘기기" :
+        (fastForward ? L"4× 재생 중 · F 정지" : L"빨리 감기  F"), fastForward);
 }
 
+void StoryScene::DrawHistory(HDC hDC)
+{
+    { Gdiplus::Graphics g(hDC); Gdiplus::SolidBrush shade(Gdiplus::Color(200, 9, 13, 24));
+      g.FillRectangle(&shade, 0, 0, 1920, 1080); }
+    ReadingPanel(hDC, {190, 120, 1730, 990}, RGB(20, 26, 41), RGB(139, 145, 179));
+    ReadingText(hDC, L"지나온 이야기", {250, 158, 1000, 214}, 38, RGB(245, 222, 235));
+    ReadingButton(hDC, historyCloseRect, L"닫기  Esc");
+    const int begin = (std::max)(0, historyEnd - 5);
+    int y = 250;
+    for (int i = begin; i < historyEnd; ++i, y += 126)
+    {
+        const auto& entry = history[i];
+        const auto speaker = entry.speaker.empty() ? L"이야기" : entry.speaker;
+        ReadingText(hDC, speaker + (entry.presentation == StoryPresentation::Phone ? L" · 메시지" : L""),
+            {260, y, 1620, y + 32}, 24, RGB(186, 185, 233));
+        ReadingText(hDC, entry.text, {260, y + 37, 1640, y + 118}, 28, RGB(240, 241, 247));
+    }
+    if (history.empty()) ReadingText(hDC, L"끝까지 읽은 대사가 이곳에 기록됩니다.", {260, 300, 1640, 400}, 32, RGB(215, 218, 229));
+    ReadingText(hDC, std::to_wstring(begin + (history.empty() ? 0 : 1)) + L" – " + std::to_wstring(historyEnd)
+        + L" / " + std::to_wstring(history.size()) + L"    휠 · ↑↓ · Page Up/Down",
+        {260, 916, 1140, 954}, 24, RGB(178, 188, 208));
+    ReadingButton(hDC, historyOlderRect, L"이전 대사 ↑");
+    ReadingButton(hDC, historyNewerRect, L"최근 대사 ↓");
+}
+
+void StoryScene::DrawTutorial(HDC hDC)
+{
+    { Gdiplus::Graphics g(hDC); Gdiplus::SolidBrush shade(Gdiplus::Color(180, 9, 13, 24));
+      g.FillRectangle(&shade, 0, 0, 1920, 1080); }
+    int first = currentDialogueIndex, last = currentDialogueIndex;
+    while (first > 0 && dialogues[first - 1].presentation == StoryPresentation::Tutorial) --first;
+    while (last + 1 < static_cast<int>(dialogues.size()) && dialogues[last + 1].presentation == StoryPresentation::Tutorial) ++last;
+    ReadingPanel(hDC, {380, 230, 1540, 880}, RGB(23, 31, 48), RGB(162, 172, 208));
+    ReadingText(hDC, L"이야기를 시작하기 전에", {450, 290, 1470, 360}, 46, RGB(251, 227, 237), DT_CENTER | DT_SINGLELINE);
+    ReadingText(hDC, L"GUIDE  " + std::to_wstring(currentDialogueIndex - first + 1) + L" / " + std::to_wstring(last - first + 1),
+        {450, 385, 1470, 425}, 26, RGB(171, 188, 223), DT_CENTER | DT_SINGLELINE);
+    ReadingText(hDC, GetCurrentDisplayText().substr(0, visibleTextCount), {490, 475, 1430, 645}, 38, RGB(243, 244, 249));
+    ReadingText(hDC, L"Space / Enter / 클릭 : 다음    ·    L : 대화 로그    ·    F : 빨리 감기",
+        {450, 700, 1470, 750}, 26, RGB(184, 193, 214), DT_CENTER | DT_SINGLELINE);
+    ReadingButton(hDC, {760, 780, 1160, 842}, isTypingFinished ? L"확인 · 다음 페이지" : L"클릭해서 전체 보기");
+}
+
+
+void StoryScene::DrawPhone(HDC hDC)
+{
+    { Gdiplus::Graphics g(hDC); Gdiplus::SolidBrush shade(Gdiplus::Color(160, 9, 13, 24));
+      g.FillRectangle(&shade, 0, 0, 1920, 1080); }
+    ReadingPanel(hDC, {695, 100, 1225, 1040}, RGB(12, 17, 27), RGB(139, 152, 175));
+    ReadingPanel(hDC, {713, 120, 1207, 1020}, RGB(231, 237, 244), RGB(231, 237, 244));
+    ReadingPanel(hDC, {916, 124, 1004, 139}, RGB(12, 17, 27), RGB(12, 17, 27));
+    ReadingText(hDC, L"18:01                                LTE  ▰", {738, 163, 1182, 203}, 22, RGB(56, 68, 89), DT_SINGLELINE);
+    int first = currentDialogueIndex;
+    while (first > 0 && currentDialogueIndex - first < 2
+        && dialogues[first - 1].presentation == StoryPresentation::Phone) --first;
+    std::wstring contact = GetCurrentDisplaySpeaker();
+    for (int i = first; i <= currentDialogueIndex; ++i)
+        if (dialogues[i].speaker != L"{PLAYER}") contact = ReplacePlayerNameToken(dialogues[i].speaker);
+    ReadingText(hDC, contact, {745, 222, 1175, 272}, 34, RGB(31, 42, 65), DT_CENTER | DT_SINGLELINE);
+    ReadingText(hDC, L"오늘의 대화", {745, 292, 1175, 324}, 22, RGB(106, 118, 139), DT_CENTER | DT_SINGLELINE);
+    HFONT measureFont = CreateFontW(28, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, L"맑은 고딕");
+    auto oldFont = SelectObject(hDC, measureFont);
+    int y = 350;
+    for (int i = first; i <= currentDialogueIndex; ++i)
+    {
+        const bool outgoing = dialogues[i].speaker == L"{PLAYER}";
+        const auto whole = ReplacePlayerNameToken(dialogues[i].text);
+        const auto text = i == currentDialogueIndex ? whole.substr(0, visibleTextCount) : whole;
+        RECT measure = {0, 0, 354, 0};
+        const int height = (std::max)(84, DrawTextW(hDC, whole.c_str(), -1, &measure,
+            DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX) + 40);
+        const int left = outgoing ? 785 : 737;
+        ReadingPanel(hDC, {left, y, left + 402, y + height}, outgoing ? RGB(204, 219, 248) : RGB(255, 255, 255),
+            outgoing ? RGB(187, 205, 238) : RGB(217, 225, 236));
+        ReadingText(hDC, text, {left + 24, y + 18, left + 378, y + height - 14}, 28, RGB(36, 48, 72));
+        y += height + 18;
+    }
+    SelectObject(hDC, oldFont); DeleteObject(measureFont);
+    ReadingText(hDC, isTypingFinished ? L"읽음" : L"메시지 도착 중…", {747, 870, 1175, 910}, 23, RGB(113, 128, 153));
+    ReadingButton(hDC, {745, 930, 1175, 986}, L"Space / 클릭으로 계속");
+}
 
 
 void StoryScene::Render(HDC hDC)
@@ -415,6 +525,8 @@ void StoryScene::Render(HDC hDC)
     {
         normal_back_ground.Draw(hDC, 0, 0, 1920, 1080);
     }
+
+    DrawAmbientEffects(hDC);
 
     // =========================
     // 캐릭터 이미지 출력
@@ -450,6 +562,14 @@ void StoryScene::Render(HDC hDC)
     // 출력할 대사가 없으면 그리지 않는다.
     if (dialogues.empty())
     {
+        return;
+    }
+    if (dialogues[currentDialogueIndex].presentation != StoryPresentation::Dialogue)
+    {
+        if (dialogues[currentDialogueIndex].presentation == StoryPresentation::Tutorial) DrawTutorial(hDC);
+        else DrawPhone(hDC);
+        DrawReadingControls(hDC);
+        if (historyOpen) DrawHistory(hDC);
         return;
     }
     // =========================
@@ -490,22 +610,7 @@ void StoryScene::Render(HDC hDC)
         L"맑은 고딕"
     );
 
-    HFONT nameFont = CreateFontW(
-        50,
-        0,
-        0,
-        0,
-        FW_BOLD,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
+
 
     HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, dialogueFont));
 
@@ -535,16 +640,8 @@ void StoryScene::Render(HDC hDC)
     MoveToEx(hDC, 0, lineY, nullptr);
     LineTo(hDC, 1920, lineY);
 
-    // 이름 출력
-    SelectObject(hDC, nameFont);
-    SetTextColor(hDC, style.nameColor);
-    DrawTextW(
-        hDC,
-        displaySpeaker.c_str(),
-        -1,
-        &nameBox,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE
-    );
+    ReadingText(hDC, displaySpeaker, nameBox, 48, style.nameColor,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     // 대사 출력
     SelectObject(hDC, dialogueFont);
@@ -564,11 +661,12 @@ void StoryScene::Render(HDC hDC)
     DeleteObject(linePen);
     DeleteObject(boxPen);
     DeleteObject(boxBrush);
-    DeleteObject(nameFont);
     DeleteObject(dialogueFont);
 
-    //스킵 생성
-    DrawSkipButton(hDC);
+    ReadingText(hDC, L"Space / Enter / 클릭 : 다음", {1250, 1036, 1810, 1074}, 23,
+        RGB(230, 231, 242), DT_RIGHT | DT_SINGLELINE);
+    DrawReadingControls(hDC);
+    if (historyOpen) DrawHistory(hDC);
 
 }
 
@@ -741,57 +839,42 @@ bool StoryScene::ShouldFadeCharacterChange(const std::wstring& newCharacterKey) 
     return oldCharacter != newCharacter;
 }
 
+
 void StoryScene::Update()
 {
     const ULONGLONG now = GetTickCount64();
-    if (!finished && fadeState == FadeState::None && lastCutsceneTick != 0)
+    const double elapsed = lastCutsceneTick ? (std::min)(0.1, (now - lastCutsceneTick) / 1000.0) : 0.0;
+    lastCutsceneTick = now;
+    if (historyOpen) return;
+    if (!finished && fadeState == FadeState::None)
     {
-        // 창을 오래 멈춰두었다 복귀해도 컷씬이 한 번에 끝나지 않는다.
-        const double elapsed = (std::min)(0.1, static_cast<double>(now - lastCutsceneTick) / 1000.0);
         cutsceneSeconds += elapsed;
+        ambientSeconds += elapsed;
         if (!currentCharacterKey.empty() && (!IsCutscene() || IsStoryAnimation()))
         {
             heroineSeconds += elapsed;
             reactionSeconds += elapsed;
         }
     }
-    lastCutsceneTick = now;
-    // 페이드 효과를 먼저 갱신한다.
     UpdateFade();
-
-    // 책과 캐릭터의 서서히 등장 효과를 갱신한다.
     UpdateObjectFades();
-
-    // 타이핑 효과를 갱신한다.
     UpdateTyping();
+    if (fastForward && isTypingFinished && !finished && fadeState == FadeState::None)
+    {
+        fastForwardWait += elapsed;
+        if (fastForwardWait >= 0.35) AdvanceDialogue();
+    }
 }
 
 void StoryScene::UpdateTyping()
 {
-    // 대사가 없거나 스토리가 끝났으면 타이핑을 진행하지 않는다.
-    if (dialogues.empty() || finished)
-    {
-        return;
-    }
-
-    // 페이드 중에는 타이핑을 잠시 멈춘다.
-    if (fadeState != FadeState::None)
-    {
-        return;
-    }
-
-    std::wstring displayText = GetCurrentDisplayText();
-
-    if (visibleTextCount < static_cast<int>(displayText.length()))
-    {
-        visibleTextCount++;
-        isTypingFinished = false;
-    }
-    else
-    {
-        isTypingFinished = true;
-    }
+    if (dialogues.empty() || finished || historyOpen || fadeState != FadeState::None) return;
+    const int length = static_cast<int>(GetCurrentDisplayText().size());
+    visibleTextCount = (std::min)(length, visibleTextCount + (fastForward ? 4 : 1));
+    isTypingFinished = visibleTextCount == length;
+    if (isTypingFinished) RecordCurrentLine();
 }
+
 
 void StoryScene::UpdateObjectFades()
 {
@@ -1163,6 +1246,86 @@ void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
     SetBrushOrgEx(hDC, 0, 0, nullptr);
     image.Draw(hDC, (1920 - width) / 2 + offsetX, (820 - height) / 2 + offsetY, width, height);
     RestoreDC(hDC, savedDC);
+}
+
+
+AmbientEffect StoryScene::GetAmbientEffect() const
+{
+    if (dialogues.empty()) return AmbientEffect::None;
+    const auto explicitEffect = dialogues[currentDialogueIndex].ambient;
+    if (explicitEffect != AmbientEffect::Auto) return explicitEffect;
+    if (IsCutscene() && !IsStoryAnimation()) return AmbientEffect::None;
+    if (currentBackgroundKey == L"school_day") return AmbientEffect::Petals;
+    if (currentBackgroundKey == L"library_day" || currentBackgroundKey == L"seoirin_library") return AmbientEffect::Dust;
+    if (currentBackgroundKey == L"hansea_room" || currentBackgroundKey == L"yuharin_classroom"
+        || currentBackgroundKey == L"school_hallway") return AmbientEffect::Sunlight;
+    return AmbientEffect::None;
+}
+
+void StoryScene::DrawAmbientEffects(HDC hDC)
+{
+    using namespace Gdiplus;
+    const auto effect = GetAmbientEffect();
+    if (effect == AmbientEffect::None || currentEffectKey == L"rain") return;
+    Graphics g(hDC);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.SetClip(Rect(0, 30, 1920, 770));
+    const double t = ambientSeconds;
+    if (effect == AmbientEffect::Rain)
+    {
+        const bool outside = currentBackgroundKey == L"school_day" || currentBackgroundKey.starts_with(L"cut_");
+        // 실내에서는 화면 왼쪽 창가에만 비와 물방울을 겹친다.
+        if (!outside) g.SetClip(Rect(30, 70, 610, 650));
+        SolidBrush tint(Color(28, 39, 62, 95));
+        g.FillRectangle(&tint, 0, 0, 1920, 800);
+        Pen streak(Color(105, 210, 228, 248), 1.6f);
+        Pen ripple(Color(65, 207, 226, 241), 1.4f);
+        for (int i = 0; i < 95; ++i)
+        {
+            float x = static_cast<float>((i * 163) % 1920);
+            float y = static_cast<float>(std::fmod(i * 83 + t * (290 + i % 7 * 22), 870.0) - 35);
+            g.DrawLine(&streak, x, y, x - 10, y + 34);
+            if (i % 5 == 0)
+            {
+                float radius = static_cast<float>(std::fmod(t * 22 + i * 3, 30.0));
+                g.DrawEllipse(&ripple, x - radius, 680.f + i % 80, radius * 2, radius * .4f);
+            }
+        }
+    }
+    else if (effect == AmbientEffect::Petals)
+    {
+        for (int i = 0; i < 32; ++i)
+        {
+            float x = static_cast<float>(std::fmod(i * 117 + t * (25 + i % 7), 2040.0) - 60);
+            float y = static_cast<float>(std::fmod(i * 79 + t * (18 + i % 5), 850.0) - 30);
+            const auto saved = g.Save();
+            g.TranslateTransform(x, y); g.RotateTransform(static_cast<float>(t * 24 + i * 37));
+            SolidBrush petal(Color(115, 255, 205, 222));
+            g.FillEllipse(&petal, -7.f, -3.f, 14.f, 6.f);
+            g.Restore(saved);
+        }
+    }
+    else
+    {
+        if (effect == AmbientEffect::Sunlight)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                const float shift = static_cast<float>(std::sin(t * .22 + i) * 35);
+                PointF beam[] = {{100.f + i * 340 + shift, 0}, {230.f + i * 340 + shift, 0},
+                    {680.f + i * 340 + shift, 800}, {350.f + i * 340 + shift, 800}};
+                SolidBrush sun(Color(17, 255, 235, 185));
+                g.FillPolygon(&sun, beam, 4);
+            }
+        }
+        for (int i = 0; i < 40; ++i)
+        {
+            float x = static_cast<float>(std::fmod(i * 151 + t * (5 + i % 3), 1920.0));
+            float y = static_cast<float>(std::fmod(i * 71 - t * 9 + 80000, 780.0));
+            SolidBrush dust(Color(45 + i % 40, 255, 240, 204));
+            g.FillEllipse(&dust, x, y, 2.f + i % 3, 2.f + i % 3);
+        }
+    }
 }
 
 void StoryScene::DrawCutsceneEffects(HDC hDC)
@@ -1829,172 +1992,55 @@ void StoryScene::SyncHeroineAnimation()
     }
 }
 
+
 void StoryScene::DrawAnimatedHeroine(HDC hDC, Gdiplus::Image* image, int x, int y, int height)
 {
     using namespace Gdiplus;
-    if (finished || image == nullptr || characterAlpha <= 0 || image->GetLastStatus() != Ok) return;
-    constexpr int padding = 32;
-    // 현재 표정의 원화만 캐시한다. 게임 중 파일 생성이나 외부 애니메이션 런타임이 필요하지 않다.
-    if (rasterCharacterKey != currentCharacterKey || heroineFrame == nullptr)
+    if (finished || !image || image->GetLastStatus() != Ok || characterAlpha <= 0) return;
+    heroine_image* heroine = animatedHeroineKey == L"hansea" ? &hansea :
+        (animatedHeroineKey == L"yuharin" ? &yuharin : &seoirin);
+    Image* sheet = heroine->animation;
+    // 시트가 없는 배포본에서도 원화는 정상 출력한다. 얼굴 픽셀은 변형하지 않는다.
+    if (!sheet || sheet->GetLastStatus() != Ok)
     {
-        const int width = static_cast<int>(image->GetWidth());
-        const int sourceHeight = static_cast<int>(image->GetHeight());
-        Bitmap source(width, sourceHeight, PixelFormat32bppPARGB);
-        {
-            Graphics copy(&source);
-            copy.SetCompositingMode(CompositingModeSourceCopy);
-            if (copy.DrawImage(image, 0, 0, width, sourceHeight) != Ok) return;
-        }
-        BitmapData pixels{};
-        Rect bounds(0, 0, width, sourceHeight);
-        if (source.LockBits(&bounds, ImageLockModeRead, PixelFormat32bppPARGB, &pixels) != Ok) return;
-        heroinePixels.resize(static_cast<size_t>(width) * sourceHeight);
-        for (int row = 0; row < sourceHeight; ++row)
-        {
-            const auto* input = reinterpret_cast<const std::uint32_t*>(
-                static_cast<const BYTE*>(pixels.Scan0) + static_cast<ptrdiff_t>(row) * pixels.Stride);
-            std::copy_n(input, width, heroinePixels.data() + static_cast<size_t>(row) * width);
-        }
-        source.UnlockBits(&pixels);
-        delete heroineFrame;
-        heroineFrame = new Bitmap(width + padding * 2, sourceHeight + padding * 2, PixelFormat32bppPARGB);
-        heroineSourceWidth = width;
-        heroineSourceHeight = sourceHeight;
-        rasterCharacterKey = currentCharacterKey;
+        DrawImageWithAlpha(hDC, image, x, y, height * image->GetWidth() / image->GetHeight(), height, characterAlpha);
+        return;
     }
+    const wchar_t* speaker = animatedHeroineKey == L"hansea" ? L"한세아" :
+        (animatedHeroineKey == L"yuharin" ? L"유하린" : L"서이린");
+    int frame = currentCharacterKey.ends_with(L"_smile") ? 4 : 0;
+    if (currentHeroineMotion == HeroineMotion::Shy && reactionSeconds < 2.6) frame = 4;
+    if (currentHeroineMotion == HeroineMotion::Surprise && reactionSeconds < 1.5) frame = 5;
+    const bool speaking = !isTypingFinished && !dialogues.empty() && dialogues[currentDialogueIndex].speaker == speaker;
+    // 입을 계속 크게 움직이지 않고 짧은 발화마다 열린 입 프레임을 끼운다.
+    if (speaking && std::fmod(heroineSeconds, .42) < .16) frame = 3;
+    const double blink = std::fmod(heroineSeconds, animatedHeroineKey == L"yuharin" ? 4.1 : 4.7);
+    if (blink >= 1.04 && blink < 1.28)
+        frame = blink < 1.10 || blink >= 1.22 ? 1 : 2;
+    if (currentHeroineMotion == HeroineMotion::Laugh && reactionSeconds > .35 && reactionSeconds < 1.4) frame = 2;
 
-    const bool harin = animatedHeroineKey == L"yuharin";
-    const bool irin = animatedHeroineKey == L"seoirin";
-    const float temperament = harin ? 1.15f : (irin ? 0.72f : 0.9f);
-    const double t = heroineSeconds;
-    const double r = reactionSeconds;
-    const bool speaking = !isTypingFinished && !dialogues.empty() &&
-        dialogues[currentDialogueIndex].speaker == (harin ? L"유하린" : (irin ? L"서이린" : L"한세아"));
-    float angle = 0.006f * static_cast<float>(std::sin(t * 1.1)) * temperament;
-    float drop = 0.0f;
-    float blush = 0.0f;
-    float sway = static_cast<float>(std::sin(t * 0.9)) * 3.0f * temperament;
-    const auto pulse = [r](double duration)
-    {
-        const float p = static_cast<float>((std::clamp)(r / duration, 0.0, 1.0));
-        return std::sin(p * 3.14159265f);
-    };
-    switch (currentHeroineMotion)
-    {
-    case HeroineMotion::Nod:
-        drop = 18.0f * pulse(1.6) * static_cast<float>(std::pow(std::sin(r * 5.0), 2.0));
-        break;
-    case HeroineMotion::Tilt:
-        angle += (irin ? -0.11f : 0.11f) * pulse(3.2);
-        break;
-    case HeroineMotion::Shy:
-        drop = 17.0f * pulse(3.4);
-        angle -= 0.075f * pulse(3.4);
-        blush = 0.28f * pulse(3.4);
-        sway += 9.0f * pulse(3.4);
-        break;
-    case HeroineMotion::Laugh:
-        drop = -10.0f * pulse(2.8) * static_cast<float>(std::abs(std::sin(r * 8.0)));
-        angle += 0.025f * pulse(2.8) * static_cast<float>(std::sin(r * 7.0));
-        break;
-    case HeroineMotion::Surprise:
-        drop = -22.0f * pulse(1.2);
-        sway -= 14.0f * pulse(1.2);
-        break;
-    default: break;
-    }
-    drop *= temperament;
-    if (speaking) drop += 1.8f * static_cast<float>(std::sin(t * 5.0));
-    const float breath = static_cast<float>(std::sin(t * 1.7)) * 3.0f * temperament;
-    const double blinkPhase = std::fmod(t, harin ? 4.1 : (irin ? 5.2 : 4.7));
-    const float blink = currentCharacterKey.find(L"smile") == std::wstring::npos
-        ? StoryMotion(blinkPhase, 1.05, 0.1) * (1.0f - StoryMotion(blinkPhase, 1.23, 0.14)) : 0.0f;
-
-    // 원화의 눈 위치다. 눈 주위 피부까지 연속 변형하여 감긴 눈에 빈틈이 생기지 않는다.
-    const PointF eyes[2] = {
-        harin ? PointF(162.0f, 165.0f) : (irin ? PointF(215.0f, 163.0f) : PointF(213.0f, 184.0f)),
-        harin ? PointF(234.0f, 143.0f) : (irin ? PointF(285.0f, 177.0f) : PointF(291.0f, 163.0f))
-    };
-    const float eyeAngle = irin ? 0.16f : -0.24f;
-    const float eyeCos = std::cos(eyeAngle), eyeSin = std::sin(eyeAngle);
-    const int width = heroineSourceWidth, sourceHeight = heroineSourceHeight;
-    const float pivotX = width * 0.53f, pivotY = sourceHeight * 0.30f;
-    const auto smooth = [](float low, float high, float value)
-    {
-        const float p = (std::clamp)((value - low) / (high - low), 0.0f, 1.0f);
-        return p * p * (3.0f - 2.0f * p);
-    };
-    const auto sample = [&](float sx, float sy)
-    {
-        if (sx < 0.0f || sy < 0.0f || sx >= width - 1 || sy >= sourceHeight - 1) return std::uint32_t{0};
-        const int ix = static_cast<int>(sx), iy = static_cast<int>(sy);
-        const int fx = static_cast<int>((sx - ix) * 256.0f), fy = static_cast<int>((sy - iy) * 256.0f);
-        const auto* row = heroinePixels.data() + static_cast<size_t>(iy) * width + ix;
-        std::uint32_t result = 0;
-        for (int shift = 0; shift <= 24; shift += 8)
-        {
-            const int top = ((row[0] >> shift) & 255) * (256 - fx) + ((row[1] >> shift) & 255) * fx;
-            const int bottom = ((row[width] >> shift) & 255) * (256 - fx) + ((row[width + 1] >> shift) & 255) * fx;
-            result |= static_cast<std::uint32_t>((top * (256 - fy) + bottom * fy) >> 16) << shift;
-        }
-        return result;
-    };
-    BitmapData output{};
-    Rect frameBounds(0, 0, width + padding * 2, sourceHeight + padding * 2);
-    if (heroineFrame->LockBits(&frameBounds, ImageLockModeWrite, PixelFormat32bppPARGB, &output) != Ok) return;
-    for (int row = 0; row < frameBounds.Height; ++row)
-    {
-        auto* target = reinterpret_cast<std::uint32_t*>(static_cast<BYTE*>(output.Scan0) + static_cast<ptrdiff_t>(row) * output.Stride);
-        const float py = static_cast<float>(row - padding);
-        const float head = 1.0f - smooth(sourceHeight * 0.25f, sourceHeight * 0.42f, py);
-        const float upper = 1.0f - smooth(sourceHeight * 0.38f, sourceHeight * 0.96f, py);
-        const float cosine = std::cos(angle * head), sine = std::sin(angle * head);
-        const float dy = py - pivotY - drop * head - breath * upper;
-        for (int col = 0; col < frameBounds.Width; ++col)
-        {
-            const float dx = col - padding - pivotX - sway * upper;
-            float sx = pivotX + dx * cosine + dy * sine;
-            float sy = pivotY - dx * sine + dy * cosine;
-            float cheek = 0.0f;
-            if ((blink > 0.0f || blush > 0.0f) && sy > 105.0f && sy < 245.0f)
-            {
-                for (const auto& eye : eyes)
-                {
-                    const float ex = sx - eye.X, ey = sy - eye.Y;
-                    const float across = ex * eyeCos + ey * eyeSin;
-                    const float down = -ex * eyeSin + ey * eyeCos;
-                    if (blink > 0.0f && std::abs(across) < 32.0f && std::abs(down) < 23.0f)
-                    {
-                        const float weight = 1.0f - smooth(18.0f, 32.0f, std::abs(across));
-                        const float closedHeight = 9.0f * (1.0f - blink * weight * 0.94f);
-                        const float distance = std::abs(down);
-                        const float sourceDistance = distance < closedHeight ? distance * 9.0f / closedHeight
-                            : 9.0f + (distance - closedHeight) * 14.0f / (23.0f - closedHeight);
-                        const float shift = std::copysign(sourceDistance, down) - down;
-                        sx -= eyeSin * shift;
-                        sy += eyeCos * shift;
-                    }
-                    const float cheekX = ex / 28.0f, cheekY = (ey - 27.0f) / 12.0f;
-                    cheek = (std::max)(cheek, (std::max)(0.0f, 1.0f - cheekX * cheekX - cheekY * cheekY));
-                }
-            }
-            std::uint32_t color = sample(sx, sy);
-            if (cheek > 0.0f && blush > 0.0f && (color >> 24) == 255)
-            {
-                const float a = cheek * blush;
-                const int red = static_cast<int>(((color >> 16) & 255) * (1.0f - a) + 235.0f * a);
-                const int green = static_cast<int>(((color >> 8) & 255) * (1.0f - a) + 112.0f * a);
-                const int blue = static_cast<int>((color & 255) * (1.0f - a) + 132.0f * a);
-                color = 0xff000000u | (red << 16) | (green << 8) | blue;
-            }
-            target[col] = color;
-        }
-    }
-    heroineFrame->UnlockBits(&output);
-    const float scale = static_cast<float>(height) / sourceHeight;
-    DrawImageWithAlpha(hDC, heroineFrame, x - static_cast<int>(padding * scale), y - static_cast<int>(padding * scale),
-        static_cast<int>(frameBounds.Width * scale), static_cast<int>(frameBounds.Height * scale), characterAlpha);
+    const float cellWidth = sheet->GetWidth() / 3.f;
+    const float cellHeight = sheet->GetHeight() / 2.f;
+    const float width = height * cellWidth / cellHeight;
+    // 작은 통째 이동만 사용한다. 머리/눈/목을 늘이거나 회전시키지 않는다.
+    float offsetY = static_cast<float>(std::sin(heroineSeconds * 1.5) * 1.5);
+    float offsetX = 0.f;
+    const float reaction = static_cast<float>(std::sin((std::min)(reactionSeconds / 1.8, 1.0) * 3.14159265));
+    if (currentHeroineMotion == HeroineMotion::Nod) offsetY += reaction * 3.f;
+    if (currentHeroineMotion == HeroineMotion::Tilt) offsetX += reaction * 3.f;
+    if (currentHeroineMotion == HeroineMotion::Surprise) offsetY -= reaction * 3.f;
+    if (currentHeroineMotion == HeroineMotion::Shy) offsetY += reaction * 2.f;
+    ColorMatrix matrix = {{{1,0,0,0,0},{0,1,0,0,0},{0,0,1,0,0},{0,0,0,characterAlpha / 255.f,0},{0,0,0,0,1}}};
+    ImageAttributes attributes;
+    attributes.SetColorMatrix(&matrix);
+    Graphics graphics(hDC);
+    graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+    const RectF target(x + offsetX, y + offsetY, width, static_cast<float>(height));
+    // 같은 구도의 완성된 그림을 교체한다. 얼굴/몸을 잘라 붙일 때 생기는 목 경계선도 없다.
+    graphics.DrawImage(sheet, target, (frame % 3) * cellWidth, (frame / 3) * cellHeight,
+        cellWidth, cellHeight, UnitPixel, &attributes);
 }
+
 
 void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y)
 {

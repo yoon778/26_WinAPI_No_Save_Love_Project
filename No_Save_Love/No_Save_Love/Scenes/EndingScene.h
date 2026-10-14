@@ -14,7 +14,9 @@ public:
     void SetEndingImage(int endingType, int heroineIndex);
     void SetPlayerName(const std::wstring& playerName);
     void OnMouseClick(int x, int y);
+    void OnKeyDown(WPARAM key);
     bool IsExitRequested() const;
+    bool IsReturnRequested() const { return returnRequested; }
     void Update();
     void Render(HDC hDC);
 
@@ -26,6 +28,7 @@ private:
     void DrawBackground(HDC hDC);
     void DrawCreditLine(HDC hDC, const std::wstring& text, int y, int index);
     void DrawExitButton(HDC hDC);
+    void DrawButton(HDC hDC, RECT rect, const wchar_t* label);
     bool IsCreditFinished() const;
 
 private:
@@ -41,5 +44,8 @@ private:
     int stopOffset = 0;
     bool isFastScroll = false;
     bool exitRequested = false;
-    RECT exitButtonRect = { 810, 910, 1110, 990 };
+    bool returnRequested = false;
+    RECT fastButtonRect = { 1550, 40, 1860, 105 };
+    RECT returnButtonRect = { 620, 910, 950, 990 };
+    RECT exitButtonRect = { 990, 910, 1300, 990 };
 };

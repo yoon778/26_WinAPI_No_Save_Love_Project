@@ -19,6 +19,7 @@ void EndingScene::Reset()
     scrollOffset = 0;
     isFastScroll = false;
     exitRequested = false;
+    returnRequested = false;
 
     int totalHeight = static_cast<int>(creditLines.size()) * lineSpacing;
     stopOffset = startY + totalHeight - 520;
@@ -44,22 +45,27 @@ void EndingScene::SetPlayerName(const std::wstring& playerName)
     m_playerName = playerName.empty() ? L"윤서" : playerName;
 }
 
+
 void EndingScene::OnMouseClick(int x, int y)
 {
-    POINT mousePoint = { x, y };
-
+    POINT point{x, y};
     if (IsCreditFinished())
     {
-        if (PtInRect(&exitButtonRect, mousePoint))
-        {
-            exitRequested = true;
-        }
-
-        return;
+        if (PtInRect(&returnButtonRect, point)) returnRequested = true;
+        else if (PtInRect(&exitButtonRect, point)) exitRequested = true;
     }
-
-    isFastScroll = true;
+    else if (PtInRect(&fastButtonRect, point)) isFastScroll = !isFastScroll;
 }
+
+void EndingScene::OnKeyDown(WPARAM key)
+{
+    if (IsCreditFinished())
+    {
+        if (key == VK_RETURN) returnRequested = true;
+    }
+    else if (key == 'F' || key == VK_SPACE) isFastScroll = !isFastScroll;
+}
+
 
 bool EndingScene::IsExitRequested() const
 {
@@ -100,8 +106,10 @@ void EndingScene::Render(HDC hDC)
 
     if (IsCreditFinished())
     {
+        DrawButton(hDC, returnButtonRect, L"처음으로 · Enter");
         DrawExitButton(hDC);
     }
+    else DrawButton(hDC, fastButtonRect, isFastScroll ? L"4× 재생 중 · F 정지" : L"빨리 감기 · F / Space");
 }
 
 std::wstring EndingScene::GetEndingImagePath(int endingType, int heroineIndex) const
@@ -234,6 +242,11 @@ bool EndingScene::IsCreditFinished() const
 
 void EndingScene::DrawExitButton(HDC hDC)
 {
+    DrawButton(hDC, exitButtonRect, L"게임 종료");
+}
+
+void EndingScene::DrawButton(HDC hDC, RECT rect, const wchar_t* label)
+{
     HBRUSH buttonBrush = CreateSolidBrush(RGB(20, 20, 28));
     HPEN buttonPen = CreatePen(PS_SOLID, 2, RGB(245, 225, 245));
 
@@ -242,10 +255,10 @@ void EndingScene::DrawExitButton(HDC hDC)
 
     RoundRect(
         hDC,
-        exitButtonRect.left,
-        exitButtonRect.top,
-        exitButtonRect.right,
-        exitButtonRect.bottom,
+        rect.left,
+        rect.top,
+        rect.right,
+        rect.bottom,
         18,
         18
     );
@@ -257,7 +270,7 @@ void EndingScene::DrawExitButton(HDC hDC)
     DeleteObject(buttonPen);
 
     HFONT buttonFont = CreateFontW(
-        32,
+        26,
         0,
         0,
         0,
@@ -279,9 +292,9 @@ void EndingScene::DrawExitButton(HDC hDC)
     SetTextColor(hDC, RGB(245, 245, 250));
     DrawTextW(
         hDC,
-        L"게임 종료",
+        label,
         -1,
-        &exitButtonRect,
+        &rect,
         DT_CENTER | DT_VCENTER | DT_SINGLELINE
     );
 

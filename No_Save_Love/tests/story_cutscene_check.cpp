@@ -36,6 +36,8 @@ std::uint64_t Digest(CImage& frame, int top, int bottom, int left = 0, int right
     return hash;
 }
 
+#include "reading_check.h"
+
 void CheckHeroineAnimation(StoryScene& scene, CImage& frame, HDC dc,
     const std::filesystem::path& output, bool preview)
 {
@@ -126,10 +128,10 @@ void CheckHeroineAnimation(StoryScene& scene, CImage& frame, HDC dc,
     scene.Update();
     assert(scene.heroineSeconds > 0.0 && scene.heroineSeconds <= 0.100001);
     scene.OnMouseClick(1780, 65);
-    assert(scene.animatedHeroineKey.empty() && scene.heroineSeconds == 0.0 && scene.currentHeroineMotion == HeroineMotion::Idle);
+    assert(!scene.IsFinished() && scene.fastForward); // 배속은 현재 대사부터 차례로 진행한다.
     scene.SetDialogues({});
     assert(scene.IsFinished() && scene.animatedHeroineKey.empty());
-    std::cout << "HEROINE PASS: 3 heroines, 6 motions, blink/pose pixels, UI, timing and SKIP";
+    std::cout << "HEROINE PASS: 3 heroines, 6 motions, blink/pose pixels, UI, timing and fast forward";
     if (rendered) std::cout << ", " << rendered << " preview frames, mean full render " << renderMs / rendered << " ms";
     std::cout << ".\n";
 }
@@ -380,19 +382,20 @@ int wmain(int argc, wchar_t** argv)
     scene.OnMouseClick(960, 950);
     assert(!scene.IsStoryAnimation() && scene.currentEffectKey.empty());
     scene.SetDialogues({{L"서이린", L"책갈피", L"library_day", L"seoirin_normal", L"anim_bookmark"}});
-    scene.OnMouseClick(1780, 65); // 첫 페이드 중에도 즉시 SKIP.
-    assert(scene.IsFinished() && scene.currentEffectKey.empty() && scene.nextEffectKey.empty());
+    scene.OnMouseClick(1780, 65);
+    assert(!scene.IsFinished() && scene.fastForward); // 페이드 중에도 건너뛰지 않는다.
     scene.SetDialogues({{L"유하린", L"사진", L"school_hallway", L"yuharin_normal", L"anim_photo"}});
     FinishFade(scene);
     assert(scene.cutsceneSeconds == 0.0 && scene.IsStoryAnimation());
 
-    // 페이드 도중에도 SKIP 가능. 다음 묶음에 효과/이미지 상태가 새지 않는다.
+    // 배속을 켜도 묶음을 즉시 끝내지 않는다. 다음 묶음에서 배속은 해제된다.
     scene.SetDialogues({ {L"", L"건너뛰기", L"cut_rewind", L"none", L"rewind"} });
     scene.OnMouseClick(1780, 65);
-    assert(scene.IsFinished() && scene.currentEffectKey.empty());
+    assert(!scene.IsFinished() && scene.fastForward);
     scene.SetDialogues({});
     assert(scene.IsFinished() && scene.currentBackgroundKey.empty() && !scene.IsCutscene());
 
+    CheckReading(scene, data, frame, dc, output);
     CheckHeroineAnimation(scene, frame, dc, output, heroinePreview);
     SelectObject(dc, oldFont);
     DeleteObject(font);

@@ -76,8 +76,9 @@ void StoryData::Initialize()
         { L"노트", L"그 뒤의 마음은 고칠 수 없다. 마지막 말을 남에게 맡기지 마라.", L"room", L"none", L"", L"" },
         { L"{PLAYER}", L"노트가 닫혀도…… 내일은 오는 거지?", L"room", L"none", L"", L"" },
         { L"", L"대답은 없었다. 대신 휴대폰이 울렸다.", L"room", L"none", L"", L"" },
-        { L"유하린", L"[메시지] 평가위원님, 내일 지각하면 빵은 제가 먹습니다.", L"room", L"none", L"", L"" },
-        { L"", L"답장을 보냈다. ‘우유는 내가 살게.’ 짧은 문장인데 오래 들여다봤다.", L"room", L"none", L"", L"" },
+        { L"유하린", L"평가위원님, 내일 지각하면 빵은 제가 먹습니다.", L"room", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Phone },
+        { L"{PLAYER}", L"우유는 내가 살게.", L"room", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Phone },
+        { L"", L"짧은 답장인데 오래 들여다봤다.", L"room", L"none", L"", L"" },
         { L"", L"다음 날. 날짜가 바뀌어 있었다. 세상이 앞으로 간 첫 증거였다.", L"school_hallway", L"none", L"", L"story4" },
         { L"", L"노트를 알아보려고 문예부실을 다시 찾았다.", L"school_hallway", L"none", L"", L"" },
         { L"한세아", L"거기, 잠깐만. 문 좀 잡아줄래?", L"school_hallway", L"none", L"", L"" },
@@ -123,9 +124,9 @@ void StoryData::Initialize()
         { L"{PLAYER}", L"약속은 생겼는데 지갑은 그대로네.", L"school_day", L"none", L"", L"" },
         { L"", L"주문을 듣고, 직접 일하고, 사람 앞에서 말하는 것부터 해보기로 했다.", L"school_day", L"none", L"", L"" },
         { L"", L"노트의 네 장을 채우기 전에 내 하루부터 조금 바꿔볼 생각이었다.", L"school_day", L"none", L"", L"" },
-        { L"시스템", L"네 가지 미니게임 뒤에, 함께 시간을 보낼 인물을 한 명씩 고릅니다.", L"school_day", L"none", L"", L"" },
-        { L"시스템", L"가장 많이 만난 인물이 마지막 이야기의 상대가 됩니다. 동률이면 세아, 하린, 이린 순입니다.", L"school_day", L"none", L"", L"" },
-        { L"시스템", L"미니게임으로 오른 능력치가 결말을 바꿉니다. 마지막에 별도 선택창은 없습니다.", L"school_day", L"none", L"", L"" },
+        { L"시스템", L"네 가지 미니게임 뒤에, 함께 시간을 보낼 인물을 한 명씩 고릅니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
+        { L"시스템", L"가장 많이 만난 인물이 마지막 이야기의 상대가 됩니다. 동률이면 세아, 하린, 이린 순입니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
+        { L"시스템", L"마지막 개화 공연까지 총 다섯 미니게임의 능력치가 결말을 바꿉니다. 마지막에 별도 선택창은 없습니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"{PLAYER}", L"일단 첫 주문부터. 라면도 진로 조사서처럼 빈칸으로 내면 안 되겠지.", L"school_day", L"none", L"", L"stop" },
     };
 
@@ -487,8 +488,8 @@ void StoryData::Initialize()
         { L"", L"대답이 막혔다. 나도 쉬운 말만 골라 하던 사람이었다.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"{PLAYER}", L"아니. 그래서 종이에 먼저 써보자. 어려운 게 뭔지부터.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"", L"그때 휴대폰 화면에 학급 단체 대화방 알림이 떴다.", L"hansea_room", L"hansea_normal", L"", L"story4" },
-        { L"학생 메시지", L"학생회가 문예부 돈까지 마음대로 쓰는 거 맞아?", L"hansea_room", L"hansea_normal", L"", L"" },
-        { L"학생 메시지", L"회장이 좋아하는 행사라서 몰아준다던데.", L"hansea_room", L"hansea_normal", L"", L"" },
+        { L"학생 메시지", L"학생회가 문예부 돈까지 마음대로 쓰는 거 맞아?", L"hansea_room", L"hansea_normal", L"", L"", HeroineMotion::Idle, StoryPresentation::Phone },
+        { L"학생 메시지", L"회장이 좋아하는 행사라서 몰아준다던데.", L"hansea_room", L"hansea_normal", L"", L"", HeroineMotion::Idle, StoryPresentation::Phone },
         { L"", L"계산기 위에 있던 세아의 손이 굳었다.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"{PLAYER}", L"내가 정정할게. 아직 돈 쓴 것도 없잖아.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"한세아", L"잠깐. 네가 전부 대신 말하면 또 다른 소문이 돼.", L"hansea_room", L"hansea_normal", L"", L"" },
@@ -505,7 +506,7 @@ void StoryData::Initialize()
         { L"{PLAYER}", L"나도 못 지키는 말이긴 해. 그래도 이번엔 해보자.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"", L"세아가 직접 답장을 보냈다. 마지막 줄에는 질문 받을 시간을 적었다.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"", L"곧 메시지를 올린 학생에게서 연락이 왔다.", L"hansea_room", L"hansea_normal", L"", L"" },
-        { L"학생 메시지", L"다른 부 예산 줄어드는 줄 알았어. 확인 안 하고 말해서 미안.", L"hansea_room", L"hansea_normal", L"", L"" },
+        { L"학생 메시지", L"다른 부 예산 줄어드는 줄 알았어. 확인 안 하고 말해서 미안.", L"hansea_room", L"hansea_normal", L"", L"", HeroineMotion::Idle, StoryPresentation::Phone },
         { L"한세아", L"정정도 같은 방에 부탁할게. 개인 사과만으로는 남은 글이 안 바뀌니까.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"", L"세아는 전송 버튼을 누른 뒤 휴대폰을 뒤집었다.", L"hansea_room", L"hansea_normal", L"", L"" },
         { L"{PLAYER}", L"손 떨려?", L"hansea_room", L"hansea_normal", L"", L"" },
@@ -923,7 +924,7 @@ void StoryData::Initialize()
         { L"유하린", L"조금 기다렸다 가도 돼? 오늘은 빨리 집에 가기 싫어.", L"school_hallway", L"yuharin_normal", L"", L"" },
         { L"", L"하린의 휴대폰에서 짧은 음악이 흘러나왔다. 친구가 보낸 송별 영상 시안이었다.", L"school_hallway", L"yuharin_normal", L"rain", L"story3" },
         { L"", L"화면에는 수업 중 졸던 하린과 급식실에서 웃던 하린이 번갈아 나왔다.", L"school_hallway", L"yuharin_normal", L"rain", L"" },
-        { L"친구 메시지", L"금요일 점심 방송으로 틀자! 마지막에 네가 한마디 하면 돼.", L"school_hallway", L"yuharin_normal", L"rain", L"" },
+        { L"친구 메시지", L"금요일 점심 방송으로 틀자! 마지막에 네가 한마디 하면 돼.", L"school_hallway", L"yuharin_normal", L"rain", L"", HeroineMotion::Idle, StoryPresentation::Phone },
         { L"", L"하린은 영상을 멈췄다. 정지 화면에는 눈을 감은 얼굴이 크게 남았다.", L"school_hallway", L"yuharin_normal", L"rain", L"" },
         { L"{PLAYER}", L"열심히 만들었네. 다들 널 많이……", L"school_hallway", L"yuharin_normal", L"rain", L"" },
         { L"", L"하린이 화면을 끄는 걸 보고 말을 멈췄다.", L"school_hallway", L"yuharin_normal", L"rain", L"" },
@@ -1879,7 +1880,7 @@ void StoryData::Initialize()
         { L"", L"하린이 먼저 길게 보낸 문장을 읽었다. ‘오늘은 좀 힘들었어.’", L"room", L"none", L"", L"" },
         { L"", L"괜찮아질 거라고 썼다가 지웠다. 이번에는 무슨 일이 있었는지 물었다.", L"room", L"none", L"", L"" },
         { L"", L"하지만 답장을 기다리는 일이, 예전의 침묵까지 없애주지는 않았다.", L"room", L"none", L"", L"" },
-        { L"유하린", L"[메시지] 고마워. 오늘은 좀 쉬고 싶어. 다음에 얘기하자.", L"room", L"none", L"", L"" },
+        { L"유하린", L"고마워. 오늘은 좀 쉬고 싶어. 다음에 얘기하자.", L"room", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Phone },
         { L"", L"‘다음’에는 여전히 날짜가 없었다.", L"room", L"none", L"", L"" },
         { L"", L"몇 주 뒤 하린의 새 학교 사진이 올라왔다. 그곳에서도 친구를 사귄 모양이었다.", L"harin_badend", L"none", L"rain", L"" },
         { L"", L"나는 다행이라고 생각했다. 그 사진을 가장 먼저 받는 사람은 아니었다.", L"harin_badend", L"none", L"rain", L"" },
@@ -1916,7 +1917,7 @@ void StoryData::Initialize()
         { L"", L"종이 위의 이름보다 사라지는 설명을 붙잡으려 했다.", L"cut_memory", L"none", L"memory", L"" },
         { L"", L"토요일 아침. 낯선 약속이 적힌 쪽지가 책상 위에 있었다.", L"room", L"none", L"", L"" },
         { L"{PLAYER}", L"서이린…… 같은 반이던가.", L"room", L"none", L"", L"" },
-        { L"", L"휴대폰에도 문자가 떴다. ‘옆문으로 들어오면 돼요. 도착하면 알려줘요.’", L"room", L"none", L"", L"" },
+        { L"서이린", L"옆문으로 들어오면 돼요. 도착하면 알려줘요.", L"room", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Phone },
         { L"", L"나는 답을 미루고 쪽지를 덮었다. 기억부터 돌아와야 갈 수 있다고 스스로를 설득했다.", L"room", L"none", L"", L"" },
         { L"", L"열한 시가 지났다. 열한 시 삼십 분도 지났다.", L"room", L"none", L"", L"" },
         { L"", L"도서관에서 이린은 두 사람이 앉을 자리를 맡아두었다.", L"seoirin_badend", L"none", L"memory", L"" },
@@ -2079,6 +2080,9 @@ void StoryData::Initialize()
         L"THE END"
     };
 
+    for (auto& route : storyScripts[2])
+        for (auto& line : route)
+            line.ambient = AmbientEffect::Rain;
 }
 
 const std::vector<DialogueLineInfo>& StoryData::GetBranchStory(int roundIndex, int heroineIndex) const
