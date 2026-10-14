@@ -88,6 +88,11 @@ void StoryScene::Initialize()
 void StoryScene::Shutdown()
 {
     dialogues.clear();
+    delete heroineFrame;
+    heroineFrame = nullptr;
+    heroinePixels.clear();
+    rasterCharacterKey.clear();
+    ResetHeroineAnimation();
 
     // 배경 이미지는 기존 CImage 방식으로 해제한다.
     for (int i = 0; i < BACKGROUND_IMAGE_COUNT; i++)
@@ -164,6 +169,7 @@ void StoryScene::Shutdown()
 
 void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 {
+    ResetHeroineAnimation();
     SetCutsceneEffect(L"");
     nextEffectKey.clear();
     // 새로운 대사 목록을 저장한다.
@@ -219,6 +225,7 @@ void StoryScene::OnMouseClick(int x, int y)
         fadeAlpha = 0;
         SetCutsceneEffect(L"");
         nextEffectKey.clear();
+        ResetHeroineAnimation();
 
         if (!dialogues.empty())
         {
@@ -273,6 +280,7 @@ void StoryScene::OnMouseClick(int x, int y)
     {
         // 마지막 대사에서 클릭하면 끝난 상태로 만든다.
         finished = true;
+        ResetHeroineAnimation();
     }
 }
 
@@ -419,14 +427,12 @@ void StoryScene::Render(HDC hDC)
         {
             // 소품은 왼쪽, 히로인은 오른쪽. 작은 호흡 움직임과 입장 동작을 더한다.
             const int height = 700;
-            const int width = static_cast<int>(characterImage->GetWidth() * 700.0 / characterImage->GetHeight());
-            const int x = 1330 + static_cast<int>(100.0f * (1.0f - StoryMotion(cutsceneSeconds, 0.0, 0.8)));
-            const int y = 114 + static_cast<int>(std::sin(cutsceneSeconds * 1.8) * 3.0);
-            DrawImageWithAlpha(hDC, characterImage, x, y, width, height, characterAlpha);
+            const int x = 1330 + static_cast<int>(100.0f * (1.0f - StoryMotion(heroineSeconds, 0.0, 0.8)));
+            DrawAnimatedHeroine(hDC, characterImage, x, 114, height);
         }
         else
         {
-            DrawCharacterImage(hDC, characterImage, 725, 25);
+            DrawAnimatedHeroine(hDC, characterImage, 725, 25, static_cast<int>(characterImage->GetHeight()));
         }
     }
 
@@ -741,7 +747,13 @@ void StoryScene::Update()
     if (!finished && fadeState == FadeState::None && lastCutsceneTick != 0)
     {
         // 창을 오래 멈춰두었다 복귀해도 컷씬이 한 번에 끝나지 않는다.
-        cutsceneSeconds += (std::min)(0.1, static_cast<double>(now - lastCutsceneTick) / 1000.0);
+        const double elapsed = (std::min)(0.1, static_cast<double>(now - lastCutsceneTick) / 1000.0);
+        cutsceneSeconds += elapsed;
+        if (!currentCharacterKey.empty() && (!IsCutscene() || IsStoryAnimation()))
+        {
+            heroineSeconds += elapsed;
+            reactionSeconds += elapsed;
+        }
     }
     lastCutsceneTick = now;
     // 페이드 효과를 먼저 갱신한다.
@@ -881,6 +893,7 @@ void StoryScene::StartFadeTransition(
         currentBackgroundKey = newBackgroundKey;
         currentCharacterKey = newCharacterKey;
         SetCutsceneEffect(nextEffectKey);
+        SyncHeroineAnimation();
         characterAlpha = pendingCharacterFade ? 0 : 255;
         pendingCharacterFade = false;
 
@@ -944,6 +957,7 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
         currentBackgroundKey = newBackgroundKey;
         currentCharacterKey = newCharacterKey;
         SetCutsceneEffect(line.effectKey);
+        SyncHeroineAnimation();
         characterAlpha = 255;
         pendingCharacterFade = false;
         UpdateBookFadeState();
@@ -976,10 +990,12 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
         bool shouldFadeCharacter = ShouldFadeCharacterChange(newCharacterKey);
         currentCharacterKey = newCharacterKey;
         characterAlpha = shouldFadeCharacter ? 0 : 255;
+        SyncHeroineAnimation();
         UpdateBookFadeState();
         return;
     }
 
+    SyncHeroineAnimation();
     UpdateBookFadeState();
 }
 
@@ -1789,6 +1805,197 @@ void StoryScene::DrawStoryAnimation(HDC hDC)
     }
 }
 
+void StoryScene::ResetHeroineAnimation()
+{
+    heroineSeconds = reactionSeconds = 0.0;
+    currentHeroineMotion = HeroineMotion::Idle;
+    animatedHeroineKey.clear();
+}
+
+void StoryScene::SyncHeroineAnimation()
+{
+    const std::wstring identity = currentCharacterKey.substr(0, currentCharacterKey.find(L'_'));
+    if (identity != animatedHeroineKey)
+    {
+        ResetHeroineAnimation();
+        animatedHeroineKey = identity;
+    }
+    const HeroineMotion motion = dialogues.empty() || identity.empty()
+        ? HeroineMotion::Idle : dialogues[currentDialogueIndex].heroineMotion;
+    if (motion != currentHeroineMotion)
+    {
+        currentHeroineMotion = motion;
+        reactionSeconds = 0.0;
+    }
+}
+
+void StoryScene::DrawAnimatedHeroine(HDC hDC, Gdiplus::Image* image, int x, int y, int height)
+{
+    using namespace Gdiplus;
+    if (finished || image == nullptr || characterAlpha <= 0 || image->GetLastStatus() != Ok) return;
+    constexpr int padding = 32;
+    // 현재 표정의 원화만 캐시한다. 게임 중 파일 생성이나 외부 애니메이션 런타임이 필요하지 않다.
+    if (rasterCharacterKey != currentCharacterKey || heroineFrame == nullptr)
+    {
+        const int width = static_cast<int>(image->GetWidth());
+        const int sourceHeight = static_cast<int>(image->GetHeight());
+        Bitmap source(width, sourceHeight, PixelFormat32bppPARGB);
+        {
+            Graphics copy(&source);
+            copy.SetCompositingMode(CompositingModeSourceCopy);
+            if (copy.DrawImage(image, 0, 0, width, sourceHeight) != Ok) return;
+        }
+        BitmapData pixels{};
+        Rect bounds(0, 0, width, sourceHeight);
+        if (source.LockBits(&bounds, ImageLockModeRead, PixelFormat32bppPARGB, &pixels) != Ok) return;
+        heroinePixels.resize(static_cast<size_t>(width) * sourceHeight);
+        for (int row = 0; row < sourceHeight; ++row)
+        {
+            const auto* input = reinterpret_cast<const std::uint32_t*>(
+                static_cast<const BYTE*>(pixels.Scan0) + static_cast<ptrdiff_t>(row) * pixels.Stride);
+            std::copy_n(input, width, heroinePixels.data() + static_cast<size_t>(row) * width);
+        }
+        source.UnlockBits(&pixels);
+        delete heroineFrame;
+        heroineFrame = new Bitmap(width + padding * 2, sourceHeight + padding * 2, PixelFormat32bppPARGB);
+        heroineSourceWidth = width;
+        heroineSourceHeight = sourceHeight;
+        rasterCharacterKey = currentCharacterKey;
+    }
+
+    const bool harin = animatedHeroineKey == L"yuharin";
+    const bool irin = animatedHeroineKey == L"seoirin";
+    const float temperament = harin ? 1.15f : (irin ? 0.72f : 0.9f);
+    const double t = heroineSeconds;
+    const double r = reactionSeconds;
+    const bool speaking = !isTypingFinished && !dialogues.empty() &&
+        dialogues[currentDialogueIndex].speaker == (harin ? L"유하린" : (irin ? L"서이린" : L"한세아"));
+    float angle = 0.006f * static_cast<float>(std::sin(t * 1.1)) * temperament;
+    float drop = 0.0f;
+    float blush = 0.0f;
+    float sway = static_cast<float>(std::sin(t * 0.9)) * 3.0f * temperament;
+    const auto pulse = [r](double duration)
+    {
+        const float p = static_cast<float>((std::clamp)(r / duration, 0.0, 1.0));
+        return std::sin(p * 3.14159265f);
+    };
+    switch (currentHeroineMotion)
+    {
+    case HeroineMotion::Nod:
+        drop = 18.0f * pulse(1.6) * static_cast<float>(std::pow(std::sin(r * 5.0), 2.0));
+        break;
+    case HeroineMotion::Tilt:
+        angle += (irin ? -0.11f : 0.11f) * pulse(3.2);
+        break;
+    case HeroineMotion::Shy:
+        drop = 17.0f * pulse(3.4);
+        angle -= 0.075f * pulse(3.4);
+        blush = 0.28f * pulse(3.4);
+        sway += 9.0f * pulse(3.4);
+        break;
+    case HeroineMotion::Laugh:
+        drop = -10.0f * pulse(2.8) * static_cast<float>(std::abs(std::sin(r * 8.0)));
+        angle += 0.025f * pulse(2.8) * static_cast<float>(std::sin(r * 7.0));
+        break;
+    case HeroineMotion::Surprise:
+        drop = -22.0f * pulse(1.2);
+        sway -= 14.0f * pulse(1.2);
+        break;
+    default: break;
+    }
+    drop *= temperament;
+    if (speaking) drop += 1.8f * static_cast<float>(std::sin(t * 5.0));
+    const float breath = static_cast<float>(std::sin(t * 1.7)) * 3.0f * temperament;
+    const double blinkPhase = std::fmod(t, harin ? 4.1 : (irin ? 5.2 : 4.7));
+    const float blink = currentCharacterKey.find(L"smile") == std::wstring::npos
+        ? StoryMotion(blinkPhase, 1.05, 0.1) * (1.0f - StoryMotion(blinkPhase, 1.23, 0.14)) : 0.0f;
+
+    // 원화의 눈 위치다. 눈 주위 피부까지 연속 변형하여 감긴 눈에 빈틈이 생기지 않는다.
+    const PointF eyes[2] = {
+        harin ? PointF(162.0f, 165.0f) : (irin ? PointF(215.0f, 163.0f) : PointF(213.0f, 184.0f)),
+        harin ? PointF(234.0f, 143.0f) : (irin ? PointF(285.0f, 177.0f) : PointF(291.0f, 163.0f))
+    };
+    const float eyeAngle = irin ? 0.16f : -0.24f;
+    const float eyeCos = std::cos(eyeAngle), eyeSin = std::sin(eyeAngle);
+    const int width = heroineSourceWidth, sourceHeight = heroineSourceHeight;
+    const float pivotX = width * 0.53f, pivotY = sourceHeight * 0.30f;
+    const auto smooth = [](float low, float high, float value)
+    {
+        const float p = (std::clamp)((value - low) / (high - low), 0.0f, 1.0f);
+        return p * p * (3.0f - 2.0f * p);
+    };
+    const auto sample = [&](float sx, float sy)
+    {
+        if (sx < 0.0f || sy < 0.0f || sx >= width - 1 || sy >= sourceHeight - 1) return std::uint32_t{0};
+        const int ix = static_cast<int>(sx), iy = static_cast<int>(sy);
+        const int fx = static_cast<int>((sx - ix) * 256.0f), fy = static_cast<int>((sy - iy) * 256.0f);
+        const auto* row = heroinePixels.data() + static_cast<size_t>(iy) * width + ix;
+        std::uint32_t result = 0;
+        for (int shift = 0; shift <= 24; shift += 8)
+        {
+            const int top = ((row[0] >> shift) & 255) * (256 - fx) + ((row[1] >> shift) & 255) * fx;
+            const int bottom = ((row[width] >> shift) & 255) * (256 - fx) + ((row[width + 1] >> shift) & 255) * fx;
+            result |= static_cast<std::uint32_t>((top * (256 - fy) + bottom * fy) >> 16) << shift;
+        }
+        return result;
+    };
+    BitmapData output{};
+    Rect frameBounds(0, 0, width + padding * 2, sourceHeight + padding * 2);
+    if (heroineFrame->LockBits(&frameBounds, ImageLockModeWrite, PixelFormat32bppPARGB, &output) != Ok) return;
+    for (int row = 0; row < frameBounds.Height; ++row)
+    {
+        auto* target = reinterpret_cast<std::uint32_t*>(static_cast<BYTE*>(output.Scan0) + static_cast<ptrdiff_t>(row) * output.Stride);
+        const float py = static_cast<float>(row - padding);
+        const float head = 1.0f - smooth(sourceHeight * 0.25f, sourceHeight * 0.42f, py);
+        const float upper = 1.0f - smooth(sourceHeight * 0.38f, sourceHeight * 0.96f, py);
+        const float cosine = std::cos(angle * head), sine = std::sin(angle * head);
+        const float dy = py - pivotY - drop * head - breath * upper;
+        for (int col = 0; col < frameBounds.Width; ++col)
+        {
+            const float dx = col - padding - pivotX - sway * upper;
+            float sx = pivotX + dx * cosine + dy * sine;
+            float sy = pivotY - dx * sine + dy * cosine;
+            float cheek = 0.0f;
+            if ((blink > 0.0f || blush > 0.0f) && sy > 105.0f && sy < 245.0f)
+            {
+                for (const auto& eye : eyes)
+                {
+                    const float ex = sx - eye.X, ey = sy - eye.Y;
+                    const float across = ex * eyeCos + ey * eyeSin;
+                    const float down = -ex * eyeSin + ey * eyeCos;
+                    if (blink > 0.0f && std::abs(across) < 32.0f && std::abs(down) < 23.0f)
+                    {
+                        const float weight = 1.0f - smooth(18.0f, 32.0f, std::abs(across));
+                        const float closedHeight = 9.0f * (1.0f - blink * weight * 0.94f);
+                        const float distance = std::abs(down);
+                        const float sourceDistance = distance < closedHeight ? distance * 9.0f / closedHeight
+                            : 9.0f + (distance - closedHeight) * 14.0f / (23.0f - closedHeight);
+                        const float shift = std::copysign(sourceDistance, down) - down;
+                        sx -= eyeSin * shift;
+                        sy += eyeCos * shift;
+                    }
+                    const float cheekX = ex / 28.0f, cheekY = (ey - 27.0f) / 12.0f;
+                    cheek = (std::max)(cheek, (std::max)(0.0f, 1.0f - cheekX * cheekX - cheekY * cheekY));
+                }
+            }
+            std::uint32_t color = sample(sx, sy);
+            if (cheek > 0.0f && blush > 0.0f && (color >> 24) == 255)
+            {
+                const float a = cheek * blush;
+                const int red = static_cast<int>(((color >> 16) & 255) * (1.0f - a) + 235.0f * a);
+                const int green = static_cast<int>(((color >> 8) & 255) * (1.0f - a) + 112.0f * a);
+                const int blue = static_cast<int>((color & 255) * (1.0f - a) + 132.0f * a);
+                color = 0xff000000u | (red << 16) | (green << 8) | blue;
+            }
+            target[col] = color;
+        }
+    }
+    heroineFrame->UnlockBits(&output);
+    const float scale = static_cast<float>(height) / sourceHeight;
+    DrawImageWithAlpha(hDC, heroineFrame, x - static_cast<int>(padding * scale), y - static_cast<int>(padding * scale),
+        static_cast<int>(frameBounds.Width * scale), static_cast<int>(frameBounds.Height * scale), characterAlpha);
+}
+
 void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y)
 {
     // 이미지가 없으면 출력하지 않는다.
@@ -1905,6 +2112,7 @@ void StoryScene::UpdateFade()
             currentBackgroundKey = nextBackgroundKey;
             currentCharacterKey = nextCharacterKey;
             SetCutsceneEffect(nextEffectKey);
+            SyncHeroineAnimation();
             characterAlpha = pendingCharacterFade ? 0 : 255;
             pendingCharacterFade = false;
 

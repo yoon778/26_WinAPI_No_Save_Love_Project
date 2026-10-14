@@ -6,6 +6,7 @@
 #include <atlimage.h>
 #include <gdiplus.h>
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -35,10 +36,109 @@ std::uint64_t Digest(CImage& frame, int top, int bottom, int left = 0, int right
     return hash;
 }
 
+void CheckHeroineAnimation(StoryScene& scene, CImage& frame, HDC dc,
+    const std::filesystem::path& output, bool preview)
+{
+    const wchar_t* keys[] = {L"hansea", L"yuharin", L"seoirin"};
+    const wchar_t* names[] = {L"한세아", L"유하린", L"서이린"};
+    const wchar_t* backgrounds[] = {L"hansea_room", L"yuharin_classroom", L"library_day"};
+    const wchar_t* actions[] = {L"idle", L"nod", L"tilt", L"shy", L"laugh", L"surprise"};
+    double renderMs = 0.0;
+    int rendered = 0;
+    for (int heroine = 0; heroine < 3; ++heroine)
+    {
+        for (int action = 0; action < 6; ++action)
+        {
+            const auto motion = static_cast<HeroineMotion>(action);
+            const std::wstring character = std::wstring(keys[heroine]) + (motion == HeroineMotion::Laugh ? L"_smile" : L"_normal");
+            scene.SetDialogues({{names[heroine], L"네가 있어서, 오늘은 조금 달라졌어.", backgrounds[heroine], character, L"", L"", motion}});
+            FinishFade(scene);
+            for (int tick = 0; tick < 12; ++tick) scene.UpdateObjectFades();
+            scene.OnMouseClick(960, 950);
+            assert(scene.currentHeroineMotion == motion && scene.characterAlpha == 255);
+            scene.heroineSeconds = 0.0;
+            scene.reactionSeconds = 0.0;
+            scene.Render(dc);
+            const auto first = Digest(frame, 20, 780, 690, 1290);
+            const auto text = Digest(frame, 835, 1035, 100, 1820);
+            const auto skip = Digest(frame, 40, 100, 1700, 1860);
+            scene.heroineSeconds = action == 0 ? 1.18 : 0.0; // 반응은 기본 호흡 시간을 고정해 검사한다.
+            scene.reactionSeconds = 0.8;
+            scene.Render(dc);
+            assert(first != Digest(frame, 20, 780, 690, 1290));
+            assert(text == Digest(frame, 835, 1035, 100, 1820));
+            assert(skip == Digest(frame, 40, 100, 1700, 1860));
+            assert(scene.currentDialogueIndex == 0 && !scene.IsFinished());
+            const auto stem = std::wstring(L"heroine_") + keys[heroine] + L"_" + actions[action];
+            assert(SUCCEEDED(frame.Save((output / (stem + L".png")).c_str())));
+            scene.heroineSeconds = scene.reactionSeconds = 3600.0;
+            scene.Render(dc);
+            assert(text == Digest(frame, 835, 1035, 100, 1820));
+            assert(!scene.IsFinished());
+            if (!preview) continue;
+            const auto directory = output / L"heroine_preview" / stem;
+            std::filesystem::create_directories(directory);
+            CImage crop;
+            crop.Create(350, 400, 24);
+            HDC cropDC = crop.GetDC();
+            SetStretchBltMode(cropDC, HALFTONE);
+            for (int sample = 0; sample < 48; ++sample)
+            {
+                scene.heroineSeconds = scene.reactionSeconds = sample / 12.0;
+                const auto start = std::chrono::steady_clock::now();
+                scene.Render(dc);
+                renderMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+                ++rendered;
+                // 실제 대화 장면의 히로인 부분을 확대해 눈과 고개 움직임을 확인한다.
+                StretchBlt(cropDC, 0, 0, 350, 400, dc, 640, 0, 700, 800, SRCCOPY);
+                wchar_t fileName[32];
+                swprintf_s(fileName, L"%04d.png", sample);
+                assert(SUCCEEDED(crop.Save((directory / fileName).c_str())));
+            }
+            crop.ReleaseDC();
+        }
+    }
+    // 같은 인물의 표정·소품 변경은 호흡 시간을 유지한다. 새 반응만 처음부터 시작한다.
+    scene.SetDialogues({
+        {L"한세아", L"시작", L"hansea_room", L"hansea_normal", L"", L"", HeroineMotion::Nod},
+        {L"한세아", L"웃음", L"hansea_room", L"hansea_smile", L"anim_label", L"", HeroineMotion::Laugh},
+        {L"한세아", L"계속", L"hansea_room", L"hansea_smile", L"anim_label", L"", HeroineMotion::Laugh},
+        {L"서이린", L"다른 인물", L"library_day", L"seoirin_normal", L"", L"", HeroineMotion::Tilt}
+    });
+    FinishFade(scene);
+    scene.heroineSeconds = 3.0;
+    scene.reactionSeconds = 0.8;
+    scene.OnMouseClick(960, 950);
+    scene.OnMouseClick(960, 950);
+    assert(scene.heroineSeconds == 3.0 && scene.reactionSeconds == 0.0 && scene.currentHeroineMotion == HeroineMotion::Laugh);
+    scene.reactionSeconds = 0.6;
+    scene.OnMouseClick(960, 950);
+    scene.OnMouseClick(960, 950);
+    assert(scene.reactionSeconds == 0.6);
+    scene.OnMouseClick(960, 950);
+    scene.OnMouseClick(960, 950);
+    scene.lastCutsceneTick = GetTickCount64() - 5000;
+    scene.Update();
+    assert(scene.heroineSeconds == 3.0 && scene.reactionSeconds == 0.6); // 페이드 중 정지.
+    FinishFade(scene);
+    assert(scene.animatedHeroineKey == L"seoirin" && scene.heroineSeconds == 0.0 && scene.reactionSeconds == 0.0);
+    scene.lastCutsceneTick = GetTickCount64() - 5000;
+    scene.Update();
+    assert(scene.heroineSeconds > 0.0 && scene.heroineSeconds <= 0.100001);
+    scene.OnMouseClick(1780, 65);
+    assert(scene.animatedHeroineKey.empty() && scene.heroineSeconds == 0.0 && scene.currentHeroineMotion == HeroineMotion::Idle);
+    scene.SetDialogues({});
+    assert(scene.IsFinished() && scene.animatedHeroineKey.empty());
+    std::cout << "HEROINE PASS: 3 heroines, 6 motions, blink/pose pixels, UI, timing and SKIP";
+    if (rendered) std::cout << ", " << rendered << " preview frames, mean full render " << renderMs / rendered << " ms";
+    std::cout << ".\n";
+}
+
 int wmain(int argc, wchar_t** argv)
 {
-    assert(argc == 2 || (argc == 3 && std::wstring(argv[2]) == L"--preview"));
-    const bool preview = argc == 3;
+    assert(argc == 2 || (argc == 3 && (std::wstring(argv[2]) == L"--preview" || std::wstring(argv[2]) == L"--heroine-preview")));
+    const bool preview = argc == 3 && std::wstring(argv[2]) == L"--preview";
+    const bool heroinePreview = argc == 3 && std::wstring(argv[2]) == L"--heroine-preview";
     const std::filesystem::path output(argv[1]);
     std::filesystem::create_directories(output);
     StoryData data;
@@ -70,6 +170,7 @@ int wmain(int argc, wchar_t** argv)
     std::ofstream manifest(output / L"animation_manifest.txt");
     assert(manifest.good());
     int animationSegments = 0;
+    int heroineReactions = 0;
     int previewIndex = 0;
     int lineCount = 0;
     int maxTextHeight = 0;
@@ -91,6 +192,13 @@ int wmain(int argc, wchar_t** argv)
             auto* background = scene.GetBackgroundImage(scene.currentBackgroundKey);
             assert(background && !background->IsNull());
             assert(scene.currentEffectKey == line.effectKey);
+            assert(line.heroineMotion >= HeroineMotion::Idle && line.heroineMotion <= HeroineMotion::Surprise);
+            if (line.heroineMotion != HeroineMotion::Idle)
+            {
+                ++heroineReactions;
+                assert(!scene.currentCharacterKey.empty() && (!scene.IsCutscene() || scene.IsStoryAnimation()));
+                assert(scene.currentHeroineMotion == line.heroineMotion);
+            }
             if (!scene.currentCharacterKey.empty())
             {
                 auto* character = scene.GetCharacterImage(scene.currentCharacterKey);
@@ -200,11 +308,13 @@ int wmain(int argc, wchar_t** argv)
     assert(animated.size() == 18);
     assert(renderedAnimations.size() == 22);
     assert(animationSegments == 23);
+    assert(heroineReactions == 41);
     for (int round = 0; round < 4; ++round)
         for (int heroine = 0; heroine < 3; ++heroine)
         {
             const auto& branch = data.GetBranchStory(round, heroine);
             assert(std::any_of(branch.begin(), branch.end(), [](const auto& line) { return line.effectKey.rfind(L"anim_", 0) == 0; }));
+            assert(std::count_if(branch.begin(), branch.end(), [](const auto& line) { return line.heroineMotion != HeroineMotion::Idle; }) >= 3);
         }
     assert(data.GetBranchStory(-1, 0).empty() && data.GetBranchStory(4, 0).empty());
     assert(data.GetBranchStory(0, -1).empty() && data.GetBranchStory(0, 3).empty());
@@ -276,6 +386,7 @@ int wmain(int argc, wchar_t** argv)
     scene.SetDialogues({});
     assert(scene.IsFinished() && scene.currentBackgroundKey.empty() && !scene.IsCutscene());
 
+    CheckHeroineAnimation(scene, frame, dc, output, heroinePreview);
     SelectObject(dc, oldFont);
     DeleteObject(font);
     frame.ReleaseDC();

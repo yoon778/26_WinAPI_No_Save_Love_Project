@@ -3,10 +3,13 @@
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <atlimage.h>
 #include <gdiplus.h>
 
 #pragma comment(lib, "gdiplus.lib")
+
+enum class HeroineMotion { Idle, Nod, Tilt, Shy, Laugh, Surprise };
 
 // 대사 한 줄의 정보다.
 // StoryScene 밖에서도 사용할 수 있게 class 밖에 둔다.
@@ -19,6 +22,7 @@ struct DialogueLineInfo
     std::wstring characterKey = L"";  // 캐릭터 이미지 이름 또는 키
     std::wstring effectKey = L"";     // 컷씬 효과 또는 anim_ 접두어의 이야기 소품 애니메이션. 빈 값은 해제.
     std::wstring bgmKey = L"";        // 이 대사에서 변경할 BGM 키
+    HeroineMotion heroineMotion = HeroineMotion::Idle; // 소품 효과와 독립적으로 재생한다.
 };
 //페이드 아웃 인 
 enum class FadeState
@@ -96,6 +100,19 @@ private:
     bool IsCutscene() const;
     bool IsStoryAnimation() const;
     void DrawStoryAnimation(HDC hDC);
+    void ResetHeroineAnimation();
+    void SyncHeroineAnimation();
+    void DrawAnimatedHeroine(HDC hDC, Gdiplus::Image* image, int x, int y, int height);
+
+    double heroineSeconds = 0.0;
+    double reactionSeconds = 0.0;
+    HeroineMotion currentHeroineMotion = HeroineMotion::Idle;
+    std::wstring animatedHeroineKey;
+    std::wstring rasterCharacterKey;
+    std::vector<std::uint32_t> heroinePixels;
+    Gdiplus::Bitmap* heroineFrame = nullptr;
+    int heroineSourceWidth = 0;
+    int heroineSourceHeight = 0;
 
     std::wstring currentEffectKey;
     std::wstring nextEffectKey;
