@@ -3,6 +3,16 @@
 #include <algorithm>
 #include <cmath>
 
+namespace
+{
+    // 한 번 진행한 동작은 끝 자세에 머문다. 다음 대사에서도 같은 효과 키면 이어진다.
+    float StoryMotion(double seconds, double start, double duration)
+    {
+        const double p = (std::clamp)((seconds - start) / duration, 0.0, 1.0);
+        return static_cast<float>(p * p * (3.0 - 2.0 * p));
+    }
+}
+
 void StoryScene::Initialize()
 {
     // =========================
@@ -403,13 +413,21 @@ void StoryScene::Render(HDC hDC)
     // =========================
     Gdiplus::Image* characterImage = GetCharacterImage(currentCharacterKey);
 
-    if (!IsCutscene() && characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
+    if ((!IsCutscene() || IsStoryAnimation()) && characterImage != nullptr && characterImage->GetLastStatus() == Gdiplus::Ok)
     {
-        int characterX = 725;
-        int characterY = 25;
-
-        // GDI+로 캐릭터 이미지를 출력한다.
-        DrawCharacterImage(hDC, characterImage, characterX, characterY);
+        if (IsStoryAnimation())
+        {
+            // 소품은 왼쪽, 히로인은 오른쪽. 작은 호흡 움직임과 입장 동작을 더한다.
+            const int height = 700;
+            const int width = static_cast<int>(characterImage->GetWidth() * 700.0 / characterImage->GetHeight());
+            const int x = 1330 + static_cast<int>(100.0f * (1.0f - StoryMotion(cutsceneSeconds, 0.0, 0.8)));
+            const int y = 114 + static_cast<int>(std::sin(cutsceneSeconds * 1.8) * 3.0);
+            DrawImageWithAlpha(hDC, characterImage, x, y, width, height, characterAlpha);
+        }
+        else
+        {
+            DrawCharacterImage(hDC, characterImage, 725, 25);
+        }
     }
 
     if (!IsCutscene() && !dialogues.empty() && dialogues[currentDialogueIndex].speaker == L"노트")
@@ -420,6 +438,7 @@ void StoryScene::Render(HDC hDC)
 
     // 대사와 버튼은 효과 이후에 그려 흔들림/섬광 중에도 읽을 수 있게 한다.
     DrawCutsceneEffects(hDC);
+    DrawStoryAnimation(hDC);
     DrawFadeOverlay(hDC);
 
     // 출력할 대사가 없으면 그리지 않는다.
@@ -1072,11 +1091,25 @@ void StoryScene::SetCutsceneEffect(const std::wstring& effectKey)
 
 bool StoryScene::IsCutscene() const
 {
-    return !currentEffectKey.empty() || currentBackgroundKey.rfind(L"cut_", 0) == 0;
+    return (!currentEffectKey.empty() && !IsStoryAnimation()) || currentBackgroundKey.rfind(L"cut_", 0) == 0;
+}
+
+bool StoryScene::IsStoryAnimation() const
+{
+    return currentEffectKey.rfind(L"anim_", 0) == 0;
 }
 
 void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
 {
+    if (IsStoryAnimation())
+    {
+        image.Draw(hDC, 0, 0, 1920, 1080);
+        Gdiplus::Graphics graphics(hDC);
+        Gdiplus::LinearGradientBrush shade(Gdiplus::Point(0, 0), Gdiplus::Point(1920, 0),
+            Gdiplus::Color(190, 20, 25, 42), Gdiplus::Color(50, 20, 25, 42));
+        graphics.FillRectangle(&shade, 0, 0, 1920, 820);
+        return;
+    }
     if (!IsCutscene())
     {
         image.Draw(hDC, 0, 0, 1920, 1080);
@@ -1118,7 +1151,7 @@ void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
 
 void StoryScene::DrawCutsceneEffects(HDC hDC)
 {
-    if (!IsCutscene() || finished) return;
+    if (!IsCutscene() || IsStoryAnimation() || finished) return;
 
     Gdiplus::Graphics graphics(hDC);
     graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
@@ -1184,6 +1217,233 @@ void StoryScene::DrawCutsceneEffects(HDC hDC)
     Gdiplus::SolidBrush bars(Gdiplus::Color(210, 7, 8, 15));
     graphics.FillRectangle(&bars, 0, 0, 1920, 30);
     graphics.FillRectangle(&bars, 0, 1050, 1920, 30);
+}
+
+void StoryScene::DrawStoryAnimation(HDC hDC)
+{
+    if (!IsStoryAnimation() || finished) return;
+
+    using namespace Gdiplus;
+    Graphics graphics(hDC);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+    graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+    graphics.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
+    // 소품, 그림자, 입자는 대사창과 SKIP 영역 밖으로 나가지 않는다.
+    graphics.SetClip(Rect(60, 110, 1180, 675));
+    const double t = cutsceneSeconds;
+    const float entrance = StoryMotion(t, 0.0, 0.7);
+    graphics.TranslateTransform(660.0f, 450.0f + (1.0f - entrance) * 55.0f);
+
+    SolidBrush paper(Color(255, 255, 247, 225));
+    SolidBrush ink(Color(255, 62, 70, 88));
+    SolidBrush shadow(Color(65, 8, 12, 24));
+    SolidBrush rose(Color(255, 211, 124, 145));
+    Pen line(Color(255, 116, 124, 138), 2.5f);
+    Font captionFont(L"맑은 고딕", 22.0f, FontStyleRegular, UnitPixel);
+    Font title(L"맑은 고딕", 30.0f, FontStyleBold, UnitPixel);
+    const auto label = [&](const wchar_t* text, float x, float y, bool heading = false)
+    {
+        graphics.DrawString(text, -1, heading ? &title : &captionFont, PointF(x, y), &ink);
+    };
+    const auto star = [&](float x, float y, float radius)
+    {
+        PointF points[10];
+        for (int i = 0; i < 10; ++i)
+        {
+            const float angle = static_cast<float>(i * 3.14159265 / 5.0 - 3.14159265 / 2.0);
+            const float r = radius * (i % 2 == 0 ? 1.0f : 0.45f);
+            points[i] = PointF(x + std::cos(angle) * r, y + std::sin(angle) * r);
+        }
+        SolidBrush gold(Color(255, 239, 180, 84));
+        graphics.FillPolygon(&gold, points, 10);
+    };
+
+    if (currentEffectKey == L"anim_letter")
+    {
+        const float flap = StoryMotion(t, 0.2, 1.0);
+        const float rise = StoryMotion(t, 1.0, 1.8);
+        graphics.RotateTransform(-5.0f + 1.2f * static_cast<float>(std::sin(t * 0.7)));
+        graphics.FillRectangle(&shadow, RectF(-237.0f, -58.0f, 500.0f, 310.0f));
+        SolidBrush envelope(Color(255, 210, 169, 113));
+        graphics.FillRectangle(&envelope, RectF(-250.0f, -80.0f, 500.0f, 310.0f));
+        const PointF back[] = { {-250.0f, -80.0f}, {0.0f, -80.0f - flap * 170.0f}, {250.0f, -80.0f} };
+        graphics.FillPolygon(&envelope, back, 3);
+        const float paperY = 15.0f - rise * 245.0f;
+        const auto sheetState = graphics.Save();
+        graphics.SetClip(RectF(-220.0f, -300.0f, 440.0f, 530.0f), CombineModeIntersect);
+        graphics.FillRectangle(&paper, RectF(-211.0f, paperY, 422.0f, 360.0f));
+        label(currentCharacterKey.rfind(L"seoirin", 0) == 0 ? L"쉼표" : L"문예부 · 정산 기록", -177.0f, paperY + 25.0f, true);
+        for (int i = 0; i < 5; ++i)
+        {
+            const float writing = StoryMotion(t, 2.3 + i * 0.18, 0.65);
+            graphics.DrawLine(&line, -175.0f, paperY + 95.0f + i * 32.0f,
+                -175.0f + (320.0f - (i % 2) * 70.0f) * writing, paperY + 95.0f + i * 32.0f);
+        }
+        graphics.Restore(sheetState);
+        // 앞면이 올라오는 종이의 아랫부분을 가려 실제로 봉투에서 꺼내는 모양을 만든다.
+        SolidBrush front(Color(255, 229, 191, 137));
+        const PointF left[] = { {-250.0f, -80.0f}, {30.0f, 100.0f}, {-250.0f, 230.0f} };
+        const PointF right[] = { {250.0f, -80.0f}, {-30.0f, 100.0f}, {250.0f, 230.0f} };
+        const PointF bottom[] = { {-250.0f, 230.0f}, {0.0f, 55.0f}, {250.0f, 230.0f} };
+        graphics.FillPolygon(&front, left, 3);
+        graphics.FillPolygon(&front, right, 3);
+        graphics.FillPolygon(&front, bottom, 3);
+        if (flap < 1.0f)
+        {
+            const PointF closed[] = { {-250.0f, -80.0f}, {0.0f, -80.0f + (1.0f - flap) * 170.0f}, {250.0f, -80.0f} };
+            graphics.FillPolygon(&envelope, closed, 3);
+        }
+    }
+    else if (currentEffectKey == L"anim_photo")
+    {
+        const float develop = StoryMotion(t, 0.6, 2.7);
+        graphics.TranslateTransform(0.0f, (1.0f - entrance) * -100.0f);
+        graphics.RotateTransform(-7.0f + (1.0f - entrance) * 16.0f);
+        graphics.FillRectangle(&shadow, RectF(-223.0f, -263.0f, 480.0f, 570.0f));
+        graphics.FillRectangle(&paper, RectF(-240.0f, -280.0f, 480.0f, 570.0f));
+        const RectF photo(-210.0f, -250.0f, 420.0f, 430.0f);
+        LinearGradientBrush light(photo, Color(255, 182, 206, 216), Color(255, 245, 220, 208), LinearGradientModeVertical);
+        graphics.FillRectangle(&light, photo);
+        Image* heroine = GetCharacterImage(L"yuharin_normal");
+        if (heroine != nullptr && heroine->GetLastStatus() == Ok)
+        {
+            // 기존 하린 원화를 사진 안에 넣는다. 얼굴과 상반신의 비율을 유지한다.
+            const float sourceHeight = heroine->GetWidth() * photo.Height / photo.Width;
+            graphics.DrawImage(heroine, photo, 0.0f, 0.0f, static_cast<float>(heroine->GetWidth()), sourceHeight, UnitPixel);
+        }
+        SolidBrush developing(Color(static_cast<BYTE>(255.0f * (1.0f - develop)), 240, 235, 222));
+        graphics.FillRectangle(&developing, photo);
+        label(L"장난치지 않은 두 번째 사진", -192.0f, 207.0f);
+        star(195.0f, 238.0f, 19.0f * StoryMotion(t, 3.2, 0.5));
+    }
+    else if (currentEffectKey == L"anim_map")
+    {
+        graphics.RotateTransform(-3.0f);
+        graphics.ScaleTransform(0.15f + 0.85f * entrance, 1.0f);
+        graphics.FillRectangle(&shadow, RectF(-322.0f, -237.0f, 680.0f, 490.0f));
+        graphics.FillRectangle(&paper, RectF(-340.0f, -255.0f, 680.0f, 490.0f));
+        label(L"쓸데있는 학교 지도", -285.0f, -221.0f, true);
+        Pen fold(Color(95, 170, 153, 125), 2.0f);
+        graphics.DrawLine(&fold, -115.0f, -255.0f, -115.0f, 235.0f);
+        graphics.DrawLine(&fold, 110.0f, -255.0f, 110.0f, 235.0f);
+        SolidBrush building(Color(255, 213, 224, 215));
+        graphics.FillRectangle(&building, RectF(-290.0f, -130.0f, 145.0f, 85.0f));
+        graphics.FillRectangle(&building, RectF(92.0f, -112.0f, 180.0f, 100.0f));
+        graphics.FillRectangle(&building, RectF(-90.0f, 66.0f, 155.0f, 95.0f));
+        label(L"교실", -250.0f, -105.0f);
+        label(L"도서관", 135.0f, -80.0f);
+        label(L"계단", -55.0f, 96.0f);
+        label(L"교문", 220.0f, 168.0f);
+        const PointF route[] = { {-230.0f, -27.0f}, {-230.0f, 30.0f}, {150.0f, 30.0f},
+            {150.0f, 130.0f}, {95.0f, 130.0f}, {95.0f, 195.0f}, {210.0f, 195.0f} };
+        Pen path(Color(255, 205, 119, 128), 6.0f);
+        path.SetStartCap(LineCapRound);
+        path.SetEndCap(LineCapRound);
+        const float progress = StoryMotion(t, 0.6, 3.6) * 6.0f;
+        PointF tip = route[0];
+        for (int i = 0; i < 6; ++i)
+        {
+            const float part = (std::clamp)(progress - i, 0.0f, 1.0f);
+            if (part <= 0.0f) break;
+            tip = PointF(route[i].X + (route[i + 1].X - route[i].X) * part,
+                route[i].Y + (route[i + 1].Y - route[i].Y) * part);
+            graphics.DrawLine(&path, route[i], tip);
+            if (part >= 1.0f && i % 2 == 0) star(tip.X, tip.Y, 15.0f);
+        }
+        const float radius = 8.0f + 2.0f * static_cast<float>(std::sin(t * 3.0));
+        graphics.FillEllipse(&rose, RectF(tip.X - radius, tip.Y - radius, radius * 2.0f, radius * 2.0f));
+    }
+    else if (currentEffectKey == L"anim_voice")
+    {
+        graphics.RotateTransform(3.0f + static_cast<float>(std::sin(t * 0.7)));
+        graphics.FillRectangle(&shadow, RectF(-177.0f, -279.0f, 390.0f, 580.0f));
+        SolidBrush phone(Color(255, 42, 49, 66));
+        graphics.FillRectangle(&phone, RectF(-195.0f, -295.0f, 390.0f, 580.0f));
+        SolidBrush screen(Color(255, 244, 237, 225));
+        graphics.FillRectangle(&screen, RectF(-172.0f, -255.0f, 344.0f, 480.0f));
+        label(L"금요일에 전할 말", -141.0f, -215.0f, true);
+        label(L"목소리를 남기는 중", -114.0f, -150.0f);
+        Pen wave(Color(255, 199, 106, 128), 10.0f);
+        wave.SetStartCap(LineCapRound);
+        wave.SetEndCap(LineCapRound);
+        for (int i = 0; i < 17; ++i)
+        {
+            const float amplitude = 12.0f + 70.0f * static_cast<float>(std::abs(std::sin(t * 3.6 + i * 0.72)
+                * std::cos(t * 1.3 - i * 0.3)));
+            graphics.DrawLine(&wave, -135.0f + i * 17.0f, -amplitude, -135.0f + i * 17.0f, amplitude);
+        }
+        const float pulse = 18.0f + 3.0f * static_cast<float>(std::sin(t * 2.8));
+        graphics.FillEllipse(&rose, RectF(-pulse, 152.0f - pulse, pulse * 2.0f, pulse * 2.0f));
+        Pen speaker(Color(255, 125, 134, 150), 5.0f);
+        graphics.DrawLine(&speaker, -48.0f, -275.0f, 48.0f, -275.0f);
+    }
+    else if (currentEffectKey == L"anim_bookmark")
+    {
+        const float exchange = StoryMotion(t, 3.3, 2.3);
+        for (int card = 0; card < 2; ++card)
+        {
+            const auto saved = graphics.Save();
+            const float side = card == 0 ? -1.0f : 1.0f;
+            const float x = side * 170.0f * (1.0f - 2.0f * exchange);
+            const float y = side * 65.0f * std::sin(exchange * 3.14159265f);
+            graphics.TranslateTransform(x, y);
+            graphics.RotateTransform(side * (-9.0f + 18.0f * exchange));
+            graphics.FillRectangle(&shadow, RectF(-93.0f, -225.0f, 205.0f, 460.0f));
+            SolidBrush cardPaper(card == 0 ? Color(255, 252, 229, 221) : Color(255, 224, 236, 237));
+            graphics.FillRectangle(&cardPaper, RectF(-105.0f, -240.0f, 210.0f, 460.0f));
+            Pen stem(Color(255, 96, 143, 120), 4.0f);
+            graphics.DrawLine(&stem, 0.0f, 35.0f, 0.0f, 35.0f + 90.0f * StoryMotion(t, 0.6, 1.0));
+            Pen petal(card == 0 ? Color(255, 199, 123, 144) : Color(255, 104, 142, 182), 3.5f);
+            const int petals = card == 0 ? 5 : 6;
+            for (int i = 0; i < petals; ++i)
+            {
+                const auto flowerState = graphics.Save();
+                graphics.RotateTransform(i * 360.0f / petals);
+                const float stroke = StoryMotion(t, 0.8 + i * 0.2, 0.8);
+                // 두 번째 꽃은 대본의 '문어 같은 꽃'처럼 길고 납작하게 그린다.
+                graphics.DrawArc(&petal, RectF(-18.0f, -75.0f, 36.0f, card == 0 ? 65.0f : 90.0f), 90.0f, 350.0f * stroke);
+                graphics.Restore(flowerState);
+            }
+            star(0.0f, 0.0f, 13.0f * StoryMotion(t, 2.2, 0.5));
+            label(card == 0 ? L"이린의 꽃" : L"너의 꽃", -65.0f, 160.0f);
+            Pen ribbon(Color(255, 193, 150, 126), 5.0f);
+            graphics.DrawBezier(&ribbon, -10.0f, -240.0f, -60.0f, -295.0f, 50.0f, -290.0f, 10.0f, -230.0f);
+            graphics.Restore(saved);
+        }
+    }
+    else if (currentEffectKey == L"anim_ink")
+    {
+        graphics.RotateTransform(-5.0f);
+        SolidBrush cover(Color(255, 32, 29, 48));
+        SolidBrush page(Color(255, 208, 203, 220));
+        graphics.FillRectangle(&shadow, RectF(-52.0f, -192.0f, 500.0f, 420.0f));
+        graphics.FillRectangle(&cover, RectF(-70.0f, -210.0f, 500.0f, 420.0f));
+        graphics.FillRectangle(&page, RectF(-50.0f, -193.0f, 460.0f, 386.0f));
+        Pen spine(Color(180, 83, 75, 105), 7.0f);
+        graphics.DrawLine(&spine, 180.0f, -190.0f, 180.0f, 190.0f);
+        // 노트 안에 끼인 끝 부분만 흐려진다. 바깥의 관찰 기록은 그대로 남는다.
+        graphics.FillRectangle(&paper, RectF(250.0f, -275.0f, 120.0f, 390.0f));
+        Pen safeInk(Color(255, 107, 115, 132), 4.0f);
+        for (int i = 0; i < 2; ++i)
+            graphics.DrawLine(&safeInk, 267.0f, -245.0f + i * 24.0f, 346.0f, -245.0f + i * 24.0f);
+        for (int i = 0; i < 8; ++i)
+        {
+            const float dissolve = StoryMotion(t, 0.6 + i * 0.2, 2.2);
+            Pen fading(Color(static_cast<BYTE>(255.0f * (1.0f - dissolve)), 97, 89, 130), 4.0f);
+            const float y = -130.0f + i * 28.0f;
+            graphics.DrawLine(&fading, 267.0f, y, 346.0f, y);
+            for (int mote = 0; mote < 4; ++mote)
+            {
+                const float x = 271.0f + mote * 22.0f + dissolve * (65.0f + i * 4.0f);
+                SolidBrush dust(Color(static_cast<BYTE>(210.0f * std::sin(dissolve * 3.14159265f)), 193, 176, 239));
+                graphics.FillEllipse(&dust, RectF(x, y - dissolve * (130.0f + mote * 18.0f), 5.0f, 5.0f));
+            }
+        }
+        graphics.FillRectangle(&paper, RectF(-395.0f, -125.0f, 230.0f, 250.0f));
+        label(L"바깥의 기록", -370.0f, -99.0f);
+        for (int i = 0; i < 4; ++i)
+            graphics.DrawLine(&safeInk, -369.0f, -30.0f + i * 33.0f, -195.0f, -30.0f + i * 33.0f);
+    }
 }
 
 void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y)

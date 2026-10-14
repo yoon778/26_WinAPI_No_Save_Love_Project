@@ -36,7 +36,8 @@ std::uint64_t Digest(CImage& frame, int top, int bottom, int left = 0, int right
 
 int wmain(int argc, wchar_t** argv)
 {
-    assert(argc == 2);
+    assert(argc == 2 || (argc == 3 && std::wstring(argv[2]) == L"--preview"));
+    const bool preview = argc == 3;
     const std::filesystem::path output(argv[1]);
     std::filesystem::create_directories(output);
     StoryData data;
@@ -56,10 +57,13 @@ int wmain(int argc, wchar_t** argv)
         for (int heroine = 0; heroine < 3; ++heroine)
             scripts.push_back(&data.GetEndingStory(type, heroine));
 
-    const std::set<std::wstring> effects = {L"", L"rewind", L"rain", L"petals", L"memory", L"glitch"};
+    const std::set<std::wstring> effects = {L"", L"rewind", L"rain", L"petals", L"memory", L"glitch",
+        L"anim_letter", L"anim_photo", L"anim_map", L"anim_voice", L"anim_bookmark", L"anim_ink"};
     const std::set<std::wstring> music = {L"", L"stop", L"story1", L"story2", L"story3", L"story4", L"story5",
         L"story2.1", L"story3.1", L"story4.1", L"story5.1"};
     std::set<std::wstring> photographed;
+    std::set<std::wstring> animated;
+    int previewIndex = 0;
     int lineCount = 0;
     int maxTextHeight = 0;
     HFONT font = CreateFontW(36, 0, 0, 0, 600, FALSE, FALSE, FALSE, HANGEUL_CHARSET,
@@ -106,6 +110,50 @@ int wmain(int argc, wchar_t** argv)
             // 첫 클릭은 글자 전체 표시, 다음 클릭은 정확히 한 줄 진행.
             scene.OnMouseClick(960, 950);
             assert(scene.isTypingFinished);
+            if (scene.IsStoryAnimation() && animated.insert(line.effectKey).second)
+            {
+                assert(!scene.currentCharacterKey.empty());
+                // 테스트는 시간을 직접 지정하므로 실제 프레임에서 진행되는 캐릭터 페이드도 마친다.
+                for (int tick = 0; tick < 12; ++tick) scene.UpdateObjectFades();
+                assert(scene.characterAlpha == 255);
+                scene.cutsceneSeconds = 0.3;
+                scene.Render(dc);
+                // 히로인의 호흡 움직임이 아니라 왼쪽 소품 자체의 변화를 검사한다.
+                const auto first = Digest(frame, 120, 780, 100, 1190);
+                const auto textPixels = Digest(frame, 835, 1035, 100, 1820);
+                const auto skipPixels = Digest(frame, 40, 100, 1700, 1860);
+                assert(SUCCEEDED(frame.Save((output / (line.effectKey + L"_start.png")).c_str())));
+                scene.cutsceneSeconds = 3.0;
+                scene.Render(dc);
+                assert(first != Digest(frame, 120, 780, 100, 1190));
+                assert(textPixels == Digest(frame, 835, 1035, 100, 1820));
+                assert(skipPixels == Digest(frame, 40, 100, 1700, 1860));
+                assert(SUCCEEDED(frame.Save((output / (line.effectKey + L".png")).c_str())));
+                scene.cutsceneSeconds = 6.0;
+                scene.Render(dc);
+                assert(textPixels == Digest(frame, 835, 1035, 100, 1820));
+                assert(scene.currentDialogueIndex == static_cast<int>(i)); // 시간 경과로 대사를 넘기지 않음.
+                assert(SUCCEEDED(frame.Save((output / (line.effectKey + L"_end.png")).c_str())));
+                if (preview)
+                {
+                    const auto previewPath = output / L"animation_preview";
+                    std::filesystem::create_directories(previewPath);
+                    CImage thumbnail;
+                    thumbnail.Create(640, 360, 24);
+                    HDC previewDC = thumbnail.GetDC();
+                    SetStretchBltMode(previewDC, HALFTONE);
+                    for (int sample = 0; sample < 72; ++sample)
+                    {
+                        scene.cutsceneSeconds = sample / 12.0;
+                        scene.Render(dc);
+                        StretchBlt(previewDC, 0, 0, 640, 360, dc, 0, 0, 1920, 1080, SRCCOPY);
+                        wchar_t fileName[32];
+                        swprintf_s(fileName, L"%04d.png", previewIndex++);
+                        assert(SUCCEEDED(thumbnail.Save((previewPath / fileName).c_str())));
+                    }
+                    thumbnail.ReleaseDC();
+                }
+            }
             if ((line.backgroundKey.rfind(L"cut_", 0) == 0 || line.backgroundKey == L"hidden_end")
                 && photographed.insert(line.backgroundKey).second)
             {
@@ -125,6 +173,7 @@ int wmain(int argc, wchar_t** argv)
         assert(scene.IsFinished());
     }
     assert(photographed.size() == 7);
+    assert(animated.size() == 6);
     assert(data.GetBranchStory(-1, 0).empty() && data.GetBranchStory(4, 0).empty());
     assert(data.GetBranchStory(0, -1).empty() && data.GetBranchStory(0, 3).empty());
     assert(data.GetEndingStory(-1, 0).empty() && data.GetEndingStory(3, 0).empty());
@@ -155,6 +204,39 @@ int wmain(int argc, wchar_t** argv)
     FinishFade(scene);
     assert(!scene.IsCutscene() && scene.cutsceneSeconds < 0.1);
 
+    // 일반 배경에서 소품 애니메이션과 표정 변경을 이어가고 다음 줄에서 해제한다.
+    scene.SetDialogues({
+        {L"유하린", L"지도 시작", L"school_hallway", L"yuharin_normal", L"anim_map"},
+        {L"유하린", L"표정 변경", L"school_hallway", L"yuharin_smile", L"anim_map"},
+        {L"유하린", L"일상", L"school_hallway", L"yuharin_smile", L""}
+    });
+    FinishFade(scene);
+    assert(scene.IsStoryAnimation() && !scene.IsCutscene());
+    scene.cutsceneSeconds = 4.0;
+    scene.OnMouseClick(960, 950);
+    scene.OnMouseClick(960, 950);
+    assert(scene.cutsceneSeconds == 4.0 && scene.currentCharacterKey == L"yuharin_smile");
+    // 긴 프레임 간격은 0.1초로 제한한다. 페이드 중에는 효과 시간을 멈춘다.
+    scene.lastCutsceneTick = GetTickCount64() - 5000;
+    scene.Update();
+    assert(scene.cutsceneSeconds > 4.0 && scene.cutsceneSeconds <= 4.100001);
+    const double beforeFade = scene.cutsceneSeconds;
+    scene.fadeState = FadeState::FadeIn;
+    scene.fadeAlpha = 100;
+    scene.lastCutsceneTick = GetTickCount64() - 5000;
+    scene.Update();
+    assert(scene.cutsceneSeconds == beforeFade);
+    FinishFade(scene);
+    scene.OnMouseClick(960, 950);
+    scene.OnMouseClick(960, 950);
+    assert(!scene.IsStoryAnimation() && scene.currentEffectKey.empty());
+    scene.SetDialogues({{L"서이린", L"책갈피", L"library_day", L"seoirin_normal", L"anim_bookmark"}});
+    scene.OnMouseClick(1780, 65); // 첫 페이드 중에도 즉시 SKIP.
+    assert(scene.IsFinished() && scene.currentEffectKey.empty() && scene.nextEffectKey.empty());
+    scene.SetDialogues({{L"유하린", L"사진", L"school_hallway", L"yuharin_normal", L"anim_photo"}});
+    FinishFade(scene);
+    assert(scene.cutsceneSeconds == 0.0 && scene.IsStoryAnimation());
+
     // 페이드 도중에도 SKIP 가능. 다음 묶음에 효과/이미지 상태가 새지 않는다.
     scene.SetDialogues({ {L"", L"건너뛰기", L"cut_rewind", L"none", L"rewind"} });
     scene.OnMouseClick(1780, 65);
@@ -168,5 +250,6 @@ int wmain(int argc, wchar_t** argv)
     frame.Destroy();
     scene.Shutdown();
     std::cout << "PASS: " << scripts.size() << " script arrays, " << lineCount
-        << " lines, 7 rendered cutscenes, max text height " << maxTextHeight << "/130, input/reset/effects checked.\n";
+        << " lines, 7 rendered cutscenes, 6 story animations, max text height " << maxTextHeight
+        << "/130, input/reset/effects checked, preview frames " << previewIndex << ".\n";
 }

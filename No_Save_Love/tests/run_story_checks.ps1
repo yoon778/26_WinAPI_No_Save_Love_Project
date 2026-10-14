@@ -1,3 +1,5 @@
+param([switch]$Preview)
+
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $testOutput = Join-Path $projectRoot 'outputs\story_revision\checks'
@@ -21,6 +23,7 @@ Set-Content -LiteralPath $compileFile -Value $compile -Encoding Default
 if ($LASTEXITCODE -ne 0) { throw 'C++ story check compilation failed.' }
 Push-Location (Join-Path $projectRoot 'No_Save_Love')
 try {
-    & $testExe (Join-Path $testOutput 'frames')
+    if ($Preview) { & $testExe (Join-Path $testOutput 'frames') --preview }
+    else { & $testExe (Join-Path $testOutput 'frames') }
     if ($LASTEXITCODE -ne 0) { throw "Story/cutscene checks failed: $LASTEXITCODE" }
 } finally { Pop-Location }
