@@ -71,43 +71,50 @@ namespace
 int main()
 {
     using namespace StatBalance;
+    const std::span<const Player_state> originalFour(GameWeights.data(), 4);
+    CheckRoster(originalFour);
     CheckRoster(GameWeights);
 
-    // 확장 구성은 검증용 가정이다. 실행 게임에는 아직 등록하지 않는다.
+    // 개화가 포함된 실제 5개 구성과, 여섯 번째 게임 추가 가정을 확인한다.
     std::vector<Player_state> expanded(GameWeights.begin(), GameWeights.end());
-    expanded.push_back({0, 5, 3, 0});
-    CheckRoster(expanded);
     expanded.push_back({3, 0, 0, 5});
     CheckRoster(expanded);
 
-    // 5번째 게임이 한 스탯에 치우쳐도 총량이 늘지 않아야 한다.
+    // 6번째 게임이 한 스탯에 치우쳐도 총량이 늘지 않아야 한다.
     expanded.assign(GameWeights.begin(), GameWeights.end());
     expanded.push_back({8, 0, 0, 0});
     CheckRoster(expanded);
 
     ExpectState(CalculateGain(-1, 100), {});
-    ExpectState(CalculateGain(4, 100), {});
+    ExpectState(CalculateGain(5, 100), {});
     ExpectState(CalculateGain(0, 100, {}), {});
     const std::array<Player_state, 1> noWeights = {};
     ExpectState(CalculateGain(0, 100, noWeights), {});
 
-    ExpectState(CalculateGain(0, 60), {35, 21, 0, 0});
-    ExpectState(CalculateGain(0, 70), {39, 23, 0, 0});
-    ExpectState(CalculateGain(0, 80), {43, 26, 0, 0});
-    ExpectState(CalculateGain(0, 90), {46, 28, 0, 0});
-    ExpectState(CalculateGain(0, 100), {50, 30, 0, 0});
+    ExpectState(CalculateGain(0, 60, originalFour), {35, 21, 0, 0});
+    ExpectState(CalculateGain(0, 70, originalFour), {39, 23, 0, 0});
+    ExpectState(CalculateGain(0, 80, originalFour), {43, 26, 0, 0});
+    ExpectState(CalculateGain(0, 90, originalFour), {46, 28, 0, 0});
+    ExpectState(CalculateGain(0, 100, originalFour), {50, 30, 0, 0});
 
     const std::array<int, 4> recoveredScores = {60, 80, 80, 80};
-    const auto recovered = PlayRun(GameWeights, recoveredScores);
+    const auto recovered = PlayRun(originalFour, recoveredScores);
     ExpectState(recovered, {61, 64, 69, 69});
     for (int heroine = 0; heroine < 3; ++heroine)
         assert(CalculateEndingType(recovered, heroine) == 0);
 
     // 회피 게임에서 실제로 가능한 하트 점수: 0, 20, 40, 60, 80, 100.
     const std::array<int, 4> withLowAvoidScore = {80, 80, 80, 40};
-    const auto lowAvoid = PlayRun(GameWeights, withLowAvoidScore);
+    const auto lowAvoid = PlayRun(originalFour, withLowAvoidScore);
     assert(CalculateEndingType(lowAvoid, 0) == 1);
     assert(CalculateEndingType(lowAvoid, 2) == 0);
+
+    const std::array<int, 5> fiveGameScores = {60, 80, 80, 80, 80};
+    const auto fiveGameRecovery = PlayRun(GameWeights, fiveGameScores);
+    ExpectState(fiveGameRecovery, {61, 65, 69, 69});
+    ExpectState(CalculateGain(4, 70), {0, 24, 17, 0});
+    for (int heroine = 0; heroine < 3; ++heroine)
+        assert(CalculateEndingType(fiveGameRecovery, heroine) == 0);
 
     // 80/81 히든 경계, 히로인별 119/120 해피 경계와 잘못된 인덱스.
     assert(CalculateEndingType({20, 20, 20, 20}, 0) == 2);
@@ -124,7 +131,7 @@ int main()
 
     // 결과 화면이 새 계산을 실제로 사용하며 리셋 후 이전 보상이 남지 않는지 확인한다.
     ResultScene result;
-    for (int game = 0; game < 4; ++game)
+    for (int game = 0; game < static_cast<int>(GameWeights.size()); ++game)
     {
         Player_state previous;
         for (int score = 0; score <= 100; ++score)
@@ -137,10 +144,10 @@ int main()
         }
     }
     result.SetResult(0, INT_MAX);
-    ExpectState(result.GetPlusState(), {50, 30, 0, 0});
+    ExpectState(result.GetPlusState(), {50, 18, 0, 0});
     result.SetResult(0, INT_MIN);
     ExpectState(result.GetPlusState(), {});
-    result.SetResult(4, 100);
+    result.SetResult(5, 100);
     ExpectState(result.GetPlusState(), {});
     result.Reset();
     ExpectState(result.GetPlusState(), {});

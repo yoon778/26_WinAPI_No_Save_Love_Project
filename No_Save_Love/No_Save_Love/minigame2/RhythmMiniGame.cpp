@@ -2,6 +2,7 @@
 #include "../ResultGrade.h"
 #include <cstdlib>
 #include <cmath>
+#include <string>
 
 RhythmMiniGame::RhythmMiniGame()
 {
@@ -21,11 +22,19 @@ RhythmMiniGame::RhythmMiniGame()
 }
 
 
-void RhythmMiniGame::Init(HWND hWnd)
+bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
 {
+    isFlowering = flowering;
+    floweringHeroine = heroineIndex >= 0 && heroineIndex < 3 ? heroineIndex : 0;
+    floweringTimeMs = 0;
+    floweringNextNote = 0;
+    floweringPaused = false;
+    floweringAudioReady = false;
+    floweringNotes = flowering ? FloweringChart::Build() : std::vector<FloweringChart::Note>{};
+    floweringMaximumScore = FloweringChart::MaximumScore(floweringNotes);
     gameHwnd = hWnd;
 
-    gameStartTime = GetTickCount();
+    gameStartTime = GetRhythmTime();
     windowGimmickStartTime = 0;
 
     hasWindowGimmickTriggered = false;
@@ -312,35 +321,49 @@ void RhythmMiniGame::Init(HWND hWnd)
         cursorTrail[i].createTime = 0;
     }
 
-    lastHitCircleSpawnTime = GetTickCount();
+    lastHitCircleSpawnTime = GetRhythmTime();
     hitCircleSpawnInterval = 1200;
 
     PlayBGM();
     LoadEffectSounds();
 
-    bgmStartTime = GetTickCount();
+    bgmStartTime = GetRhythmTime();
     currentBeatIndex = 0;
+    if (isFlowering)
+    {
+        const wchar_t* names[] = {L"hansea", L"yuharin", L"seoirin"};
+        std::wstring base = std::wstring(L"resource\\heroine\\") + names[floweringHeroine];
+        floweringHeroineNormal = new Gdiplus::Image((base + L"\\normal.png").c_str());
+        floweringHeroineSmile = new Gdiplus::Image((base + L"\\smile.png").c_str());
+    }
+    return !isFlowering || floweringAudioReady;
 }
 
 void RhythmMiniGame::Update()
 {
-    DWORD currentTime = GetTickCount();
+    if (isFlowering)
+    {
+        if (floweringPaused || !floweringAudioReady) return;
+        UpdateFloweringClock();
+        if (!floweringAudioReady) return;
+    }
+    DWORD currentTime = GetRhythmTime();
 
     DWORD elapsedBgmTime = currentTime - bgmStartTime;
 
-    if (hasFinalEffectStarted == false &&
+    if (!isFlowering && hasFinalEffectStarted == false &&
         elapsedBgmTime >= FINAL_EFFECT_START_TIME)
     {
         StartFinalEffect(currentTime);
     }
 
-    if (elapsedBgmTime >= RHYTHM_GAME_DURATION)
+    if (elapsedBgmTime >= static_cast<DWORD>(isFlowering ? FloweringChart::DurationMs : RHYTHM_GAME_DURATION))
     {
         // BGM이 끝난 첫 순간: 결과창 시작
         if (isResultScreenActive == false)
         {
             isResultScreenActive = true;
-            resultScreenStartTime = currentTime;
+            resultScreenStartTime = isFlowering ? GetTickCount() : currentTime;
 
             StopBGM();
             ClearAllNotes();
@@ -356,7 +379,7 @@ void RhythmMiniGame::Update()
 
         // 결과창을 일정 시간 보여준 뒤에만 진짜 게임 종료 처리
         if (isGameOver == false &&
-            currentTime - resultScreenStartTime >= RESULT_SCREEN_DURATION)
+            (isFlowering ? GetTickCount() : currentTime) - resultScreenStartTime >= RESULT_SCREEN_DURATION)
         {
             isGameOver = true;
         }
@@ -364,21 +387,28 @@ void RhythmMiniGame::Update()
         return;
     }
 
-    UpdateComboAnimation(currentTime);
-    UpdateMissReaction(currentTime);
-    UpdateFinalAnimation(currentTime);
-    UpdateFinalSparkles(currentTime);
-    UpdateFinalCountdownEffect(currentTime);
-    UpdateScreenFlash(currentTime);
-    UpdateBackgroundTransition(currentTime);
-    UpdateFinalAnimation(currentTime);
-    UpdateWindowGimmick(currentTime);
-    UpdateWindowJumpGimmick(currentTime);
-    UpdateSliderFollowWindowGimmick(currentTime);
-    UpdateWindowJumpDelayedNote(currentTime);
-    UpdateWindowShake(currentTime);
-    // 창 기믹 처리가 전부 끝난 뒤에 박자 기반 노트 생성
-    UpdateBeatSpawn(currentTime);
+    if (isFlowering)
+    {
+        SpawnFloweringNotes(currentTime);
+    }
+    else
+    {
+        UpdateComboAnimation(currentTime);
+        UpdateMissReaction(currentTime);
+        UpdateFinalAnimation(currentTime);
+        UpdateFinalSparkles(currentTime);
+        UpdateFinalCountdownEffect(currentTime);
+        UpdateScreenFlash(currentTime);
+        UpdateBackgroundTransition(currentTime);
+        UpdateFinalAnimation(currentTime);
+        UpdateWindowGimmick(currentTime);
+        UpdateWindowJumpGimmick(currentTime);
+        UpdateSliderFollowWindowGimmick(currentTime);
+        UpdateWindowJumpDelayedNote(currentTime);
+        UpdateWindowShake(currentTime);
+        // 창 기믹 처리가 전부 끝난 뒤에 박자 기반 노트 생성
+        UpdateBeatSpawn(currentTime);
+    }
 
     // =========================
     // 두 번째 작은 창 기믹 예약 실행
@@ -517,13 +547,8 @@ void RhythmMiniGame::Update()
             if (progress > 1.0)
                 progress = 1.0;
 
-            int ballX =
-                (int)(sliders[i].startX +
-                    (sliders[i].endX - sliders[i].startX) * progress);
-
-            int ballY =
-                (int)(sliders[i].startY +
-                    (sliders[i].endY - sliders[i].startY) * progress);
+            int ballX, ballY;
+            GetSliderPosition(sliders[i], progress, ballX, ballY);
 
             // 마우스 버튼을 떼면 실패
             if (isMouseDown == false)
@@ -631,7 +656,8 @@ void RhythmMiniGame::Update()
 void RhythmMiniGame::Render(HDC hDC)
 {
 
-    RenderBackground(hDC);
+    if (isFlowering) RenderFloweringStage(hDC);
+    else RenderBackground(hDC);
  
     // =========================
     // 점수 / 콤보 출력
@@ -672,30 +698,37 @@ void RhythmMiniGame::Render(HDC hDC)
             // -------------------------
             // 슬라이더 몸체
             // -------------------------
-            HPEN sliderOutlinePen = CreatePen(PS_SOLID, 90, RGB(255, 255, 255));
-            HPEN oldPen = (HPEN)SelectObject(hDC, sliderOutlinePen);
+            if (isFlowering)
+            {
+                RenderFloweringSliderPath(hDC, sliders[i]);
+            }
+            else
+            {
+                HPEN sliderOutlinePen = CreatePen(PS_SOLID, 90, RGB(255, 255, 255));
+                HPEN oldPen = (HPEN)SelectObject(hDC, sliderOutlinePen);
 
-            MoveToEx(hDC, startX, startY, NULL);
-            LineTo(hDC, endX, endY);
+                MoveToEx(hDC, startX, startY, NULL);
+                LineTo(hDC, endX, endY);
 
-            SelectObject(hDC, oldPen);
-            DeleteObject(sliderOutlinePen);
+                SelectObject(hDC, oldPen);
+                DeleteObject(sliderOutlinePen);
 
-            HPEN sliderInnerPen = CreatePen(PS_SOLID, 72, RGB(180, 180, 180));
-            oldPen = (HPEN)SelectObject(hDC, sliderInnerPen);
+                HPEN sliderInnerPen = CreatePen(PS_SOLID, 72, RGB(180, 180, 180));
+                oldPen = (HPEN)SelectObject(hDC, sliderInnerPen);
 
-            MoveToEx(hDC, startX, startY, NULL);
-            LineTo(hDC, endX, endY);
+                MoveToEx(hDC, startX, startY, NULL);
+                LineTo(hDC, endX, endY);
 
-            SelectObject(hDC, oldPen);
-            DeleteObject(sliderInnerPen);
+                SelectObject(hDC, oldPen);
+                DeleteObject(sliderInnerPen);
+            }
 
             // -------------------------
             // 슬라이더 시작 원의 접근 원
             // -------------------------
             if (sliders[i].isStarted == false)
             {
-                DWORD currentTime = GetTickCount();
+                DWORD currentTime = GetRhythmTime();
  
 
                 DWORD spawnTime = sliders[i].spawnTime;
@@ -788,7 +821,7 @@ void RhythmMiniGame::Render(HDC hDC)
         if (sliders[i].isStarted == true &&
             sliders[i].isFinished == false)
         {
-            DWORD currentTime = GetTickCount();
+            DWORD currentTime = GetRhythmTime();
 
             DWORD elapsedTime =
                 currentTime - sliders[i].slideStartTime;
@@ -802,13 +835,8 @@ void RhythmMiniGame::Render(HDC hDC)
             if (progress > 1.0)
                 progress = 1.0;
 
-            int ballX =
-                (int)(sliders[i].startX +
-                    (sliders[i].endX - sliders[i].startX) * progress);
-
-            int ballY =
-                (int)(sliders[i].startY +
-                    (sliders[i].endY - sliders[i].startY) * progress);
+            int ballX, ballY;
+            GetSliderPosition(sliders[i], progress, ballX, ballY);
            
             // -------------------------
             // 슬라이더 팔로우 원
@@ -843,7 +871,7 @@ void RhythmMiniGame::Render(HDC hDC)
 
     }
 
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
 
     if (lastJudge != JUDGE_NONE &&
         currentTime - judgeDisplayStartTime <= 500)
@@ -914,6 +942,7 @@ void RhythmMiniGame::Render(HDC hDC)
     {
         if (hitCircles[i].isActive == true)
         {
+            if (isFlowering && HideFloweringCircle(i, GetRhythmTime())) continue;
             double hitCircleScale =
                 isWindowGimmickActive
                 ? SMALL_WINDOW_HITCIRCLE_SCALE
@@ -931,7 +960,7 @@ void RhythmMiniGame::Render(HDC hDC)
             // =========================
             // 접근 원 크기 계산
             // =========================
-            DWORD currentTime = GetTickCount();
+            DWORD currentTime = GetRhythmTime();
 
             DWORD spawnTime = hitCircles[i].spawnTime;
             DWORD hitTime = hitCircles[i].hitTime;
@@ -1016,13 +1045,20 @@ void RhythmMiniGame::Render(HDC hDC)
         }
     }
 
-    RenderComboAnimation(hDC);
-    RenderMissReaction(hDC);
-    RenderFinalAnimation(hDC);
-    RenderFinalSparkles(hDC);
-    RenderFinalTimer(hDC);
-    RenderScreenFlash(hDC);
-    RenderClearEffect(hDC);
+    if (isFlowering)
+    {
+        RenderFloweringOverlay(hDC);
+    }
+    else
+    {
+        RenderComboAnimation(hDC);
+        RenderMissReaction(hDC);
+        RenderFinalAnimation(hDC);
+        RenderFinalSparkles(hDC);
+        RenderFinalTimer(hDC);
+        RenderScreenFlash(hDC);
+        RenderClearEffect(hDC);
+    }
 
     // =========================
     // 커서 궤적 그리기
@@ -1138,6 +1174,13 @@ void RhythmMiniGame::Render(HDC hDC)
 
 void RhythmMiniGame::Release()
 {
+    if (gameHwnd && IsWindow(gameHwnd))
+    {
+        SetWindowPos(gameHwnd, nullptr, originalWindowRect.left, originalWindowRect.top,
+            originalWindowRect.right - originalWindowRect.left,
+            originalWindowRect.bottom - originalWindowRect.top, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    gameHwnd = nullptr;
     StopBGM();
     CloseEffectSounds();
 
@@ -1195,6 +1238,13 @@ void RhythmMiniGame::Release()
         cursorRotateImg = nullptr;
     }
 
+    delete floweringHeroineNormal;
+    delete floweringHeroineSmile;
+    floweringHeroineNormal = nullptr;
+    floweringHeroineSmile = nullptr;
+    floweringAudioReady = false;
+    floweringNotes.clear();
+
     if (gdiplusToken != 0)
     {
         Gdiplus::GdiplusShutdown(gdiplusToken);
@@ -1238,11 +1288,17 @@ void RhythmMiniGame::Release()
 
 void RhythmMiniGame::OnMouseDown(int x, int y)
 {
+    if (isFlowering)
+    {
+        if (floweringPaused || isResultScreenActive || !floweringAudioReady) return;
+        UpdateFloweringClock();
+        if (!floweringAudioReady) return;
+    }
     mouseX = x;
     mouseY = y;
     isMouseDown = true;
 
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
 
     // =========================
     // 히트서클 클릭 판정
@@ -1415,7 +1471,7 @@ void RhythmMiniGame::OnMouseUp(int x, int y)
 
 void RhythmMiniGame::OnMouseMove(int x, int y)
 {
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
 
     // 이전 마우스 위치
     int prevX = mouseX;
@@ -1479,7 +1535,7 @@ void RhythmMiniGame::CreateHitCircle(int x, int y)
     {
         if (hitCircles[i].isActive == false)
         {
-            DWORD currentTime = GetTickCount();
+            DWORD currentTime = GetRhythmTime();
 
             hitCircles[i].isActive = true;
             hitCircles[i].isJudged = false;
@@ -1541,7 +1597,7 @@ void RhythmMiniGame::CreateSlider(
     {
         if (sliders[i].isActive == false)
         {
-            DWORD currentTime = GetTickCount();
+            DWORD currentTime = GetRhythmTime();
 
             sliders[i].isActive = true;
             sliders[i].isStarted = false;
@@ -2136,13 +2192,8 @@ void RhythmMiniGame::MoveWindowWithSliderBall(DWORD currentTime)
             if (progress > 1.0)
                 progress = 1.0;
 
-            int ballX =
-                (int)(sliders[i].startX +
-                    (sliders[i].endX - sliders[i].startX) * progress);
-
-            int ballY =
-                (int)(sliders[i].startY +
-                    (sliders[i].endY - sliders[i].startY) * progress);
+            int ballX, ballY;
+            GetSliderPosition(sliders[i], progress, ballX, ballY);
 
             int moveX =
                 (int)((ballX - sliders[i].startX) *
@@ -2460,7 +2511,7 @@ void RhythmMiniGame::TriggerComboAnimation()
     TriggerScreenFlash(COMBO_FLASH_ALPHA, COMBO_FLASH_DURATION);
     
     isComboAnimationActive = true;
-    comboAnimationStartTime = GetTickCount();
+    comboAnimationStartTime = GetRhythmTime();
     comboAnimationFrameIndex = 0;
 }
 
@@ -2540,30 +2591,17 @@ void RhythmMiniGame::PlayMissSound()
 void RhythmMiniGame::PlayBGM()
 {
     mciSendString(L"close rhythmBGM", NULL, 0, NULL);
-
-    mciSendString(
-        L"open \"resource\\minigame2\\sound\\bgm.mp3\" type mpegvideo alias rhythmBGM",
-        NULL,
-        0,
-        NULL
-    );
-
-    wchar_t volumeCommand[100];
-    wsprintf(volumeCommand, L"setaudio rhythmBGM volume to %d", BGM_VOLUME);
-
-    mciSendString(
-        volumeCommand,
-        NULL,
-        0,
-        NULL
-    );
-
-    mciSendString(
-        L"play rhythmBGM",
-        NULL,
-        0,
-        NULL
-    );
+    const wchar_t* openCommand = isFlowering
+        ? L"open \"resource\\minigame5\\sound\\flowering.mp3\" type mpegvideo alias rhythmBGM"
+        : L"open \"resource\\minigame2\\sound\\bgm.mp3\" type mpegvideo alias rhythmBGM";
+    const MCIERROR error = mciSendString(openCommand, NULL, 0, NULL);
+    mciSendString(L"set rhythmBGM time format milliseconds", NULL, 0, NULL);
+    wchar_t length[64] = {};
+    mciSendString(L"status rhythmBGM length", length, 64, NULL);
+    floweringAudioReady = error == 0 && _wtoi(length) >= FloweringChart::DurationMs;
+    mciSendString(L"setaudio rhythmBGM volume to 250", NULL, 0, NULL);
+    const auto playError = mciSendString(isFlowering ? L"play rhythmBGM from 0 to 120000" : L"play rhythmBGM", NULL, 0, NULL);
+    if (playError != 0) floweringAudioReady = false;
 }
 
 void RhythmMiniGame::StopBGM()
@@ -2815,7 +2853,7 @@ void RhythmMiniGame::UpdateWindowJumpDelayedNote(DWORD currentTime)
 void RhythmMiniGame::TriggerMissReaction()
 {
     isMissReactionActive = true;
-    missReactionStartTime = GetTickCount();
+    missReactionStartTime = GetRhythmTime();
     missReactionFrameIndex = 0;
 }
 
@@ -2872,7 +2910,7 @@ void RhythmMiniGame::RenderMissReaction(HDC hDC)
 void RhythmMiniGame::TriggerScreenFlash(int maxAlpha, DWORD duration)
 {
     isScreenFlashActive = true;
-    screenFlashStartTime = GetTickCount();
+    screenFlashStartTime = GetRhythmTime();
     screenFlashDuration = duration;
     screenFlashMaxAlpha = maxAlpha;
 }
@@ -2895,7 +2933,7 @@ void RhythmMiniGame::RenderScreenFlash(HDC hDC)
     if (isScreenFlashActive == false)
         return;
 
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
     DWORD elapsedTime = currentTime - screenFlashStartTime;
 
     if (elapsedTime >= screenFlashDuration)
@@ -3184,7 +3222,7 @@ void RhythmMiniGame::RenderFinalTimer(HDC hDC)
     if (isGameOver == true)
         return;
 
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
     DWORD elapsedBgmTime = currentTime - bgmStartTime;
 
     int remainingMs =
@@ -3206,7 +3244,7 @@ void RhythmMiniGame::RenderFinalTimer(HDC hDC)
     if (remainingSec <= 3.0)
     {
         DWORD pulseTime =
-            (GetTickCount() - finalEffectStartTime) % 300;
+            (GetRhythmTime() - finalEffectStartTime) % 300;
 
         double pulse =
             1.0 - (double)pulseTime / 300.0;
@@ -3270,7 +3308,7 @@ void RhythmMiniGame::RenderClearEffect(HDC hDC)
     if (isClearEffectActive == false)
         return;
 
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
     DWORD elapsedTime = currentTime - clearEffectStartTime;
 
     // 살짝 커졌다 작아지는 느낌
@@ -3451,13 +3489,14 @@ void RhythmMiniGame::CalculateResult()
 
     finalScore = score;
 
-    if (maxCombo > MAX_COMBO_TARGET)
+    if (!isFlowering && maxCombo > MAX_COMBO_TARGET)
     {
         finalScore += MAX_COMBO_BONUS_SCORE;
     }
 
     // 윤서에게 넘길 0~100 점수
-    resultScore100 = finalScore * 100 / RESULT_SCORE_MAX;
+    const int maximum = isFlowering ? floweringMaximumScore : RESULT_SCORE_MAX;
+    resultScore100 = maximum > 0 ? finalScore * 100 / maximum : 0;
 
     if (resultScore100 > 100)
         resultScore100 = 100;
@@ -3587,7 +3626,7 @@ void RhythmMiniGame::RenderFinalSparkles(HDC hDC)
     if (isFinalEffectActive == false)
         return;
 
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
 
     Gdiplus::Graphics graphics(hDC);
     graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
@@ -3770,7 +3809,7 @@ void RhythmMiniGame::StartBackgroundTransition()
     }
 
     isBackgroundTransitionActive = true;
-    backgroundTransitionStartTime = GetTickCount();
+    backgroundTransitionStartTime = GetRhythmTime();
     hasBackgroundSwapped = false;
 }
 
@@ -3815,7 +3854,7 @@ void RhythmMiniGame::RenderBackground(HDC hDC)
     if (isBackgroundTransitionActive == false)
         return;
 
-    DWORD currentTime = GetTickCount();
+    DWORD currentTime = GetRhythmTime();
     DWORD elapsedTime =
         currentTime - backgroundTransitionStartTime;
 

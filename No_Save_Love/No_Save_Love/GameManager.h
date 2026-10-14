@@ -61,10 +61,12 @@ private:
         MiniGameTutor2,
         MiniGameTutor3,
         MiniGameTutor4,
+        MiniGameTutor5,
         MiniGame1,
         MiniGame2,
         MiniGame3,
         MiniGame4,
+        MiniGame5,
         Result,
         Choice,
         EndingDialogue,
@@ -131,6 +133,7 @@ private:
 
     // 최종 선택 전용 도입 StoryScene을 이미 보여줬는지 확인한다.
     bool m_finalChoiceIntroShown = false;
+    bool m_performanceIntroShown = false;
 
     // 엔딩 종류를 계산한다.
     // 0 = Happy, 1 = Bad, 2 = Hidden
@@ -163,7 +166,7 @@ private:
     // 현재 미니게임 번호에 맞는 실제 게임 모드로 들어간다.
     void StartCurrentMiniGame();
 
-    // F1~F4 디버그 입력으로 원하는 미니게임에 바로 들어간다.
+    // F1~F5 디버그 입력으로 원하는 미니게임에 바로 들어간다.
     void DebugEnterMiniGameByIndex(int miniGameIndex);
 
     // 현재 미니게임 번호에 맞는 튜토리얼 모드를 반환한다.

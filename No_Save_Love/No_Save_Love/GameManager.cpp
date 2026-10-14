@@ -1,5 +1,6 @@
 ﻿#include "GameManager.h"
 #include "AudioManager.h"
+#include <algorithm>
 
 #pragma comment(lib, "Msimg32.lib")
 
@@ -131,6 +132,7 @@ void GameManager::OnMouseClick(int x, int y)
         {
             audioManager.PlaySfx(L"click");
             m_exitConfirmOpen = false;
+            minigame2.SetPaused(false);
             InvalidateRect(m_hWnd, nullptr, FALSE);
             return;
         }
@@ -205,6 +207,17 @@ void GameManager::OnMouseClick(int x, int y)
                 // 현재 회차 번호에 맞는 미니게임 튜토리얼로 이동한다.
                 EnterCurrentMiniGameTutorial();
             }
+            else if (currentMiniGameIndex == 4)
+            {
+                if (!m_performanceIntroShown)
+                {
+                    PrepareFinalChoiceIntro();
+                    storyScene.SetDialogues(storyData.GetPerformanceStory(finalHeroineIndex, false));
+                    m_performanceIntroShown = true;
+                    ApplyStoryBgmChange();
+                }
+                else EnterCurrentMiniGameTutorial();
+            }
             else if (!m_finalChoiceIntroShown)
             {
                 // 마지막 선택 화면으로 가기 전에 노트가 마지막 이름을 보여주는 대사를 출력한다.
@@ -235,6 +248,7 @@ void GameManager::OnMouseClick(int x, int y)
         break;
     }
     case game_mode_info::MiniGameTutor2:
+    case game_mode_info::MiniGameTutor5:
     {
         minigame2TutorialScene.OnMouseClick(x, y);
         if (minigame2TutorialScene.IsFinished())
@@ -272,6 +286,7 @@ void GameManager::OnMouseClick(int x, int y)
     }
     case game_mode_info::MiniGame1: 
     case game_mode_info::MiniGame2:
+    case game_mode_info::MiniGame5:
     case game_mode_info::MiniGame3:
     case game_mode_info::MiniGame4:
     {
@@ -286,6 +301,14 @@ void GameManager::OnMouseClick(int x, int y)
         if (resultScene.IsFinished())
         {
             audioManager.PlaySfx(L"click");
+
+            if (currentMiniGameIndex == 5)
+            {
+                PrepareFinalChoiceIntro();
+                storyScene.SetDialogues(storyData.GetPerformanceStory(finalHeroineIndex, true));
+                RequestSceneChange(game_mode_info::Story);
+                break;
+            }
 
             // ChoiceScene은 화면 표시용으로 현재 플레이어 스탯만 전달받는다.
             choiceScene.SetPlayerState(player);
@@ -383,9 +406,9 @@ void GameManager::EnterResult(int whichGame, int score)
 
 void GameManager::EnterCurrentMiniGameTutorial()
 {
-    if (currentMiniGameIndex == 1)
+    if (currentMiniGameIndex == 1 || currentMiniGameIndex == 4)
     {
-        minigame2TutorialScene.Initialize();
+        minigame2TutorialScene.Initialize(currentMiniGameIndex == 4);
     }
     else if (currentMiniGameIndex == 2)
     {
@@ -405,20 +428,28 @@ void GameManager::EnterCurrentMiniGameTutorial()
 
 void GameManager::StartCurrentMiniGame()
 {
-    if (currentMiniGameIndex != 1 && m_isMiniGame2Initialized)
+    if (currentMiniGameIndex != 1 && currentMiniGameIndex != 4 && m_isMiniGame2Initialized)
     {
         ForceSystemCursorVisible();
         minigame2.Release();
         m_isMiniGame2Initialized = false;
     }
 
-    if (currentMiniGameIndex == 1)
+    if (currentMiniGameIndex == 1 || currentMiniGameIndex == 4)
     {
         // 미니게임 2는 리듬게임을 사용한다.
         // 리듬게임은 자체 BGM을 재생하므로 이전 공용 BGM을 먼저 정지한다.
         audioManager.StopBgm();
         minigame2.Release();
-        minigame2.Init(m_hWnd);
+        if (currentMiniGameIndex == 4) PrepareFinalChoiceIntro();
+        if (!minigame2.Init(m_hWnd, currentMiniGameIndex == 4, finalHeroineIndex))
+        {
+            minigame2.Release();
+            m_isMiniGame2Initialized = false;
+            MessageBoxW(m_hWnd, L"개화 음원을 열 수 없습니다. resource/minigame5/sound/flowering.mp3를 확인해 주세요.", L"음원 확인", MB_OK | MB_ICONERROR);
+            EnterCurrentMiniGameTutorial();
+            return;
+        }
         ForceSystemCursorHidden();
         m_isMiniGame2Initialized = true;
     }
@@ -446,14 +477,16 @@ void GameManager::StartCurrentMiniGame()
 void GameManager::DebugEnterMiniGameByIndex(int miniGameIndex)
 {
     // 잘못된 번호가 들어오면 아무것도 하지 않는다.
-    if (miniGameIndex < 0 || miniGameIndex >= 4)
+    if (miniGameIndex < 0 || miniGameIndex >= static_cast<int>(StatBalance::GameWeights.size()))
     {
         return;
     }
 
-    // F1~F4는 앞부분 진행을 건너뛰고 원하는 미니게임 슬롯으로 바로 들어간다.
+    // F1~F5는 앞부분 진행을 건너뛰고 원하는 미니게임 슬롯으로 바로 들어간다.
     currentMiniGameIndex = miniGameIndex;
-    currentStoryRound = miniGameIndex;
+    currentStoryRound = (std::min)(miniGameIndex, STORY_ROUND_COUNT);
+    m_performanceIntroShown = miniGameIndex == 4;
+    m_finalChoiceIntroShown = false;
     StartCurrentMiniGame();
 }
 
@@ -473,6 +506,8 @@ GameManager::game_mode_info GameManager::GetTutorialModeByIndex(int miniGameInde
 
     case 3:
         return game_mode_info::MiniGameTutor4;
+    case 4:
+        return game_mode_info::MiniGameTutor5;
 
     default:
         return game_mode_info::MiniGameTutor1;
@@ -495,6 +530,8 @@ GameManager::game_mode_info GameManager::GetMiniGameModeByIndex(int miniGameInde
 
     case 3:
         return game_mode_info::MiniGame4;
+    case 4:
+        return game_mode_info::MiniGame5;
 
     default:
         return game_mode_info::MiniGame1;
@@ -509,7 +546,7 @@ void GameManager::HandleCurrentMiniGameMouse(int x, int y)
     {
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2) {
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
         minigame2.OnMouseDown(x, y);
         return;
     }
@@ -530,7 +567,7 @@ void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
         return;
     }
 
-    if (now_game_mode == game_mode_info::MiniGame2)
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5)
     {
         return;
     }
@@ -553,7 +590,7 @@ void GameManager::UpdateCurrentMiniGame()
         minigame4.Update();
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2) {
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
         minigame2.Update();
         return;
     }
@@ -577,7 +614,7 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
         minigame4.Render(hDC);
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2) {
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
         minigame2.Render(hDC);
         return;
     }
@@ -606,7 +643,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
         currentMiniGameIndex++;
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2)
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5)
     {
         if (forceFinish)
         {
@@ -618,7 +655,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
             return;
         }
 
-        EnterResult(1, minigame2.GetResultScore100());
+        EnterResult(now_game_mode == game_mode_info::MiniGame5 ? 4 : 1, minigame2.GetResultScore100());
         ForceSystemCursorVisible();
         m_pendingMiniGameRelease = PendingMiniGameRelease2;
         currentMiniGameIndex++;
@@ -767,6 +804,7 @@ void GameManager::Render(HDC hDC)
         break;
     }
     case game_mode_info::MiniGameTutor2:
+    case game_mode_info::MiniGameTutor5:
     {
         minigame2TutorialScene.Render(hDC);
         break;
@@ -783,6 +821,7 @@ void GameManager::Render(HDC hDC)
     }
     case game_mode_info::MiniGame1:
     case game_mode_info::MiniGame2:
+    case game_mode_info::MiniGame5:
     case game_mode_info::MiniGame3:
     case game_mode_info::MiniGame4:
     {
@@ -1121,6 +1160,7 @@ void GameManager::OnChar(wchar_t inputChar)
         
         case game_mode_info::MiniGame1:
         case game_mode_info::MiniGame2:
+        case game_mode_info::MiniGame5:
         case game_mode_info::MiniGame3:
         case game_mode_info::MiniGame4:
         {
@@ -1149,6 +1189,7 @@ void GameManager::OnKeyDown(WPARAM wParam)
         if (wParam == VK_ESCAPE)
         {
             m_exitConfirmOpen = false;
+            minigame2.SetPaused(false);
             InvalidateRect(m_hWnd, nullptr, FALSE);
         }
         return;
@@ -1170,12 +1211,13 @@ void GameManager::OnKeyDown(WPARAM wParam)
             minigame3.OnKeyUp(VK_SPACE);
         }
 
+        minigame2.SetPaused(true);
         m_exitConfirmOpen = true;
         InvalidateRect(m_hWnd, nullptr, FALSE);
         return;
     }
 
-    // F1~F4는 테스트용 바로가기다.
+    // F1~F5는 테스트용 바로가기다. F5는 개화 공연이다.
     // F1 = 미니게임 1, F2 = 미니게임 2, F3 = 미니게임 3, F4 = 미니게임 4.
     switch (wParam)
     {
@@ -1195,6 +1237,10 @@ void GameManager::OnKeyDown(WPARAM wParam)
         DebugEnterMiniGameByIndex(3);
         return;
 
+    case VK_F5:
+        DebugEnterMiniGameByIndex(4);
+        return;
+
     default:
         break;
     }
@@ -1204,7 +1250,8 @@ void GameManager::OnKeyDown(WPARAM wParam)
         (now_game_mode == game_mode_info::MiniGame1 ||
             now_game_mode == game_mode_info::MiniGame2 ||
             now_game_mode == game_mode_info::MiniGame3 ||
-            now_game_mode == game_mode_info::MiniGame4))
+            now_game_mode == game_mode_info::MiniGame4 ||
+            now_game_mode == game_mode_info::MiniGame5))
     {
         FinishCurrentMiniGameIfNeeded(true);
         return;
@@ -1247,14 +1294,16 @@ void GameManager::OnKeyUp(WPARAM wParam)
 }
 
 void GameManager::OnMouseUp(int x, int y) {
-    if (now_game_mode == game_mode_info::MiniGame2) {
+    if (m_exitConfirmOpen && now_game_mode == game_mode_info::MiniGame5) return;
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
         minigame2.OnMouseUp(x, y);
         return;
     }
 }
 
 void GameManager::OnMouseMove(int x, int y) {
-    if (now_game_mode == game_mode_info::MiniGame2) {
+    if (m_exitConfirmOpen && now_game_mode == game_mode_info::MiniGame5) return;
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
         minigame2.OnMouseMove(x, y);
         return;
     }
@@ -1285,6 +1334,7 @@ void GameManager::OnTimer(HWND hWnd)
 
         case game_mode_info::MiniGame1:
         case game_mode_info::MiniGame2:
+        case game_mode_info::MiniGame5:
         case game_mode_info::MiniGame3:
         case game_mode_info::MiniGame4:
             UpdateCurrentMiniGame();

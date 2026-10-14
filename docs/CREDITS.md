@@ -35,6 +35,7 @@
 | 스토리 | MapleStory — Leafre; MapleStory — Ereve: Raindrop Flower; Rainy Route — Suno AI 생성; MapleStory — Sellas: Where Stars Rest |
 | PC방 알바 | MapleStory — BadGuys |
 | 노래연습 | QWER — discord |
+| 개화 공연 | LUCY — 개화 (Flowering), 제공된 MP3의 처음 120초 재생 |
 | 등교길 | MapleStory — Hotel Arcs: Train Heading Nowhere |
 | 유혹피하기 | Suno AI 생성, 곡명 미기재 |
 

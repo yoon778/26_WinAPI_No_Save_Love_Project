@@ -105,6 +105,9 @@
     <ClCompile Include="minigame2\RhythmMiniGame.cpp">
       <Filter>소스 파일\minigame2</Filter>
     </ClCompile>
+    <ClCompile Include="minigame2\RhythmMiniGameFlowering.cpp">
+      <Filter>소스 파일\minigame2</Filter>
+    </ClCompile>
     <ClCompile Include="minigame3\schoolrun.cpp">
       <Filter>소스 파일\minigame3</Filter>
     </ClCompile>
@@ -168,6 +171,9 @@
       <Filter>헤더 파일\minigame4</Filter>
     </ClInclude>
     <ClInclude Include="minigame2\RhythmMiniGame.h">
+      <Filter>헤더 파일\minigame2</Filter>
+    </ClInclude>
+    <ClInclude Include="minigame2\FloweringChart.h">
       <Filter>헤더 파일\minigame2</Filter>
     </ClInclude>
     <ClInclude Include="minigame3\schoolrun.h">

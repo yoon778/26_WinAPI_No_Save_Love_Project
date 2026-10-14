@@ -2,10 +2,11 @@
 
 #include <cmath>
 
-void MiniGame2TutorialScene::Initialize()
+void MiniGame2TutorialScene::Initialize(bool flowering)
 {
     Shutdown();
     Reset();
+    floweringMode = flowering;
 
     backgroundImage.Load(L"resource\\minigame2\\background\\bg1.png");
     hitCircleImage.Load(L"resource\\minigame2\\hitcircle\\hitcircle.png");
@@ -69,7 +70,8 @@ void MiniGame2TutorialScene::Render(HDC hDC)
     }
     else
     {
-        DrawPageScoreGuide(hDC);
+        if (floweringMode) DrawFloweringGuide(hDC);
+        else DrawPageScoreGuide(hDC);
     }
 
     DrawBottomButtons(hDC);
@@ -148,7 +150,7 @@ void MiniGame2TutorialScene::DrawHeader(HDC hDC)
     RECT titleRect = { 100, 35, 1550, 110 };
     DrawTextInRect(
         hDC,
-        L"미니게임 2 - 노래 연습",
+        floweringMode ? L"미니게임 5 - 개화 : 금요일의 작은 무대" : L"미니게임 2 - 노래 연습",
         titleRect,
         46,
         RGB(255, 220, 110),
@@ -223,7 +225,7 @@ void MiniGame2TutorialScene::DrawPageControlGuide(HDC hDC)
     RECT step3 = { 1230, 565, 1770, 655 };
     DrawTextInRect(
         hDC,
-        L"3. 창이 작아지거나 움직여도 리듬을 놓치지 마세요.",
+        floweringMode ? L"3. 꽃과 히로인의 신호를 보며, 새로운 박자에 차근차근 응답하세요." : L"3. 창이 작아지거나 움직여도 리듬을 놓치지 마세요.",
         step3,
         28,
         RGB(245, 245, 245),
@@ -331,6 +333,30 @@ void MiniGame2TutorialScene::DrawPageScoreGuide(HDC hDC)
         DT_CENTER | DT_VCENTER | DT_SINGLELINE,
         FW_BOLD
     );
+}
+
+void MiniGame2TutorialScene::DrawFloweringGuide(HDC hDC)
+{
+    const wchar_t* titles[] = {L"01  바람 슬라이더", L"02  기억 꽃", L"03  히로인 릴레이", L"04  앵콜 노트", L"05  거울 무대"};
+    const wchar_t* descriptions[] = {
+        L"누른 채 공을 따라가세요. 곡선 꽃길도 끝까지 따라가면 추가 +300점!",
+        L"보라색 원은 마지막 0.25초 동안 숨습니다. 위치와 박자는 바뀌지 않아요.",
+        L"꽃으로 보여주는 네 위치를 기억하고, 이어서 나오는 원을 같은 순서로 누르세요.",
+        L"×2가 적힌 원은 같은 자리에서 한 박자 간격으로 두 번 클릭합니다.",
+        L"다음 구간의 배치가 좌우로 뒤집힙니다. 이미 나온 노트는 움직이지 않아요."
+    };
+    for (int i = 0; i < 5; ++i)
+    {
+        const int top = 180 + i * 125;
+        RECT card = {130, top, 1790, top + 110};
+        DrawRoundCard(hDC, card, RGB(24, 49, 54), RGB(94, 157, 143));
+        DrawTextInRect(hDC, titles[i], {160, top + 12, 580, top + 95}, 31,
+            RGB(255, 207, 221), DT_LEFT | DT_VCENTER | DT_SINGLELINE, FW_BOLD);
+        DrawTextInRect(hDC, descriptions[i], {590, top + 15, 1760, top + 95}, 27,
+            RGB(235, 244, 239), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
+    DrawTextInRect(hDC, L"PERFECT +300 / GOOD +100 / BAD +50 · 전체 채보 기준 100점 · Esc로 음악도 일시정지",
+        {150, 825, 1770, 895}, 27, RGB(181, 228, 214), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 
 void MiniGame2TutorialScene::DrawBottomButtons(HDC hDC)

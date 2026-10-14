@@ -158,6 +158,12 @@ int wmain(int argc, wchar_t** argv)
         for (int heroine = 0; heroine < 3; ++heroine)
             scripts.push_back(&data.GetEndingStory(type, heroine));
 
+    for (int heroine = 0; heroine < 3; ++heroine)
+    {
+        scripts.push_back(&data.GetPerformanceStory(heroine, false));
+        scripts.push_back(&data.GetPerformanceStory(heroine, true));
+    }
+
     const std::set<std::wstring> effects = {L"", L"rewind", L"rain", L"petals", L"memory", L"glitch",
         L"anim_letter", L"anim_photo", L"anim_map", L"anim_voice", L"anim_bookmark", L"anim_ink",
         L"anim_bread", L"anim_label", L"anim_bandage", L"anim_milk", L"anim_projector", L"anim_message",
@@ -308,7 +314,7 @@ int wmain(int argc, wchar_t** argv)
     assert(animated.size() == 18);
     assert(renderedAnimations.size() == 22);
     assert(animationSegments == 23);
-    assert(heroineReactions == 41);
+    assert(heroineReactions == 50);
     for (int round = 0; round < 4; ++round)
         for (int heroine = 0; heroine < 3; ++heroine)
         {
@@ -321,6 +327,7 @@ int wmain(int argc, wchar_t** argv)
     assert(data.GetEndingStory(-1, 0).empty() && data.GetEndingStory(3, 0).empty());
     assert(data.GetEndingStory(0, -1).empty() && data.GetEndingStory(0, 3).empty());
     assert(data.GetFinalChoiceIntroStory(-1).empty() && data.GetFinalChoiceIntroStory(4).empty());
+    assert(data.GetPerformanceStory(-1, false).empty() && data.GetPerformanceStory(3, true).empty());
     for (int i = 0; i < 3; ++i)
     {
         assert(data.GetEndingStory(0, i).size() >= 60);

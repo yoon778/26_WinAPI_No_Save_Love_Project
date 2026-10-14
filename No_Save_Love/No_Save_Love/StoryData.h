@@ -23,6 +23,7 @@ public:
 
     // 최종 선택 화면 전에 보여줄 대사를 반환한다.
     const std::vector<DialogueLineInfo>& GetFinalChoiceIntroStory(int finalChoiceIndex) const;
+    const std::vector<DialogueLineInfo>& GetPerformanceStory(int heroineIndex, bool after) const;
 
 private:
     static const int HEROINE_COUNT = 3;
@@ -44,6 +45,8 @@ private:
     // 최종 선택 직전에 보여줄 대사 묶음이다.
     // 0 = 한세아, 1 = 유하린, 2 = 서이린, 3 = 새누 히든
     std::vector<DialogueLineInfo> finalChoiceIntroStories[FINAL_CHOICE_INTRO_COUNT];
+    std::vector<DialogueLineInfo> performanceIntros[HEROINE_COUNT];
+    std::vector<DialogueLineInfo> performanceOutros[HEROINE_COUNT];
 
     // 잘못된 값이 들어왔을 때 반환할 빈 대사 묶음이다.
     std::vector<DialogueLineInfo> emptyStory;

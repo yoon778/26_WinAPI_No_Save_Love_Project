@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <atlimage.h>
 #include <gdiplus.h>
+#include "FloweringChart.h"
 #pragma comment(lib, "gdiplus.lib")
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
@@ -160,6 +161,7 @@ struct HitCircle
 
     DWORD spawnTime;    // 화면에 생성된 시간
     DWORD hitTime;      // 정확히 눌러야 하는 시간
+    int floweringFlags = 0;
 };
 
 
@@ -184,6 +186,7 @@ struct Slider
     DWORD hitTime;      // 시작 원을 눌러야 하는 정확한 시간
     DWORD duration;     // 슬라이더 볼이 시작점에서 끝점까지 이동하는 시간
     DWORD slideStartTime;   // 슬라이더 공이 실제로 움직이기 시작한 시간
+    bool floweringCurved = false;
 };
 
 
@@ -193,6 +196,24 @@ struct Slider
 class RhythmMiniGame
 {
 private:
+    bool isFlowering = false;
+    bool floweringAudioReady = false;
+    bool floweringPaused = false;
+    DWORD floweringTimeMs = 0;
+    size_t floweringNextNote = 0;
+    int floweringHeroine = 0;
+    int floweringMaximumScore = 0;
+    std::vector<FloweringChart::Note> floweringNotes;
+    Gdiplus::Image* floweringHeroineNormal = nullptr;
+    Gdiplus::Image* floweringHeroineSmile = nullptr;
+    DWORD GetRhythmTime() const;
+    void UpdateFloweringClock();
+    void SpawnFloweringNotes(DWORD currentTime);
+    void RenderFloweringStage(HDC hDC);
+    void RenderFloweringOverlay(HDC hDC);
+    void GetSliderPosition(const Slider& slider, double progress, int& x, int& y) const;
+    bool HideFloweringCircle(int index, DWORD now) const;
+    void RenderFloweringSliderPath(HDC hDC, const Slider& slider);
     // =========================
     // 게임 기본 상태
     // =========================
@@ -282,7 +303,7 @@ private:
     // =========================
     // 창 크기 변화 기믹
     // =========================
-    HWND gameHwnd;
+    HWND gameHwnd = nullptr;
 
     DWORD gameStartTime;
     DWORD windowGimmickStartTime;
@@ -527,7 +548,8 @@ private:
 public:
     RhythmMiniGame();
 
-    void Init(HWND hWnd);
+    bool Init(HWND hWnd, bool flowering = false, int heroineIndex = 0);
+    void SetPaused(bool paused);
     void Update();
     void Render(HDC hDC);
     void Release();

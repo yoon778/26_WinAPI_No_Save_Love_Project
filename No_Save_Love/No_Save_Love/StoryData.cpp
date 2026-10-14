@@ -1466,6 +1466,70 @@ void StoryData::Initialize()
         { L"", L"그곳에 가는 일을, 노트가 대신해주지는 않을 것이다.", L"school_hallway", L"none", L"", L"" },
     };
 
+    // 금요일 점심 공연. 네 번의 만남 이후 모든 루트가 같은 무대에 선다.
+    for (int heroine = 0; heroine < HEROINE_COUNT; ++heroine)
+    {
+        performanceIntros[heroine] = {
+            {L"", L"금요일 점심. 운동장 옆 작은 무대에서 마이크를 두드리는 소리가 났다.", L"school_day", L"none", L"", L"story4"},
+            {L"", L"연습할 때는 멀게만 느껴졌던 학교 행사가, 이제 내 이름을 기다리고 있었다.", L"school_day", L"none", L"", L""},
+            {L"방송부원", L"다음 순서 준비됐어? 곡은 ‘개화’, 두 분짜리 공연 버전 맞지?", L"school_day", L"none", L"", L""},
+            {L"{PLAYER}", L"응. 목소리보다 심장이 먼저 시작했지만.", L"school_day", L"none", L"", L""},
+            {L"방송부원", L"그건 마이크 안 타니까 괜찮아.", L"school_day", L"none", L"", L""},
+            {L"", L"괜히 웃었다. 종이컵의 물은 다 마셨는데 손에는 아직 컵 모양의 힘이 남아 있었다.", L"school_day", L"none", L"", L""},
+            {L"", L"무대 아래 사람들 사이에서, 이번 주 가장 자주 찾아갔던 얼굴을 발견했다.", L"school_day", L"none", L"", L""}
+        };
+        performanceOutros[heroine] = {
+            {L"", L"마지막 음이 사라졌다. 마이크를 내려놓고 나서야 어깨에 들어간 힘을 알았다.", L"school_day", L"none", L"", L"story5.1"},
+            {L"", L"박수를 받는 동안 잘한 부분과 아쉬운 부분이 한꺼번에 떠올랐다.", L"school_day", L"none", L"", L""},
+            {L"{PLAYER}", L"연습실에서는 내려오는 계단까지는 연습 안 했네.", L"school_day", L"none", L"", L""},
+            {L"", L"발밑을 확인하며 내려오자, 익숙한 사람이 물 한 병을 내밀었다.", L"school_day", L"none", L"", L""}
+        };
+    }
+    const std::vector<DialogueLineInfo> performanceEncouragements[HEROINE_COUNT] = {
+        {
+            {L"한세아", L"컵은 내가 버릴게. 너는 손부터 펴.", L"school_day", L"hansea_normal", L"", L""},
+            {L"{PLAYER}", L"손까지 긴장한 건 어떻게 알았어?", L"school_day", L"hansea_normal", L"", L""},
+            {L"한세아", L"내 발표문도 그렇게 구겨졌거든.", L"school_day", L"hansea_smile", L"", L"", HeroineMotion::Tilt},
+            {L"", L"세아가 내 손에 닿을 만큼 가까이 와서, 접힌 컵을 조심히 가져갔다.", L"school_day", L"hansea_smile", L"", L""},
+            {L"한세아", L"중간에 급해지면 여기 봐. 박자는 내가 같이 세어줄게.", L"school_day", L"hansea_smile", L"", L"", HeroineMotion::Nod},
+            {L"{PLAYER}", L"그럼 나도 오후에 네 발표 들을 때 같은 자리 지킬게.", L"school_day", L"hansea_smile", L"", L""}
+        },
+        {
+            {L"유하린", L"첫 박수 예약. 타이밍은 내가 더 잘 알거든.", L"school_day", L"yuharin_smile", L"", L"", HeroineMotion::Laugh},
+            {L"{PLAYER}", L"박수에도 선착순이 있었어?", L"school_day", L"yuharin_smile", L"", L""},
+            {L"유하린", L"내가 방금 만들었어. 규칙은 자주 바뀔 예정.", L"school_day", L"yuharin_smile", L"", L""},
+            {L"", L"하린은 송별 인사의 주인공 대신, 자기가 고른 관객 자리에 앉았다.", L"school_day", L"yuharin_normal", L"", L""},
+            {L"유하린", L"오늘 이 노래는 네 순서잖아. 나도 그냥 재밌게 듣고 싶어.", L"school_day", L"yuharin_smile", L"", L"", HeroineMotion::Nod},
+            {L"{PLAYER}", L"알았어. 그럼 첫 박수는 잘 부탁해.", L"school_day", L"yuharin_smile", L"", L""}
+        },
+        {
+            {L"", L"이린이 접은 종이를 가슴 높이로 들었다. 커다란 글씨로 ‘듣고 있어요’라고 적혀 있었다.", L"school_day", L"seoirin_normal", L"", L""},
+            {L"{PLAYER}", L"그거 내가 무대에서 읽을 수 있게 크게 쓴 거야?", L"school_day", L"seoirin_normal", L"", L""},
+            {L"서이린", L"목소리로 하면…… 다른 사람들 박수에 묻힐 것 같아서요.", L"school_day", L"seoirin_smile", L"", L"", HeroineMotion::Shy},
+            {L"", L"종이 아래로 내민 손가락을 가볍게 걸었다. 무대로 올라가기 전, 아주 짧게.", L"school_day", L"seoirin_smile", L"", L""},
+            {L"서이린", L"기억이 흐려져도, 오늘 들었다는 건 남겨둘게요.", L"school_day", L"seoirin_smile", L"", L"", HeroineMotion::Nod},
+            {L"{PLAYER}", L"그 종이, 끝나고 나한테 줘. 나도 남겨두고 싶어.", L"school_day", L"seoirin_smile", L"", L""}
+        }
+    };
+    const wchar_t* performanceNames[] = {L"한세아", L"유하린", L"서이린"};
+    const wchar_t* performanceCharacters[] = {L"hansea_smile", L"yuharin_smile", L"seoirin_smile"};
+    const wchar_t* performanceReplies[] = {
+        L"숨부터 쉬어. 하고 싶은 말은 천천히 해도 돼.",
+        L"첫 박수는 내가 쳤어. 못 들었으면 마음속으로 다시 틀어줘.",
+        L"여기요. 약속한 종이. 오늘 날짜도 적어뒀어요."
+    };
+    for (int heroine = 0; heroine < HEROINE_COUNT; ++heroine)
+    {
+        auto& intro = performanceIntros[heroine];
+        intro.insert(intro.end(), performanceEncouragements[heroine].begin(), performanceEncouragements[heroine].end());
+        intro.push_back({L"", L"이번에는 혼자 세는 박자가 아니었다. 나는 마이크 앞에 섰다.", L"school_day", L"none", L"", L"stop"});
+        auto& outro = performanceOutros[heroine];
+        outro.push_back({performanceNames[heroine], performanceReplies[heroine], L"school_day", performanceCharacters[heroine], L"", L"", HeroineMotion::Nod});
+        outro.push_back({L"", L"방송부원이 다음 순서를 알렸다. 우리는 사람들이 오가는 무대 옆으로 비켜섰다.", L"school_day", performanceCharacters[heroine], L"", L""});
+        outro.push_back({L"{PLAYER}", L"고마워. 이따가, 소리 작은 곳에서 이야기하자.", L"school_day", performanceCharacters[heroine], L"", L""});
+        outro.push_back({L"", L"점심 종이 울렸다. 오후 수업과 진로 조사서를 마치면, 남에게 맡길 수 없는 말이 남아 있었다.", L"school_hallway", L"none", L"", L""});
+    }
+
     // 마지막 금요일 — 한세아
     finalChoiceIntroStories[0] =
     {
@@ -1985,6 +2049,11 @@ void StoryData::Initialize()
         L"BGM : MapleStory - BadGuys",
         L"Image : Created by ChatGPT",
         L"",
+        L"미니게임 - 금요일의 작은 무대 : 개화",
+        L"BGM : LUCY - 개화 (Flowering)",
+        L"제공된 음원 앞부분 120초를 공연 구간으로 사용",
+        L"기믹 : 바람 슬라이더 / 기억 꽃 / 히로인 릴레이 / 앵콜 노트 / 거울 무대",
+        L"",
         L"미니게임 - {PLAYER}의 노래연습",
         L"제작 : 김새누",
         L"BGM : QWER - discord",
@@ -2063,4 +2132,10 @@ const std::vector<DialogueLineInfo>& StoryData::GetEndingStory(int endingType, i
 const std::vector<std::wstring>& StoryData::GetEndingCredits() const
 {
     return endingCredits;
+}
+
+const std::vector<DialogueLineInfo>& StoryData::GetPerformanceStory(int heroineIndex, bool after) const
+{
+    if (heroineIndex < 0 || heroineIndex >= HEROINE_COUNT) return emptyStory;
+    return after ? performanceOutros[heroineIndex] : performanceIntros[heroineIndex];
 }

@@ -7,7 +7,7 @@
 class MiniGame2TutorialScene
 {
 public:
-    void Initialize();
+    void Initialize(bool flowering = false);
     void Shutdown();
     void Reset();
     void Render(HDC hDC);
@@ -25,6 +25,7 @@ private:
     void DrawHeader(HDC hDC);
     void DrawPageControlGuide(HDC hDC);
     void DrawPageScoreGuide(HDC hDC);
+    void DrawFloweringGuide(HDC hDC);
     void DrawBottomButtons(HDC hDC);
 
     void DrawGameplayPreview(HDC hDC, const RECT& rc);
@@ -54,6 +55,7 @@ private:
     // 0: 조작법 설명, 1: 판정 점수 설명
     int currentPage = 0;
     bool finished = false;
+    bool floweringMode = false;
 
     CImage backgroundImage;
     CImage hitCircleImage;

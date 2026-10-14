@@ -86,6 +86,9 @@ std::wstring ResultScene::GetGameName(int whichGame) const
     case 3:
         return L"유혹 피하기";
 
+    case 4:
+        return L"개화 - 금요일의 작은 무대";
+
     default:
         return L"알 수 없는 미니게임";
     }
