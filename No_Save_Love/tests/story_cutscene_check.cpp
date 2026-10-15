@@ -186,6 +186,8 @@ int wmain(int argc, wchar_t** argv)
     HFONT font = CreateFontW(36, 0, 0, 0, 600, FALSE, FALSE, FALSE, HANGEUL_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"맑은 고딕");
     HGDIOBJ oldFont = SelectObject(dc, font);
+    HFONT tutorialFont = CreateFontW(30, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, L"맑은 고딕");
     for (const auto* script : scripts)
     {
         assert(!script->empty());
@@ -221,15 +223,19 @@ int wmain(int argc, wchar_t** argv)
                 scene.SetPlayerName(name);
                 std::wstring text = scene.GetCurrentDisplayText();
                 assert(text.find(L"{PLAYER}") == std::wstring::npos);
-                RECT bounds = line.presentation == StoryPresentation::Tutorial ? RECT{490, 465, 1430, 680} : scene.textRect;
+                const bool tutorial = line.presentation == StoryPresentation::Tutorial;
+                auto previous = SelectObject(dc, tutorial ? tutorialFont : font);
+                RECT bounds = tutorial ? RECT{1020, 418, 1530, 726} : scene.textRect;
                 const int allowedHeight = bounds.bottom - bounds.top;
-                const int height = DrawTextW(dc, text.c_str(), -1, &bounds, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_CALCRECT);
+                const int height = DrawTextW(dc, text.c_str(), -1, &bounds, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_CALCRECT
+                    | (tutorial ? DT_NOFULLWIDTHCHARBREAK : 0));
+                SelectObject(dc, previous);
                 if (height > allowedHeight)
                 {
                     std::wcerr << L"Text overflow (" << height << L"): " << text << L'\n';
                     return 2;
                 }
-                maxTextHeight = (std::max)(maxTextHeight, height);
+                if (!tutorial) maxTextHeight = (std::max)(maxTextHeight, height);
             }
             scene.SetPlayerName(L"윤서");
             // 첫 클릭은 글자 전체 표시, 다음 클릭은 정확히 한 줄 진행.
@@ -400,6 +406,7 @@ int wmain(int argc, wchar_t** argv)
     CheckReading(scene, data, frame, dc, output);
     CheckHeroineAnimation(scene, frame, dc, output, heroinePreview);
     SelectObject(dc, oldFont);
+    DeleteObject(tutorialFont);
     DeleteObject(font);
     frame.ReleaseDC();
     frame.Destroy();

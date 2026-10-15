@@ -19,15 +19,16 @@ namespace
 
     // 긴 이름도 실제 글꼴 폭을 측정해 한 줄 안에 맞춘다.
     void ReadingText(HDC dc, const std::wstring& text, RECT rect, int size,
-        COLORREF color, UINT flags = DT_LEFT | DT_WORDBREAK)
+        COLORREF color, UINT flags = DT_LEFT | DT_WORDBREAK,
+        const wchar_t* face = L"맑은 고딕", int weight = FW_MEDIUM)
     {
         const int saved = SaveDC(dc);
         HFONT font = nullptr;
         for (;;)
         {
-            font = CreateFontW(size, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
+            font = CreateFontW(size, 0, 0, 0, weight, FALSE, FALSE, FALSE,
                 HANGEUL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, L"맑은 고딕");
+                CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, face);
             auto previous = SelectObject(dc, font);
             SIZE measured{};
             GetTextExtentPoint32W(dc, text.c_str(), static_cast<int>(text.size()), &measured);
@@ -425,10 +426,17 @@ StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker
 
 void StoryScene::DrawReadingControls(HDC hDC)
 {
-    ReadingButton(hDC, historyButtonRect, L"대화 기록");
     const bool tutorial = !dialogues.empty() && dialogues[currentDialogueIndex].presentation == StoryPresentation::Tutorial;
-    ReadingButton(hDC, fastButtonRect, tutorial ? L"안내 읽는 중" :
-        (fastForward ? L"16× · 멈추기" : L"빨리 감기"), fastForward);
+    if (tutorial)
+    {
+        for (const auto rect : {historyButtonRect, fastButtonRect})
+            ReadingPanel(hDC, rect, RGB(250, 245, 238), RGB(221, 201, 195));
+        ReadingText(hDC, L"대화 기록", historyButtonRect, 21, RGB(100, 78, 83), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        ReadingText(hDC, L"안내 읽는 중", fastButtonRect, 21, RGB(145, 108, 117), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        return;
+    }
+    ReadingButton(hDC, historyButtonRect, L"대화 기록");
+    ReadingButton(hDC, fastButtonRect, fastForward ? L"16× · 멈추기" : L"빨리 감기", fastForward);
 }
 
 void StoryScene::DrawHistory(HDC hDC)
@@ -458,19 +466,165 @@ void StoryScene::DrawHistory(HDC hDC)
 
 void StoryScene::DrawTutorial(HDC hDC)
 {
-    { Gdiplus::Graphics g(hDC); Gdiplus::SolidBrush shade(Gdiplus::Color(180, 9, 13, 24));
-      g.FillRectangle(&shade, 0, 0, 1920, 1080); }
+    using namespace Gdiplus;
     int first = currentDialogueIndex, last = currentDialogueIndex;
     while (first > 0 && dialogues[first - 1].presentation == StoryPresentation::Tutorial) --first;
     while (last + 1 < static_cast<int>(dialogues.size()) && dialogues[last + 1].presentation == StoryPresentation::Tutorial) ++last;
-    ReadingPanel(hDC, {380, 230, 1540, 880}, RGB(23, 31, 48), RGB(162, 172, 208));
-    ReadingText(hDC, GetCurrentDisplaySpeaker(), {450, 290, 1470, 360}, 46, RGB(251, 227, 237), DT_CENTER | DT_SINGLELINE);
-    ReadingText(hDC, L"GUIDE  " + std::to_wstring(currentDialogueIndex - first + 1) + L" / " + std::to_wstring(last - first + 1),
-        {450, 385, 1470, 425}, 26, RGB(171, 188, 223), DT_CENTER | DT_SINGLELINE);
-    ReadingText(hDC, GetCurrentDisplayText().substr(0, visibleTextCount), {490, 465, 1430, 680}, 34, RGB(243, 244, 249));
-    ReadingText(hDC, L"노트가 남긴 규칙을 천천히 확인해 주세요.",
-        {450, 700, 1470, 750}, 26, RGB(184, 193, 214), DT_CENTER | DT_SINGLELINE);
-    ReadingButton(hDC, {760, 780, 1160, 842}, isTypingFinished ? L"확인 · 다음 페이지" : L"클릭해서 전체 보기");
+    const int page = currentDialogueIndex - first;
+    const int theme = (std::min)(page, 5);
+    const wchar_t* chapters[] = {L"작은 약속", L"네 번의 만남", L"세 사람의 봄", L"조금씩 성장하기", L"금요일의 무대", L"나만의 속도로"};
+    const wchar_t* quotes[] = {L"내일은,\n작은 약속에서 시작돼.", L"빈 네 장에\n함께한 시간을 남겨요.", L"같은 봄을 지나도,\n서로 다른 마음이 있어요.", L"서툰 하루도\n나를 조금씩 바꾸니까.", L"마지막 한마디를 위해,\n함께 준비하는 금요일.", L"마음에 남은 말은\n다시 펼쳐 봐도 괜찮아."};
+    const COLORREF ink = RGB(76, 60, 65), rose = RGB(156, 84, 104), muted = RGB(134, 112, 112);
+    {
+        Graphics g(hDC);
+        g.SetSmoothingMode(SmoothingModeAntiAlias);
+        g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        // 교실의 빛을 남기고, 이미 사용 중인 노트를 안내서로 펼친다.
+        LinearGradientBrush wash(Point(0, 0), Point(1920, 1080), Color(224, 249, 229, 224), Color(235, 237, 229, 225));
+        g.FillRectangle(&wash, 0, 0, 1920, 1080);
+        SolidBrush shadow(Color(24, 86, 53, 60));
+        g.FillEllipse(&shadow, 230, 880, 1480, 110);
+        if (bookGdiImage && bookGdiImage->GetLastStatus() == Ok)
+            g.DrawImage(bookGdiImage, Rect(60, -70, 1800, 1350));
+        else
+        {
+            SolidBrush paper(Color(255, 250, 245, 232));
+            g.FillRectangle(&paper, 285, 185, 1350, 730);
+        }
+        SolidBrush pink(Color(255, 191, 117, 137)), blush(Color(255, 246, 225, 223));
+        SolidBrush cream(Color(255, 255, 250, 240)), sage(Color(255, 153, 177, 159));
+        Pen line(Color(255, 180, 130, 133), 3.f), fine(Color(150, 196, 166, 151), 1.f);
+        // 상단 리본, 여백 장식, 삽화 받침. 페이지를 넘겨도 본문 위치는 고정한다.
+        const Point ribbon[] = {{1438, 170}, {1490, 170}, {1490, 282}, {1464, 265}, {1438, 282}};
+        g.FillPolygon(&pink, ribbon, 5);
+        g.DrawLine(&fine, 1020, 378, 1530, 378);
+        g.DrawLine(&fine, 1020, 753, 1530, 753);
+        g.FillEllipse(&blush, 412, 340, 390, 280);
+        // 6장의 내용을 작은 문구와 소품으로 구분한다. 별도 리소스나 실행 의존성은 없다.
+        if (theme == 2)
+        {
+            Image* portraits[] = {hansea.normal, yuharin.normal, seoirin.normal};
+            for (int i = 0; i < 3; ++i)
+            {
+                const int x = 395 + i * 143, y = 352 + (i == 1 ? -18 : 12);
+                g.FillRectangle(&cream, x - 6, y - 6, 134, 230);
+                g.DrawRectangle(&fine, x - 6, y - 6, 134, 230);
+                if (portraits[i] && portraits[i]->GetLastStatus() == Ok)
+                {
+                    const float w = static_cast<float>(portraits[i]->GetWidth());
+                    const float h = static_cast<float>(portraits[i]->GetHeight());
+                    g.DrawImage(portraits[i], RectF(float(x), float(y), 122, 178),
+                        w * .08f, h * .035f, w * .84f, h * .49f, UnitPixel);
+                }
+                g.FillEllipse(&pink, x + 55, y - 13, 12, 12);
+            }
+        }
+        else if (theme == 1)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                const int x = 435 + (i % 2) * 180, y = 350 + (i / 2) * 125;
+                g.FillRectangle(&cream, x, y, 158, 104);
+                g.DrawRectangle(&fine, x, y, 158, 104);
+                g.DrawLine(&line, x + 26, y + 69, x + 125, y + 69);
+                g.FillEllipse(&pink, x + 125, y + 15, 14, 14);
+            }
+        }
+        else if (theme == 3)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                const int y = 366 + i * 54;
+                g.FillRectangle(&cream, 550, y, 190, 18);
+                g.FillRectangle(i % 2 ? &sage : &pink, 550, y, 84 + i * 29, 18);
+                g.FillEllipse(i % 2 ? &sage : &pink, 544 + 84 + i * 29, y - 4, 26, 26);
+            }
+        }
+        else
+        {
+            g.FillRectangle(&cream, 465, 342, 285, 245);
+            g.DrawRectangle(&line, 465, 342, 285, 245);
+            if (theme == 0)
+            {
+                // 내일을 향하는 시계와 노트의 한 줄.
+                g.DrawEllipse(&line, 552, 372, 110, 110);
+                g.DrawLine(&line, 607, 427, 607, 389);
+                g.DrawLine(&line, 607, 427, 636, 442);
+                g.DrawArc(&line, 540, 360, 134, 134, 215.f, 155.f);
+                const Point arrow[] = {{670, 393}, {675, 412}, {657, 406}};
+                g.FillPolygon(&pink, arrow, 3);
+            }
+            else if (theme == 4)
+            {
+                g.FillRectangle(&pink, 465, 342, 285, 53);
+                g.DrawLine(&line, 514, 328, 514, 359);
+                g.DrawLine(&line, 700, 328, 700, 359);
+                g.FillEllipse(&pink, 558, 470, 35, 23);
+                g.DrawLine(&line, 591, 480, 591, 421);
+                g.DrawLine(&line, 591, 421, 646, 409);
+                g.DrawLine(&line, 646, 409, 646, 468);
+                g.FillEllipse(&pink, 613, 458, 35, 23);
+            }
+            else
+            {
+                const Point bookmark[] = {{580, 342}, {633, 342}, {633, 452}, {607, 431}, {580, 452}};
+                g.FillPolygon(&pink, bookmark, 5);
+                g.FillEllipse(&cream, 596, 370, 22, 22);
+            }
+            for (int i = 0; i < 2; ++i) g.DrawLine(&fine, 508, 521 + i * 28, 705 - i * 35, 521 + i * 28);
+        }
+        // 꽃잎을 직접 그려 글꼴의 특수문자 지원에 의존하지 않는다.
+        for (int i = 0; i < 5; ++i)
+        {
+            const auto state = g.Save();
+            g.TranslateTransform(816.f, 606.f);
+            g.RotateTransform(i * 72.f);
+            g.FillEllipse(&pink, -7, -27, 14, 24);
+            g.Restore(state);
+        }
+        g.FillEllipse(&cream, 811, 601, 10, 10);
+        for (int i = 0; i <= last - first; ++i)
+        {
+            SolidBrush dot(i == page ? Color(255, 170, 98, 120) : Color(255, 222, 203, 191));
+            g.FillEllipse(&dot, 535 + i * 27, i == page ? 818 : 820, i == page ? 12 : 8, i == page ? 12 : 8);
+        }
+    }
+    ReadingText(hDC, L"이야기를 펼치기 전에", {355, 235, 875, 278}, 23, muted, DT_CENTER | DT_SINGLELINE);
+    ReadingText(hDC, chapters[theme], {355, 280, 875, 329}, 34, rose, DT_CENTER | DT_SINGLELINE, L"바탕");
+    if (theme == 2)
+    {
+        const wchar_t* names[] = {L"세아", L"하린", L"이린"};
+        for (int i = 0; i < 3; ++i)
+        {
+            const int x = 395 + i * 143, y = 352 + (i == 1 ? -18 : 12);
+            ReadingText(hDC, names[i], {x, y + 184, x + 122, y + 217}, 23, ink, DT_CENTER | DT_SINGLELINE);
+        }
+    }
+    else if (theme == 1)
+        for (int i = 0; i < 4; ++i)
+        {
+            const int x = 435 + (i % 2) * 180, y = 350 + (i / 2) * 125;
+            ReadingText(hDC, L"0" + std::to_wstring(i + 1), {x + 25, y + 15, x + 110, y + 58}, 34, rose, DT_SINGLELINE, L"바탕");
+        }
+    else if (theme == 3)
+    {
+        const wchar_t* stats[] = {L"재력", L"대화", L"매력", L"외모"};
+        for (int i = 0; i < 4; ++i)
+            ReadingText(hDC, stats[i], {465, 354 + i * 54, 540, 393 + i * 54}, 25, ink, DT_SINGLELINE);
+    }
+    else if (theme == 4)
+        ReadingText(hDC, L"금요일", {465, 351, 750, 390}, 26, RGB(255, 250, 240), DT_CENTER | DT_SINGLELINE);
+    ReadingText(hDC, quotes[theme], {355, 664, 875, 766}, 32, ink, DT_CENTER, L"바탕");
+    ReadingText(hDC, L"노트의 안내     " + std::to_wstring(page + 1) + L" / " + std::to_wstring(last - first + 1),
+        {1020, 240, 1420, 279}, 22, muted, DT_SINGLELINE);
+    ReadingText(hDC, GetCurrentDisplaySpeaker(), {1020, 306, 1530, 358}, 38, ink, DT_SINGLELINE, L"맑은 고딕", FW_BOLD);
+    ReadingText(hDC, GetCurrentDisplayText().substr(0, visibleTextCount), {1020, 418, 1530, 726}, 30, ink,
+        DT_LEFT | DT_WORDBREAK | DT_NOFULLWIDTHCHARBREAK);
+    ReadingText(hDC, L"한 장씩, 우리의 이야기에 가까이.", {1020, 771, 1530, 805}, 21, muted, DT_CENTER | DT_SINGLELINE);
+    const RECT next = {1100, 826, 1450, 886};
+    ReadingPanel(hDC, next, RGB(161, 88, 109), RGB(161, 88, 109));
+    ReadingText(hDC, isTypingFinished ? (page == last - first ? L"이야기 시작하기" : L"다음 장으로") : L"문장 펼쳐 보기",
+        next, 26, RGB(255, 249, 241), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 
 
