@@ -1,4 +1,4 @@
-﻿#include "MiniGame2TutorialScene.h"
+#include "MiniGame2TutorialScene.h"
 
 #include <cmath>
 
@@ -337,13 +337,13 @@ void MiniGame2TutorialScene::DrawPageScoreGuide(HDC hDC)
 
 void MiniGame2TutorialScene::DrawFloweringGuide(HDC hDC)
 {
-    const wchar_t* titles[] = {L"01  바람 슬라이더", L"02  기억 꽃", L"03  히로인 릴레이", L"04  앵콜 노트", L"05  거울 무대"};
+    const wchar_t* titles[] = {L"01  바람 슬라이더", L"02  기억 꽃", L"03  히로인 릴레이", L"04  앵콜 노트", L"05  이어치기"};
     const wchar_t* descriptions[] = {
         L"누른 채 공을 따라가세요. 곡선 꽃길도 끝까지 따라가면 추가 +300점!",
         L"보라색 원은 마지막 0.25초 동안 숨습니다. 위치와 박자는 바뀌지 않아요.",
         L"꽃으로 보여주는 네 위치를 기억하고, 이어서 나오는 원을 같은 순서로 누르세요.",
         L"반복 화살표의 원을 한 박자 간격으로 두 번 클릭합니다. 이후 세 박자 동안 다음 위치로 이동합니다.",
-        L"다음 구간의 배치가 좌우로 뒤집힙니다. 이미 나온 노트는 움직이지 않아요."
+        L"화살표로 연결된 1번과 2번을 두 박자 간격으로 클릭합니다. 끌지 말고 두 번 눌러요."
     };
     for (int i = 0; i < 5; ++i)
     {
@@ -355,7 +355,7 @@ void MiniGame2TutorialScene::DrawFloweringGuide(HDC hDC)
         DrawTextInRect(hDC, descriptions[i], {590, top + 15, 1760, top + 95}, 27,
             RGB(235, 244, 239), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     }
-    DrawTextInRect(hDC, L"PERFECT +300 / GOOD +100 / BAD +50 · 전체 채보 기준 100점 · Esc로 음악도 일시정지",
+    DrawTextInRect(hDC, L"원곡 전체 약 4분 32초 · 성공률 90% + 박자 정확도 10% · 모두 성공하면 S등급",
         {150, 825, 1770, 895}, 27, RGB(181, 228, 214), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 

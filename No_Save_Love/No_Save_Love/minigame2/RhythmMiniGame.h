@@ -162,6 +162,7 @@ struct HitCircle
     DWORD spawnTime;    // 화면에 생성된 시간
     DWORD hitTime;      // 정확히 눌러야 하는 시간
     int floweringFlags = 0;
+    int linkX = 0, linkY = 0;
 };
 
 
@@ -200,9 +201,11 @@ private:
     bool floweringAudioReady = false;
     bool floweringPaused = false;
     DWORD floweringTimeMs = 0;
+    DWORD floweringDurationMs = FloweringChart::DurationMs;
     size_t floweringNextNote = 0;
     int floweringHeroine = 0;
     int floweringMaximumScore = 0;
+    int floweringHitUnits = 0;
     std::vector<FloweringChart::Note> floweringNotes;
     Gdiplus::Image* floweringHeroineNormal = nullptr;
     Gdiplus::Image* floweringHeroineSmile = nullptr;

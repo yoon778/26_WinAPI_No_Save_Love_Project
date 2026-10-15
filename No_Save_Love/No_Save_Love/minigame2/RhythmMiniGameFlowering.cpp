@@ -1,4 +1,4 @@
-﻿#include "RhythmMiniGame.h"
+#include "RhythmMiniGame.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -45,15 +45,13 @@ void RhythmMiniGame::UpdateFloweringClock()
         floweringAudioReady = false;
         return;
     }
-    floweringTimeMs = (std::min)(static_cast<DWORD>(_wtoi(position)),
-        static_cast<DWORD>(FloweringChart::DurationMs));
-    // 공연 편집의 마지막을 부드럽게 마친다. 원본 파일 자체는 변경하지 않는다.
-    if (floweringTimeMs > FloweringChart::DurationMs - 1500)
+    floweringTimeMs = (std::min)(static_cast<DWORD>(_wtoi(position)), floweringDurationMs);
+    // MP3 디코더의 마지막 프레임 반올림도 자연 종료로 처리한다. 중간 페이드/절단은 없다.
+    if (floweringTimeMs + 1000 >= floweringDurationMs)
     {
-        const int volume = (FloweringChart::DurationMs - floweringTimeMs) * 250 / 1500;
-        wchar_t command[80];
-        swprintf_s(command, L"setaudio rhythmBGM volume to %d", volume);
-        mciSendString(command, nullptr, 0, nullptr);
+        wchar_t mode[32]{};
+        if (mciSendString(L"status rhythmBGM mode", mode, 32, nullptr) == 0
+            && std::wstring(mode) == L"stopped") floweringTimeMs = floweringDurationMs;
     }
 }
 
@@ -82,7 +80,8 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
                 circle = {true, false, static_cast<int>(note.x * screenWidth),
                     static_cast<int>(note.y * screenHeight),
                     static_cast<DWORD>(note.timeMs - FloweringChart::ApproachMs),
-                    static_cast<DWORD>(note.timeMs), note.flags};
+                    static_cast<DWORD>(note.timeMs), note.flags,
+                    static_cast<int>(note.endX * screenWidth), static_cast<int>(note.endY * screenHeight)};
                 ++hitCircleCount;
                 break;
             }
@@ -192,8 +191,8 @@ void RhythmMiniGame::RenderFloweringStage(HDC hDC)
         Flower(g, x, y, h * .008f, 55, seconds * 25 + i * 23.f);
     }
 
-    const bool cue = time >= FloweringChart::BeatTime(128)
-        && time < FloweringChart::BeatTime(136);
+    const int relay = FloweringChart::RelayCueBeat(time);
+    const bool cue = relay >= 0 && time < FloweringChart::BeatTime(relay + 8);
     const bool smiling = cue || combo >= 5;
     Image* heroine = smiling ? floweringHeroineSmile : floweringHeroineNormal;
     const float pulse = std::sin(seconds * 130.f / 60.f * 6.2831853f);
@@ -220,7 +219,7 @@ void RhythmMiniGame::RenderFloweringStage(HDC hDC)
 
     Label(g, L"FLOWERING  /  금요일의 작은 무대", w * .19f, h * .033f,
         h * .033f, Color(255, 247, 226, 220), w * .71f);
-    const wchar_t* chapters[] = {L"01  씨앗 · 천천히 박자를 맞춰요", L"02  바람 · 기울어진 꽃길을 따라가요", L"03  개화 · 함께 맞춘 박자가 꽃이 됩니다"};
+    const wchar_t* chapters[] = {L"01  씨앗 · 천천히 박자를 맞춰요", L"02  바람 · 기울어진 꽃길을 따라가요", L"03  함께 피우는 봄 · 익힌 기믹을 이어가요", L"04  피날레 · 마지막 음까지 함께"};
     Label(g, chapters[phase], w * .19f, h * .083f, h * .022f, Color(255, 153, 218, 202), w * .7f);
 
     // 슬라이더를 실제로 따라갈 때만 꽃길이 자란다.
@@ -245,19 +244,20 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
     Graphics g(hDC);
     g.SetSmoothingMode(SmoothingModeAntiAlias);
     const float w = static_cast<float>(screenWidth), h = static_cast<float>(screenHeight);
-    const int cueStart = FloweringChart::BeatTime(FloweringChart::CueStartBeat);
-    const int response = FloweringChart::BeatTime(FloweringChart::ResponseBeat);
+    const int relay = FloweringChart::RelayCueBeat(time);
+    const int cueStart = relay < 0 ? -10000 : FloweringChart::BeatTime(relay);
+    const int response = relay < 0 ? -5000 : FloweringChart::BeatTime(relay + 8);
     std::wstring mechanic;
     if (time >= FloweringChart::BeatTime(60) && time < FloweringChart::BeatTime(92))
         mechanic = L"바람 슬라이더 · 곧은 길도 곡선 꽃길도, 공을 끝까지 따라가요";
-    else if (time >= FloweringChart::BeatTime(92) && time < cueStart)
+    else if (time >= FloweringChart::BeatTime(92) && time < FloweringChart::BeatTime(128))
         mechanic = L"기억 꽃 · 보라색 원은 마지막 순간 숨어요. 위치와 박자를 기억!";
     else if (time >= FloweringChart::BeatTime(144) && time < FloweringChart::BeatTime(172))
         mechanic = L"앵콜 노트 · 돌아오는 화살표에 맞춰 같은 자리에서 두 번! 그다음은 세 박자 쉬어요";
     else if (time >= FloweringChart::BeatTime(172) && time < FloweringChart::BeatTime(208))
-        mechanic = L"거울 무대 · 다음 배치가 좌우로 바뀝니다. 이미 나온 원은 그대로!";
+        mechanic = L"이어치기 · 화살표의 1번, 두 박자 뒤 2번! 누른 채 끌지 않아요";
     else if (time >= FloweringChart::BeatTime(208))
-        mechanic = L"함께 피우는 봄 · 꽃길, 기억 꽃, 앵콜을 이어가요";
+        mechanic = L"혼합 무대 · 꽃길 · 기억 꽃 · 앵콜 · 이어치기 / 응원 신호도 돌아옵니다";
     if (!mechanic.empty())
         Label(g, mechanic, w * .07f, h * .80f, h * .021f, Color(255, 224, 229, 244), w * .64f);
 
@@ -269,6 +269,39 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
         {
             Pen ring(Color(255, 207, 161, 255), 5.f);
             g.DrawEllipse(&ring, note.x - 58, note.y - 58, 116, 116);
+        }
+        if (note.floweringFlags & FloweringChart::Link)
+        {
+            const bool follow = (note.floweringFlags & FloweringChart::LinkFollow) != 0;
+            const float x = static_cast<float>(note.x), y = static_cast<float>(note.y);
+            const float radius = hitCircleImg.GetWidth() * .5f;
+            if (!follow)
+            {
+                const float dx = note.linkX - x, dy = note.linkY - y;
+                const float distance = std::sqrt(dx * dx + dy * dy);
+                if (distance > radius * 2)
+                {
+                    Pen connection(Color(210, 139, 237, 224), 4.f);
+                    connection.SetEndCap(LineCapArrowAnchor);
+                    g.DrawLine(&connection, x + dx * radius / distance, y + dy * radius / distance,
+                        note.linkX - dx * (radius + 12) / distance, note.linkY - dy * (radius + 12) / distance);
+                    Pen destination(Color(120, 139, 237, 224), 2.f);
+                    destination.SetDashStyle(DashStyleDash);
+                    g.DrawEllipse(&destination, note.linkX - radius, note.linkY - radius, radius * 2, radius * 2);
+                }
+            }
+            LinearGradientBrush face(PointF(x, y - radius), PointF(x, y + radius),
+                Color(255, 52, 128, 140), Color(255, 21, 64, 94));
+            g.FillEllipse(&face, x - radius, y - radius, radius * 2, radius * 2);
+            Pen outline(Color(255, 163, 251, 228), 3.f);
+            g.DrawEllipse(&outline, x - radius, y - radius, radius * 2, radius * 2);
+            const float remaining = (std::clamp)((static_cast<int>(note.hitTime) - time)
+                / float(FloweringChart::ApproachMs), 0.f, 1.f);
+            const float approach = radius * (1 + .8f * remaining);
+            g.DrawEllipse(&outline, x - approach, y - approach, approach * 2, approach * 2);
+            Label(g, follow ? L"2" : L"1", x - 10, y - 22, 30.f, Color(255, 238, 255, 248), 45.f);
+            Label(g, follow ? L"이어치기 · 도착" : L"이어치기 · 출발", x - 80, y + radius + 16,
+                20.f, Color(255, 195, 246, 233), 200.f);
         }
         if (note.floweringFlags & FloweringChart::Encore)
         {
@@ -311,10 +344,10 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
         Label(g, L"응원 보기 · 꽃은 누르지 않아요. 이어지는 원을 같은 순서로!",
             w * .12f, h * .80f, h * .023f, Color(255, 255, 214, 186), w * .58f);
     }
-    else if (time >= response && time < FloweringChart::BeatTime(144))
+    else if (time >= response && relay >= 0 && time < FloweringChart::BeatTime(relay + 16))
         Label(g, L"이제 네 차례!  1 · 2 · 3 · 4", w * .17f, h * .80f, h * .03f, Color(255, 255, 214, 186), w * .5f);
 
-    const int remaining = (FloweringChart::DurationMs - time + 999) / 1000;
+    const int remaining = (static_cast<int>(floweringDurationMs) - time + 999) / 1000;
     SolidBrush timerPanel(Color(235, 13, 26, 39));
     g.FillRectangle(&timerPanel, w * .715f, h * .91f, w * .27f, h * .06f);
     Label(g, L"LUCY · 개화     " + std::to_wstring(remaining / 60) + L":"
@@ -334,7 +367,8 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
             Color(255, 255, 218, 212), w * .5f);
         Label(g, std::to_wstring(resultScore100) + L" / 100   " + GetGradeText(),
             w * .25f, h * .46f, h * .06f, Color(255, 184, 237, 206), w * .43f);
-        Label(g, L"박수가 잦아들면, 전하고 싶던 말을 하러 갑니다.", w * .15f, h * .58f,
+        Label(g, L"성공 " + std::to_wstring(floweringHitUnits) + L" / " + std::to_wstring(floweringMaximumScore / 300)
+            + L"   ·   성공률 90% + 박자 정확도 10%", w * .15f, h * .58f,
             h * .023f, Color(255, 229, 234, 239), w * .5f);
     }
 }

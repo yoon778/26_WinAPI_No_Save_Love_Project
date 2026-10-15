@@ -25,6 +25,11 @@ MCIERROR TestMci(LPCWSTR command, LPWSTR result, UINT size, HWND callback)
         swprintf_s(result, size, L"%d", musicPosition);
         return 0;
     }
+    if (simulated && std::wstring(command) == L"status rhythmBGM mode")
+    {
+        swprintf_s(result, size, L"%s", musicPosition >= FloweringChart::DurationMs ? L"stopped" : L"playing");
+        return 0;
+    }
     if (simulated && std::wstring(command).starts_with(L"play ")) return 0;
     return mciSendStringW(command, result, size, callback);
 }
@@ -53,6 +58,7 @@ void CompleteTransition(GameManager& manager)
 
 int wmain(int argc, wchar_t** argv)
 {
+    std::cout << std::unitbuf;
     assert(argc == 2);
     const std::filesystem::path output(argv[1]);
     std::filesystem::create_directories(output);
@@ -77,8 +83,8 @@ int wmain(int argc, wchar_t** argv)
                 assert(chart[i + 1].timeMs - note.timeMs >= 1384);
         }
     }
-    assert(flags == (FloweringChart::Memory | FloweringChart::Encore | FloweringChart::Mirror
-        | FloweringChart::Curve | FloweringChart::EncoreRepeat));
+    assert(flags == (FloweringChart::Memory | FloweringChart::Encore | FloweringChart::Link
+        | FloweringChart::Curve | FloweringChart::EncoreRepeat | FloweringChart::LinkFollow));
 
     RhythmMiniGame game;
     assert(game.Init(window, true, 0));
@@ -95,14 +101,23 @@ int wmain(int argc, wchar_t** argv)
     Sleep(100);
     game.Update();
     assert(game.floweringTimeMs > pauseTime);
-    // MP3의 마지막 디코딩 프레임에서도 120초 공연이 정상적으로 종료되는지 확인한다.
-    assert(mciSendStringW(L"play rhythmBGM from 119000 to 120000", nullptr, 0, nullptr) == 0);
+    // 실제 MP3 원곡 끝의 마지막 디코딩 프레임에서도 자연 종료한다.
+    wchar_t playEnd[100];
+    swprintf_s(playEnd, L"play rhythmBGM from %lu", game.floweringDurationMs - 1000);
+    assert(game.floweringDurationMs >= 272000 && game.floweringDurationMs <= 273000);
+    assert(mciSendStringW(playEnd, nullptr, 0, nullptr) == 0);
     Sleep(1300);
     game.Update();
     assert(game.isResultScreenActive);
     game.Release();
     std::cout << "PASS: actual MP3 open/play/position/pause/resume/end\n";
 
+    int lateNotes = 0, lateFlags = 0;
+    for (const auto& note : chart) if (note.timeMs >= 120000)
+    { ++lateNotes; lateFlags |= note.flags; }
+    assert(lateNotes >= 100 && (lateFlags & flags) == flags);
+    assert(FloweringChart::RelayCueBeat(FloweringChart::BeatTime(296)) == 296);
+    assert(FloweringChart::RelayCueBeat(FloweringChart::BeatTime(432)) == 432);
     simulated = true;
     musicPosition = 0;
     assert(game.Init(window, true, 1));
@@ -117,9 +132,9 @@ int wmain(int argc, wchar_t** argv)
     game.hitCircles[0].isActive = false;
     assert(!game.HideFloweringCircle(1, 2000));
     game.ClearAllNotes();
-    const int snapshots[] = {10000, 35000, 45000, 59900, 66300, 66800, 68000, 70000, 83500, 104000, 120000};
+    const int snapshots[] = {10000, 35000, 45000, 59900, 66300, 66800, 68000, 70000, 83500, 104000, 139000, 175000, 202000, 240000, 271000};
     size_t nextNote = 0;
-    for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs; musicPosition += 10)
+    for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs + 1000; musicPosition += 10)
     {
         for (const auto& slider : game.sliders)
         {
@@ -147,9 +162,35 @@ int wmain(int argc, wchar_t** argv)
     game.Release();
     std::cout << "PASS: " << chart.size() << " chart objects, perfect " << FloweringChart::MaximumScore(chart) << ", five mechanics, natural finish\n";
 
+    // 실제 입력 경로로 전체 GOOD/BAD 성공을 재현한다. 단순 만점만으로 등급을 검증하지 않는다.
+    for (int delay : {140, 220})
+    {
+        musicPosition = 0;
+        assert(game.Init(window, true, 2));
+        size_t next = 0;
+        for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs + 1000; musicPosition += 10)
+        {
+            for (const auto& slider : game.sliders)
+                if (slider.isActive && slider.isStarted)
+                    game.GetSliderPosition(slider, (musicPosition - slider.slideStartTime) / double(slider.duration),
+                        game.mouseX, game.mouseY);
+            game.Update();
+            while (next < chart.size() && chart[next].timeMs + delay <= musicPosition)
+            {
+                const auto& note = chart[next++];
+                game.OnMouseDown(static_cast<int>(note.x * 1920), static_cast<int>(note.y * 1080));
+                if (note.durationMs == 0) game.OnMouseUp(game.mouseX, game.mouseY);
+            }
+        }
+        assert(game.floweringHitUnits == game.floweringMaximumScore / 300);
+        assert(game.GetResultScore100() >= 90 && std::wstring(game.GetGradeText()) == L"S");
+        std::cout << "PASS: full song delay " << delay << "ms, grade S, score " << game.GetResultScore100() << "\n";
+        game.Release();
+    }
+
     musicPosition = 0;
     assert(game.Init(window, true, 2));
-    for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs; musicPosition += 100) game.Update();
+    for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs + 1000; musicPosition += 100) game.Update();
     assert(game.GetResultScore100() == 0);
     game.Release();
     // 실패 후 재시작에서도 이전 채보/점수/시간이 남지 않는다.
@@ -213,6 +254,7 @@ int wmain(int argc, wchar_t** argv)
         manager.minigame2.Update();
         SaveFrame(manager.minigame2, output / (L"heroine_" + std::to_wstring(heroine) + L".png"));
         manager.minigame2.score = manager.minigame2.floweringMaximumScore;
+        manager.minigame2.floweringHitUnits = manager.minigame2.floweringMaximumScore / 300;
         manager.FinishCurrentMiniGameIfNeeded(true);
         assert(manager.currentMiniGameIndex == 5);
         CompleteTransition(manager);
@@ -239,7 +281,7 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.endingScene.isFastScroll);
         manager.endingScene.Update();
         assert(manager.endingScene.scrollOffset == manager.endingScene.fastScrollSpeed);
-        manager.OnMouseClick(1700, 70);
+        manager.OnMouseClick(1750, 44);
         assert(!manager.endingScene.isFastScroll);
         manager.OnKeyDown(VK_SPACE);
         assert(manager.endingScene.isFastScroll);
@@ -274,6 +316,21 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.storyScene.currentDialogueIndex == 0 && manager.storyScene.isTypingFinished);
         manager.OnKeyDown(VK_SPACE);
         assert(manager.storyScene.currentDialogueIndex == 1);
+        manager.OnKeyDown('F');
+        assert(manager.storyScene.fastForward);
+        manager.OnKeyDown(VK_ESCAPE);
+        assert(manager.m_exitConfirmOpen && !manager.storyScene.fastForward);
+        const auto indexBeforeMenu = manager.storyScene.currentDialogueIndex;
+        manager.OnKeyDown(VK_SPACE); manager.OnTimer(window);
+        assert(manager.storyScene.currentDialogueIndex == indexBeforeMenu);
+        if (heroine == 0)
+        {
+            CImage help; help.Create(1920, 1080, 24);
+            HDC helpDC = help.GetDC(); manager.Render(helpDC); help.ReleaseDC();
+            assert(SUCCEEDED(help.Save((output / L"keyboard_help.png").c_str())));
+        }
+        manager.OnMouseClick(720, 830);
+        assert(!manager.m_exitConfirmOpen);
         manager.OnKeyDown('L');
         assert(manager.storyScene.historyOpen);
         manager.OnKeyDown(VK_ESCAPE);

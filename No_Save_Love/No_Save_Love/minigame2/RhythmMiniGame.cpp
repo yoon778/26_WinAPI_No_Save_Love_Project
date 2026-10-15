@@ -1,4 +1,4 @@
-﻿#include "RhythmMiniGame.h"
+#include "RhythmMiniGame.h"
 #include "../ResultGrade.h"
 #include <cstdlib>
 #include <cmath>
@@ -27,6 +27,8 @@ bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
     isFlowering = flowering;
     floweringHeroine = heroineIndex >= 0 && heroineIndex < 3 ? heroineIndex : 0;
     floweringTimeMs = 0;
+    floweringHitUnits = 0;
+    floweringDurationMs = FloweringChart::DurationMs;
     floweringNextNote = 0;
     floweringPaused = false;
     floweringAudioReady = false;
@@ -357,7 +359,7 @@ void RhythmMiniGame::Update()
         StartFinalEffect(currentTime);
     }
 
-    if (elapsedBgmTime >= static_cast<DWORD>(isFlowering ? FloweringChart::DurationMs : RHYTHM_GAME_DURATION))
+    if (elapsedBgmTime >= static_cast<DWORD>(isFlowering ? floweringDurationMs : RHYTHM_GAME_DURATION))
     {
         // BGM이 끝난 첫 순간: 결과창 시작
         if (isResultScreenActive == false)
@@ -944,7 +946,7 @@ void RhythmMiniGame::Render(HDC hDC)
         {
             if (isFlowering && HideFloweringCircle(i, GetRhythmTime())) continue;
             // 앵콜은 전용 접근 원/반복 화살표를 오버레이에서 그린다.
-            if (isFlowering && (hitCircles[i].floweringFlags & FloweringChart::Encore)) continue;
+            if (isFlowering && (hitCircles[i].floweringFlags & (FloweringChart::Encore | FloweringChart::Link))) continue;
             double hitCircleScale =
                 isWindowGimmickActive
                 ? SMALL_WINDOW_HITCIRCLE_SCALE
@@ -1353,12 +1355,12 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
         if (timeDiff < 0)
             timeDiff = -timeDiff;
 
-        if (timeDiff <= 80)
+        if (timeDiff <= (isFlowering ? 110 : 80))
         {
             lastJudge = JUDGE_PERFECT;
             score += 300;
         }
-        else if (timeDiff <= 160)
+        else if (timeDiff <= (isFlowering ? 190 : 160))
         {
             lastJudge = JUDGE_GOOD;
             score += 100;
@@ -1415,12 +1417,12 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
                 if (timeDiff < 0)
                     timeDiff = -timeDiff;
 
-                if (timeDiff <= 80)
+                if (timeDiff <= (isFlowering ? 110 : 80))
                 {
                     lastJudge = JUDGE_PERFECT;
                     score += 300;
                 }
-                else if (timeDiff <= 160)
+                else if (timeDiff <= (isFlowering ? 190 : 160))
                 {
                     lastJudge = JUDGE_GOOD;
                     score += 100;
@@ -2475,6 +2477,7 @@ void RhythmMiniGame::AddCursorTrailPoint(int x, int y, DWORD createTime)
 void RhythmMiniGame::AddCombo()
 {
     combo++;
+    if (isFlowering) ++floweringHitUnits;
 
     if (combo > maxCombo)
     {
@@ -2600,9 +2603,10 @@ void RhythmMiniGame::PlayBGM()
     mciSendString(L"set rhythmBGM time format milliseconds", NULL, 0, NULL);
     wchar_t length[64] = {};
     mciSendString(L"status rhythmBGM length", length, 64, NULL);
-    floweringAudioReady = error == 0 && _wtoi(length) >= FloweringChart::DurationMs;
+    floweringDurationMs = static_cast<DWORD>((std::max)(0, _wtoi(length)));
+    floweringAudioReady = error == 0 && floweringDurationMs >= static_cast<DWORD>(FloweringChart::BeatTime(580));
     mciSendString(L"setaudio rhythmBGM volume to 250", NULL, 0, NULL);
-    const auto playError = mciSendString(isFlowering ? L"play rhythmBGM from 0 to 120000" : L"play rhythmBGM", NULL, 0, NULL);
+    const auto playError = mciSendString(L"play rhythmBGM", NULL, 0, NULL);
     if (playError != 0) floweringAudioReady = false;
 }
 
@@ -3498,7 +3502,11 @@ void RhythmMiniGame::CalculateResult()
 
     // 윤서에게 넘길 0~100 점수
     const int maximum = isFlowering ? floweringMaximumScore : RESULT_SCORE_MAX;
-    resultScore100 = maximum > 0 ? finalScore * 100 / maximum : 0;
+    // 공연은 놓치지 않고 끝낸 경험을 우선한다. 클릭과 슬라이더 완주를 각각 한 단위로 센다.
+    // 전부 성공하면 BAD 위주여도 91점 이상(S), 정확히 맞히면 100점이다.
+    resultScore100 = maximum > 0 ? (isFlowering
+        ? (floweringHitUnits * 300 * 90 + finalScore * 10 + maximum / 2) / maximum
+        : finalScore * 100 / maximum) : 0;
 
     if (resultScore100 > 100)
         resultScore100 = 100;
