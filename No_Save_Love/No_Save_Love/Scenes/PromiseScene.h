@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <windows.h>
 #include <gdiplus.h>
 #include <array>
@@ -27,14 +27,17 @@ public:
 
 private:
     enum UnitType { Shield, Sniper, Cannon, Charger };
+    enum EnemyType { Soldier, Runner, Armored, Swarm, Guardian, Medic, Mortar, Jammer };
     enum Upgrade { Repair, Pierce, Chain, Thorns, Overcharge, Recycler };
-    struct Unit { int type = -1; float hp = 0, cooldown = 0; int level = 1; };
-    struct Enemy { int lane, type; float x, hp, maxHp, cooldown = 0, flash = 0; };
+    struct Unit { int type = -1; float hp = 0, cooldown = 0; int level = 1; float action = 0, flash = 0, jam = 0, arrival = 0; };
+    struct Enemy { int lane, type; float x, hp, maxHp, cooldown = 0, flash = 0;
+        float action = 0, ability = 2, walk = 0, chill = 0; int aim = -1; float windup = 0; };
     struct Spark { float x, y, endX, endY, life; int kind; };
     static constexpr float Duration = 160, PracticeDuration = 20;
+    static constexpr int Columns = 5, Lanes = 3, SlotCount = Columns * Lanes;
     static constexpr int Costs[4] = {22, 30, 38, 26};
     static constexpr float Health[4] = {240, 110, 150, 100};
-    std::array<Unit, 9> units{};
+    std::array<Unit, SlotCount> units{};
     std::vector<Enemy> enemies;
     std::vector<Spark> sparks;
     std::array<bool, 6> upgrades{};
@@ -53,6 +56,7 @@ private:
     ULONG_PTR graphicsToken = 0;
     Gdiplus::Image* portrait = nullptr;
     Gdiplus::Image* smile = nullptr;
+    std::array<Gdiplus::Image*, 3> spriteSheets{};
     std::wstring feedback;
 
     void Step(float dt);
@@ -65,11 +69,13 @@ private:
     void ChooseUpgrade(int option);
     void OpenUpgrades();
     void SpawnWave();
-    void Damage(Enemy& enemy, float damage);
+    void Damage(Enemy& enemy, float damage, int source = -1);
+    void HitUnit(int slot, float damage);
+    float ChargingRate() const;
     void RemoveDefeated();
     int NextLane() const;
     int NextType() const;
     bool Linked(int slot) const;
     RECT SlotRect(int slot) const;
-    void DrawUnit(Gdiplus::Graphics& g, int type, float x, float y, float scale, bool enemy = false) const;
+    void DrawUnit(Gdiplus::Graphics& g, int type, float x, float y, float scale, bool enemy = false, int frame = 0) const;
 };
