@@ -28,7 +28,7 @@ public:
 
 private:
     static const int HEROINE_COUNT = 3;
-    static const int STORY_ROUND_COUNT = 4; 
+    static const int STORY_ROUND_COUNT = 5;
 
     static const int ENDING_TYPE_COUNT = 3;
     static const int FINAL_CHOICE_INTRO_COUNT = 4;
@@ -54,7 +54,7 @@ private:
     // 잘못된 값이 들어왔을 때 반환할 빈 대사 묶음이다.
     std::vector<DialogueLineInfo> emptyStory;
 
-    // 4회차 × 3명 = 총 12개의 분기 스토리 묶음이다.
+    // 5회차 × 3명 = 총 15개의 분기 스토리 묶음이다.
     std::vector<DialogueLineInfo> storyScripts[STORY_ROUND_COUNT][HEROINE_COUNT];
 
 };

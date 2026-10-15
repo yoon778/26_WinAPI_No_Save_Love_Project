@@ -151,7 +151,7 @@ int wmain(int argc, wchar_t** argv)
     frame.Create(1920, 1080, 24);
     HDC dc = frame.GetDC();
     std::vector<const std::vector<DialogueLineInfo>*> scripts = { &data.GetIntroStory() };
-    for (int round = 0; round < 4; ++round)
+    for (int round = 0; round < 5; ++round)
         for (int heroine = 0; heroine < 3; ++heroine)
             scripts.push_back(&data.GetBranchStory(round, heroine));
     for (int heroine = 0; heroine < 4; ++heroine)
@@ -162,7 +162,7 @@ int wmain(int argc, wchar_t** argv)
 
     for (int heroine = 0; heroine < 3; ++heroine)
     {
-        scripts.push_back(&data.GetPromiseStory(heroine, false));
+        assert(data.GetPromiseStory(heroine, false).size() == data.GetBranchStory(4, heroine).size());
         scripts.push_back(&data.GetPromiseStory(heroine, true));
         scripts.push_back(&data.GetPerformanceStory(heroine, false));
         scripts.push_back(&data.GetPerformanceStory(heroine, true));
@@ -203,7 +203,7 @@ int wmain(int argc, wchar_t** argv)
             assert(effects.contains(line.effectKey));
             assert(music.contains(line.bgmKey));
             auto* background = scene.GetBackgroundImage(scene.currentBackgroundKey);
-            assert(background && !background->IsNull());
+            assert(scene.currentBackgroundKey == L"arcade" || (background && !background->IsNull()));
             assert(scene.currentEffectKey == line.effectKey);
             assert(line.heroineMotion >= HeroineMotion::Idle && line.heroineMotion <= HeroineMotion::Surprise);
             if (line.heroineMotion != HeroineMotion::Idle)
@@ -304,7 +304,7 @@ int wmain(int argc, wchar_t** argv)
                     thumbnail.ReleaseDC();
                 }
             }
-            if ((line.backgroundKey.rfind(L"cut_", 0) == 0 || line.backgroundKey == L"hidden_end")
+            if ((line.backgroundKey.rfind(L"cut_", 0) == 0 || line.backgroundKey == L"hidden_end" || line.backgroundKey == L"arcade")
                 && photographed.insert(line.backgroundKey).second)
             {
                 scene.cutsceneSeconds = 2.5;
@@ -322,19 +322,20 @@ int wmain(int argc, wchar_t** argv)
         }
         assert(scene.IsFinished());
     }
-    assert(photographed.size() == 7);
+    assert(photographed.size() == 8);
     assert(animated.size() == 22);
-    assert(renderedAnimations.size() == 22);
-    assert(animationSegments == 35); // 기존 23 + 세 경로의 약속 전후 소품 연출 12
-    assert(heroineReactions == 50);
-    for (int round = 0; round < 4; ++round)
+    assert(renderedAnimations.size() == 23); // 새 오락실 사진 연출: 한세아
+    assert(renderedAnimations.contains(L"anim_photo_hansea"));
+    assert(animationSegments >= 23); // 기존 사건의 소품 연출과 새 오락실 사건을 함께 검사한다.
+    assert(heroineReactions >= 50);
+    for (int round = 0; round < 5; ++round)
         for (int heroine = 0; heroine < 3; ++heroine)
         {
             const auto& branch = data.GetBranchStory(round, heroine);
-            assert(std::any_of(branch.begin(), branch.end(), [](const auto& line) { return line.effectKey.rfind(L"anim_", 0) == 0; }));
+            if (round < 4) assert(std::any_of(branch.begin(), branch.end(), [](const auto& line) { return line.effectKey.rfind(L"anim_", 0) == 0; }));
             assert(std::count_if(branch.begin(), branch.end(), [](const auto& line) { return line.heroineMotion != HeroineMotion::Idle; }) >= 3);
         }
-    assert(data.GetBranchStory(-1, 0).empty() && data.GetBranchStory(4, 0).empty());
+    assert(data.GetBranchStory(-1, 0).empty() && data.GetBranchStory(5, 0).empty());
     assert(data.GetBranchStory(0, -1).empty() && data.GetBranchStory(0, 3).empty());
     assert(data.GetEndingStory(-1, 0).empty() && data.GetEndingStory(3, 0).empty());
     assert(data.GetEndingStory(0, -1).empty() && data.GetEndingStory(0, 3).empty());

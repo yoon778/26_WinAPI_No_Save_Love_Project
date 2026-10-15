@@ -87,7 +87,7 @@ std::wstring ResultScene::GetGameName(int whichGame) const
         return L"유혹 피하기";
 
     case 4:
-        return L"노트 밖의 약속";
+        return L"방과 후 마지막 웨이브";
 
     case 5:
         return L"개화 - 금요일의 작은 무대";

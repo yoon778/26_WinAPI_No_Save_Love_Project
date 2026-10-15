@@ -137,6 +137,9 @@
     <ClInclude Include="Scenes\PromiseScene.h">
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
+    <ClInclude Include="Scenes\ArcadeBackdrop.h">
+      <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
     <ClInclude Include="Scenes\StoryScene.h">
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>

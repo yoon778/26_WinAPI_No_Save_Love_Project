@@ -10,11 +10,11 @@ void CheckEffectSounds(HWND window)
         std::filesystem::current_path(root);
         GameManager manager;
         manager.Initialize(window);
-        // 실제로 등록된 공통 효과음 16개와 리듬게임 효과음 4개를 같은 재생 경로로 검사한다.
+        // 실제로 등록된 공통 효과음 18개와 리듬게임 효과음 4개를 같은 재생 경로로 검사한다.
         const wchar_t* common[] = {L"click", L"minigame1_success", L"minigame1_fail", L"minigame1_water",
             L"minigame1_noodle_soup", L"minigame1_topping", L"minigame3_jump", L"minigame3_slide",
             L"minigame3_hit", L"minigame3_jelly_collect", L"minigame4_lolpopup", L"minigame4_malpa_rock",
-            L"minigame4_malpa_ult", L"minigame4_rider", L"minigame4_reels", L"minigame4_food"};
+            L"minigame4_malpa_ult", L"minigame4_rider", L"minigame4_reels", L"minigame4_food", L"defense_shot", L"defense_support"};
         const auto playing = [](const std::wstring& alias)
         {
             wchar_t mode[64] = {};
@@ -39,5 +39,5 @@ void CheckEffectSounds(HWND window)
         manager.Shutdown();
     }
     std::filesystem::current_path(source);
-    std::cout << "PASS: source/package 20 SFX open/play/restart, rhythm effects, simultaneous BGM\n";
+    std::cout << "PASS: source/package 22 SFX open/play/restart, rhythm effects, simultaneous BGM\n";
 }

@@ -47,6 +47,10 @@ void GameManager::Initialize(HWND hWnd)
     audioManager.RegisterBgm(L"badending", L"resource\\sound\\ending\\bad_ending.mp3");
     audioManager.RegisterBgm(L"hiddenending", L"resource\\sound\\ending\\hidden_ending.mp3");
     audioManager.RegisterSfx(L"click", L"resource\\sound\\Sfx\\Click.wav");
+    audioManager.RegisterSfx(L"defense_shot", L"resource\\minigame2\\sound\\hit.wav");
+    audioManager.RegisterSfx(L"defense_support", L"resource\\minigame2\\sound\\impact.wav");
+    audioManager.SetSfxVolume(L"defense_shot", 220);
+    audioManager.SetSfxVolume(L"defense_support", 500);
     audioManager.RegisterSfx(L"minigame1_success", L"resource\\minigame1\\sfx_success.wav");
     audioManager.RegisterSfx(L"minigame1_fail", L"resource\\minigame1\\sfx_fail.wav");
     audioManager.RegisterSfx(L"minigame1_water", L"resource\\minigame1\\sfx_water.wav");
@@ -272,9 +276,18 @@ void GameManager::OnMouseClick(int x, int y)
             if (currentMiniGameIndex == 5 || currentMiniGameIndex == 6)
             {
                 PrepareFinalChoiceIntro();
-                storyScene.SetDialogues(currentMiniGameIndex == 5
-                    ? storyData.GetPromiseStory(finalHeroineIndex, true)
-                    : storyData.GetPerformanceStory(finalHeroineIndex, true));
+                if (currentMiniGameIndex == 5)
+                {
+                    auto lines = storyData.GetPromiseStory(promiseHeroineIndex, true);
+                    const wchar_t* names[] = {L"한세아", L"유하린", L"서이린"};
+                    const wchar_t* faces[] = {L"hansea_smile", L"yuharin_smile", L"seoirin_smile"};
+                    const wchar_t* wins[] = {L"끝까지 지켰네. 네가 맡아 준 줄 덕분이야.", L"해냈다! 봤지? 우리 같은 팀 하길 잘했어!", L"마지막까지 남았어요. 같이 기다린 보람이 있네요."};
+                    const wchar_t* losses[] = {L"아쉽지만, 내가 놓친 줄을 네가 봐줬어. 다음 작전은 같이 바꿔 보자.", L"앗, 한 번 더 하고 싶다. 오늘 판은 연습 기록으로 남기자!", L"다음에는 어디서 기다릴지 알 것 같아요. 같이 해봐서 좋았어요."};
+                    lines.insert(lines.begin(), {names[promiseHeroineIndex], m_promiseWon ? wins[promiseHeroineIndex] : losses[promiseHeroineIndex],
+                        L"arcade", faces[promiseHeroineIndex], L"", L"story4", HeroineMotion::Laugh, StoryPresentation::Dialogue, AmbientEffect::None});
+                    storyScene.SetDialogues(lines);
+                }
+                else storyScene.SetDialogues(storyData.GetPerformanceStory(finalHeroineIndex, true));
                 RequestSceneChange(game_mode_info::Story);
                 break;
             }
@@ -357,9 +370,11 @@ void GameManager::AdvanceFinishedStory()
         {
             if (!m_promiseIntroShown)
             {
-                PrepareFinalChoiceIntro();
-                storyScene.SetDialogues(storyData.GetPromiseStory(finalHeroineIndex, false));
-                m_promiseIntroShown = true;
+                // 네 번째 사건 뒤에는 다섯 번째 동행을 직접 고른다.
+                choiceScene.SetPlayerState(player);
+                choiceScene.Reset();
+                m_choiceApplied = false;
+                RequestSceneChange(game_mode_info::Choice);
             }
             else EnterCurrentMiniGameTutorial();
         }
@@ -396,9 +411,10 @@ void GameManager::ReturnToTitle()
     pendingSceneSetup = [this]()
     {
         currentStoryRound = currentMiniGameIndex = 0;
-        finalHeroineIndex = finalChoiceIntroIndex = 0;
+        finalHeroineIndex = finalChoiceIntroIndex = promiseHeroineIndex = 0;
         m_choiceApplied = m_finalChoiceIntroShown = m_performanceIntroShown = m_promiseIntroShown = false;
         m_exitConfirmOpen = false;
+        m_promiseWon = false;
         player = {0, 0, 0, 0};
         for (auto& character : characters) character.choice_time = 0;
         playerName = L"윤서";
@@ -442,8 +458,7 @@ void GameManager::EnterCurrentMiniGameTutorial()
     }
     else if (currentMiniGameIndex == 4)
     {
-        PrepareFinalChoiceIntro();
-        promiseScene.Initialize(finalHeroineIndex, true);
+        promiseScene.Initialize(promiseHeroineIndex, true);
     }
     else if (currentMiniGameIndex == 2)
     {
@@ -491,8 +506,7 @@ void GameManager::StartCurrentMiniGame()
     }
     else if (currentMiniGameIndex == 4)
     {
-        PrepareFinalChoiceIntro();
-        promiseScene.Initialize(finalHeroineIndex);
+        promiseScene.Initialize(promiseHeroineIndex);
     }
     else if (currentMiniGameIndex == 3)
     {
@@ -689,6 +703,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
     {
         if (forceFinish) promiseScene.FinishImmediately();
         if (!promiseScene.IsFinished()) return;
+        m_promiseWon = promiseScene.GetScore() >= 80;
         EnterResult(4, promiseScene.GetScore());
         m_pendingMiniGameRelease = PendingMiniGameRelease5;
         ++currentMiniGameIndex;
@@ -996,8 +1011,9 @@ void GameManager::RenderExitConfirmPopup(HDC hDC)
         commands = {{L"마우스 클릭", L"접근 원이 겹치는 박자에 노트 누르기"},
             {L"누른 채 이동", L"슬라이더 공을 끝까지 따라가기"}};
     else if (now_game_mode == game_mode_info::MiniGame5 || now_game_mode == game_mode_info::MiniGameTutor5)
-        commands = {{L"클릭 / 끌어 놓기", L"물건의 단서 읽기 · 목적지에 배치"},
-            {L"차례로 클릭", L"물건을 고른 뒤 목적지 클릭"}, {L"힌트 보기", L"현재 장의 정답 안내 · 한 장에 5점 차감"}};
+        commands = {{L"유닛 클릭 · 빈 칸 클릭", L"에너지를 사용해 유닛 배치"},
+            {L"놓인 유닛 · 강화 / 회수", L"에너지 20으로 강화 / 자원 일부 회수"},
+            {L"지원 · 진입로 클릭", L"히로인 고유 지원 사용"}, {L"강화 카드 클릭", L"시간이 멈춘 동안 조합 선택"}};
     else if (now_game_mode == game_mode_info::MiniGame3)
         commands = {{L"Space", L"점프"}, {L"↓ 누르기", L"슬라이딩"}};
     else if (now_game_mode == game_mode_info::MiniGame4)
@@ -1029,6 +1045,7 @@ void GameManager::SetPauseMenuOpen(bool open)
 {
     if (m_exitConfirmOpen == open) return;
     m_exitConfirmOpen = open;
+    if (now_game_mode == game_mode_info::MiniGame5) promiseScene.ResetClock();
     if (open && now_game_mode == game_mode_info::MiniGame5)
     {
         promiseScene.CancelDrag();
@@ -1103,15 +1120,8 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
         return false;
     }
 
-    // 4회차를 모두 끝냈다면 엔딩으로 이동한다.
-    if (currentStoryRound >= STORY_ROUND_COUNT)
-    {
-        endingScene.SetEndingImage(CalculateEndingType(finalHeroineIndex), finalHeroineIndex);
-        endingScene.Reset();
-        RequestSceneChange(game_mode_info::Ending);
-
-        return true;
-    }
+    // 다섯 회차를 이미 마친 중복 입력은 반영하지 않는다.
+    if (currentStoryRound >= STORY_ROUND_COUNT) return false;
 
     // 현재 회차와 선택 히로인에 맞는 대사 묶음을 가져온다.
     const std::vector<DialogueLineInfo>& nextDialogues =
@@ -1126,6 +1136,11 @@ bool GameManager::EnterBranchStory(int selectedHeroineIndex)
     // StoryScene에 새 대사 묶음을 넣는다.
     storyScene.SetDialogues(nextDialogues);
 
+    if (currentStoryRound == 4)
+    {
+        promiseHeroineIndex = selectedHeroineIndex;
+        m_promiseIntroShown = true;
+    }
     // 다음 회차로 이동한다.
     currentStoryRound++;
 
@@ -1317,7 +1332,7 @@ void GameManager::OnKeyDown(WPARAM wParam)
         return;
     }
 
-    // F1~F6는 테스트용 바로가기다. F5는 노트 밖의 약속, F6는 개화 공연이다.
+    // F1~F6는 테스트용 바로가기다. F5는 방과 후 마지막 웨이브, F6는 개화 공연이다.
     // F1 = 미니게임 1, F2 = 미니게임 2, F3 = 미니게임 3, F4 = 미니게임 4.
     switch (wParam)
     {
@@ -1442,6 +1457,8 @@ void GameManager::OnTimer(HWND hWnd)
         return;
     }
 
+    if (now_game_mode == game_mode_info::MiniGame5 && sceneTransition.IsActive()) promiseScene.ResetClock();
+
     // 전역 Scene 전환 중이 아닐 때만 현재 Scene 내부 업데이트를 진행한다.
     if (!sceneTransition.IsActive())
     {
@@ -1539,7 +1556,7 @@ void GameManager::ApplyPendingSceneChange()
     }
     else if (now_game_mode == game_mode_info::MiniGame5)
     {
-        audioManager.PlayBgmFadeIn(L"story4.1", 60, 250, 1200);
+        audioManager.PlayBgmFadeIn(L"story4", 65, 250, 1200);
     }
     else if (now_game_mode == game_mode_info::EndingDialogue ||
         now_game_mode == game_mode_info::Ending)

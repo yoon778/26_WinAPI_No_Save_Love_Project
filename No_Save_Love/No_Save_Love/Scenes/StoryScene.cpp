@@ -1,4 +1,5 @@
 #include "StoryScene.h"
+#include "ArcadeBackdrop.h"
 
 #include <algorithm>
 #include <cmath>
@@ -503,8 +504,8 @@ void StoryScene::DrawTutorial(HDC hDC)
     while (last + 1 < static_cast<int>(dialogues.size()) && dialogues[last + 1].presentation == StoryPresentation::Tutorial) ++last;
     const int page = currentDialogueIndex - first;
     const int theme = (std::min)(page, 5);
-    const wchar_t* chapters[] = {L"작은 약속", L"네 번의 만남", L"세 사람의 봄", L"조금씩 성장하기", L"금요일의 무대", L"나만의 속도로"};
-    const wchar_t* quotes[] = {L"내일은,\n작은 약속에서 시작돼.", L"빈 네 장에\n함께한 시간을 남겨요.", L"같은 봄을 지나도,\n서로 다른 마음이 있어요.", L"서툰 하루도\n나를 조금씩 바꾸니까.", L"마지막 한마디를 위해,\n함께 준비하는 금요일.", L"마음에 남은 말은\n다시 펼쳐 봐도 괜찮아."};
+    const wchar_t* chapters[] = {L"작은 약속", L"다섯 번의 만남", L"세 사람의 봄", L"조금씩 성장하기", L"금요일의 무대", L"나만의 속도로"};
+    const wchar_t* quotes[] = {L"내일은,\n작은 약속에서 시작돼.", L"빈 다섯 장에\n함께한 시간을 남겨요.", L"같은 봄을 지나도,\n서로 다른 마음이 있어요.", L"서툰 하루도\n나를 조금씩 바꾸니까.", L"마지막 한마디를 위해,\n함께 준비하는 금요일.", L"마음에 남은 말은\n다시 펼쳐 봐도 괜찮아."};
     const COLORREF ink = RGB(76, 60, 65), rose = RGB(156, 84, 104), muted = RGB(134, 112, 112);
     {
         Graphics g(hDC);
@@ -711,7 +712,11 @@ void StoryScene::Render(HDC hDC)
         && (currentBackgroundKey == L"library_day" || currentBackgroundKey == L"seoirin_library")
         && !story_background_image[20].IsNull()) backgroundImage = &story_background_image[20];
 
-    if (backgroundImage != nullptr && !backgroundImage->IsNull())
+    if (currentBackgroundKey == L"arcade")
+    {
+        ArcadeArt::DrawArcadeBackdrop(hDC);
+    }
+    else if (backgroundImage != nullptr && !backgroundImage->IsNull())
     {
         DrawCutsceneBackground(hDC, *backgroundImage);
     }

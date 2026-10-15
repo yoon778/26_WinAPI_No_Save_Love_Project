@@ -111,7 +111,7 @@ private:
     avoidgame minigame4;
 private:
     static const int HEROINE_COUNT = 3;
-    static const int STORY_ROUND_COUNT = 4;
+    static const int STORY_ROUND_COUNT = 5;
 
     struct CharacterInfo
     {
@@ -142,6 +142,7 @@ private:
     bool m_finalChoiceIntroShown = false;
     bool m_performanceIntroShown = false;
     bool m_promiseIntroShown = false;
+    bool m_promiseWon = false;
 
     // 엔딩 종류를 계산한다.
     // 0 = Happy, 1 = Bad, 2 = Hidden
@@ -149,6 +150,7 @@ private:
 
     // 가장 많이 선택된 히로인 번호를 저장한다.
     int finalHeroineIndex = 0;
+    int promiseHeroineIndex = 0; // 다섯 번째 사건의 동행. 최종 최다 선택 상대와 구분한다.
 
     // 최종 선택 도입 대사 번호다.
     // 0 = 한세아, 1 = 유하린, 2 = 서이린, 3 = 새누

@@ -253,6 +253,8 @@ int wmain(int argc, wchar_t** argv)
         manager.Initialize(window);
         CompleteTransition(manager);
         audioManager.SetSfxVolume(L"click", 0);
+        audioManager.SetSfxVolume(L"defense_shot", 0);
+        audioManager.SetSfxVolume(L"defense_support", 0);
         manager.currentMiniGameIndex = 4;
         manager.currentStoryRound = 4;
         manager.player = {50, 50, 50, 50};
@@ -261,49 +263,46 @@ int wmain(int argc, wchar_t** argv)
         manager.now_game_mode = GameManager::Story;
         manager.storyScene.finished = true;
         manager.OnMouseClick(0, 0);
-        assert(manager.m_promiseIntroShown && manager.finalHeroineIndex == heroine);
-        assert(manager.storyData.GetPromiseStory(heroine, false).size() >= 20);
+        CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Choice && !manager.m_promiseIntroShown);
+        // 다섯 번째 동행은 기존 최다 선택 인물과 다르게 고를 수 있다.
+        const int partner = (heroine + 1) % 3;
+        manager.OnMouseClick(800, 200 + partner * 310); CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Story && manager.currentStoryRound == 5);
+        assert(manager.promiseHeroineIndex == partner && manager.characters[partner].choice_time == 2);
+        assert(!manager.EnterBranchStory(partner)); // 여섯 번째 선택은 없다.
         manager.storyScene.finished = true;
         manager.OnMouseClick(0, 0); CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::MiniGameTutor5);
-        assert(manager.promiseScene.heroine == heroine && manager.promiseScene.IsTutorial());
+        assert(manager.promiseScene.heroine == partner && manager.promiseScene.IsTutorial());
         manager.OnMouseClick(960, 838); CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::MiniGame5 && !manager.promiseScene.IsTutorial());
-        const auto card = manager.promiseScene.ItemRect(0);
-        manager.OnMouseClick(card.left + 40, card.top + 45);
-        assert(manager.promiseScene.IsDragging() && GetCapture() == window);
-        manager.OnKeyDown(VK_ESCAPE);
-        assert(manager.m_exitConfirmOpen && !manager.promiseScene.IsDragging() && GetCapture() != window);
-        manager.OnMouseMove(580, 330); manager.OnMouseUp(580, 330);
-        assert(manager.promiseScene.PlacedCount() == 0);
-        manager.OnKeyDown(VK_ESCAPE);
-        manager.OnMouseClick(card.left + 40, card.top + 45);
-        manager.OnCaptureLost(); ReleaseCapture();
-        assert(!manager.promiseScene.IsDragging() && manager.promiseScene.selected == -1);
-        // 정상 mouse-up/capture 해제는 두 번 클릭 방식의 선택을 지우지 않는다.
-        manager.OnMouseClick(card.left + 40, card.top + 45);
-        manager.OnMouseUp(card.left + 40, card.top + 45); manager.OnCaptureLost();
+        manager.OnMouseClick(130,880);
         assert(manager.promiseScene.selected == 0);
-        const auto slot = manager.promiseScene.SlotRect(manager.promiseScene.TargetFor(0));
-        manager.OnMouseClick(slot.left + 40, slot.top + 40); manager.OnMouseUp(slot.left + 40, slot.top + 40);
-        assert(manager.promiseScene.PlacedCount() == 1);
-        for (int stage = 0; stage < 3; ++stage)
-        {
-            for (int item = stage == 0 ? 1 : 0; item < 6; ++item)
-                PlacePromiseItem(manager.promiseScene, item, item % 2 == 0);
-            manager.OnMouseClick(1650, 880);
-        }
+        manager.OnKeyDown(VK_ESCAPE);
+        assert(manager.m_exitConfirmOpen && manager.promiseScene.selected == -1 && cursorVisible());
+        const float pausedTime=manager.promiseScene.practiceTime;
+        manager.OnMouseClick(860,295); manager.OnTimer(window);
+        assert(manager.promiseScene.practiceTime == pausedTime);
+        manager.promiseScene.lastTick=0;
+        manager.OnKeyDown(VK_ESCAPE);
+        assert(GetTickCount64()-manager.promiseScene.lastTick < 1000);
+        manager.promiseScene.BeginBattle();
+        for(int tick=0;tick<11000 && !manager.promiseScene.IsFinished();++tick) PlayDefenseStep(manager.promiseScene,0);
+        assert(manager.promiseScene.victory);
+        const int defenseScore=manager.promiseScene.GetScore();
+        manager.FinishCurrentMiniGameIfNeeded();
         assert(manager.currentMiniGameIndex == 5);
-        const auto puzzleGain = StatBalance::CalculateGain(4, 100);
+        const auto puzzleGain = StatBalance::CalculateGain(4, defenseScore);
         assert(manager.player.money == 50 + puzzleGain.money);
         assert(manager.player.speech == 50 + puzzleGain.speech);
         manager.FinishCurrentMiniGameIfNeeded(true); // 전환 중 중복 완료 방지
         assert(manager.currentMiniGameIndex == 5 && manager.player.money == 50 + puzzleGain.money);
         CompleteTransition(manager);
-        assert(manager.now_game_mode == GameManager::Result && !manager.promiseScene.background);
+        assert(manager.now_game_mode == GameManager::Result && !manager.promiseScene.portrait);
         manager.OnMouseClick(960, 980); CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Story && !manager.m_performanceIntroShown);
-        assert(manager.storyScene.dialogues.size() == manager.storyData.GetPromiseStory(heroine, true).size());
+        assert(manager.storyScene.dialogues.size() == manager.storyData.GetPromiseStory(partner, true).size() + 1);
         manager.storyScene.finished = true; manager.OnMouseClick(0, 0);
         assert(manager.m_performanceIntroShown && manager.finalHeroineIndex == heroine);
         assert(!manager.storyData.GetPerformanceStory(heroine, false).empty());
@@ -425,5 +424,22 @@ int wmain(int argc, wchar_t** argv)
         manager.Shutdown();
     }
     DestroyWindow(window);
+    {
+        GameManager manager;
+        manager.Initialize(window); CompleteTransition(manager);
+        manager.characters[0].choice_time=2; manager.characters[1].choice_time=2;
+        manager.characters[2].choice_time=1; manager.PrepareFinalChoiceIntro();
+        assert(manager.finalHeroineIndex==0); // 다섯 선택의 동률 기준
+        manager.characters[1].choice_time=3; manager.characters[2].choice_time=0;
+        manager.PrepareFinalChoiceIntro(); assert(manager.finalHeroineIndex==1);
+        manager.promiseHeroineIndex=2; manager.m_promiseWon=false;
+        manager.currentStoryRound=5; manager.currentMiniGameIndex=5;
+        manager.now_game_mode=GameManager::Result; manager.resultScene.SetResult(4,40);
+        manager.OnMouseClick(960,980); CompleteTransition(manager);
+        assert(manager.now_game_mode==GameManager::Story);
+        assert(manager.storyScene.dialogues.front().speaker==L"서이린");
+        assert(manager.storyScene.dialogues.front().text.find(L"다음에는")!=std::wstring::npos);
+        manager.Shutdown();
+    }
     std::cout << "PASS: three heroines, tutorial, reward once, ending, credit speed, title return, new game keyboard/log\n";
 }

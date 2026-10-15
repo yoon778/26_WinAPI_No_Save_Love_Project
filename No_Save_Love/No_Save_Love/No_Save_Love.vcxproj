@@ -175,6 +175,7 @@
     <ClInclude Include="Scenes\NameInputScene.h" />
     <ClInclude Include="Scenes\ResultScene.h" />
     <ClInclude Include="Scenes\PromiseScene.h" />
+    <ClInclude Include="Scenes\ArcadeBackdrop.h" />
     <ClInclude Include="Scenes\StoryScene.h" />
     <ClInclude Include="Scenes\TitleScene.h" />
     <ClInclude Include="SceneTransition.h" />
