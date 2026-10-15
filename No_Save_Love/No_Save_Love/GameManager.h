@@ -236,6 +236,7 @@ private:
 private: // 종료 확인 팝업
 
     bool m_exitConfirmOpen = false;
+    void SetPauseMenuOpen(bool open);
     RECT m_exitPopupRect = { 420, 170, 1500, 910 };
     RECT m_exitYesButtonRect = { 1020, 800, 1370, 865 };
     RECT m_exitNoButtonRect = { 550, 800, 900, 865 };

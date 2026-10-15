@@ -131,8 +131,7 @@ void GameManager::OnMouseClick(int x, int y)
         if (IsPointInsideRect(m_exitNoButtonRect, x, y))
         {
             audioManager.PlaySfx(L"click");
-            m_exitConfirmOpen = false;
-            minigame2.SetPaused(false);
+            SetPauseMenuOpen(false);
             InvalidateRect(m_hWnd, nullptr, FALSE);
             return;
         }
@@ -960,6 +959,23 @@ void GameManager::RenderExitConfirmPopup(HDC hDC)
     DrawExitConfirmButton(hDC, m_exitYesButtonRect, L"게임 종료");
 }
 
+void GameManager::SetPauseMenuOpen(bool open)
+{
+    if (m_exitConfirmOpen == open) return;
+    m_exitConfirmOpen = open;
+    const bool rhythm = now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5;
+    if (rhythm)
+    {
+        minigame2.SetPaused(open);
+        if (open)
+        {
+            ForceSystemCursorVisible();
+            SetCursor(LoadCursor(nullptr, IDC_ARROW));
+        }
+        else ForceSystemCursorHidden();
+    }
+}
+
 void GameManager::DrawExitConfirmButton(HDC hDC, const RECT& rect, const wchar_t* text)
 {
     // StoryScene SKIP 버튼 스타일
@@ -1188,8 +1204,7 @@ void GameManager::OnKeyDown(WPARAM wParam)
     {
         if (wParam == VK_ESCAPE)
         {
-            m_exitConfirmOpen = false;
-            minigame2.SetPaused(false);
+            SetPauseMenuOpen(false);
             InvalidateRect(m_hWnd, nullptr, FALSE);
         }
         return;
@@ -1225,8 +1240,7 @@ void GameManager::OnKeyDown(WPARAM wParam)
             minigame3.OnKeyUp(VK_SPACE);
         }
 
-        minigame2.SetPaused(true);
-        m_exitConfirmOpen = true;
+        SetPauseMenuOpen(true);
         InvalidateRect(m_hWnd, nullptr, FALSE);
         return;
     }
@@ -1308,7 +1322,7 @@ void GameManager::OnKeyUp(WPARAM wParam)
 }
 
 void GameManager::OnMouseUp(int x, int y) {
-    if (m_exitConfirmOpen && now_game_mode == game_mode_info::MiniGame5) return;
+    if (m_exitConfirmOpen) return;
     if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
         minigame2.OnMouseUp(x, y);
         return;
@@ -1323,7 +1337,7 @@ void GameManager::OnMouseWheel(int delta)
 }
 
 void GameManager::OnMouseMove(int x, int y) {
-    if (m_exitConfirmOpen && now_game_mode == game_mode_info::MiniGame5) return;
+    if (m_exitConfirmOpen) return;
     if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
         minigame2.OnMouseMove(x, y);
         return;

@@ -217,6 +217,31 @@ int wmain(int argc, wchar_t** argv)
     assert(restored.right == 1920 && restored.bottom == 1080);
     std::cout << "PASS: miss/restart, legacy rhythm score and window restoration\n";
 
+    // ESC 메뉴는 시스템 커서를 보이고 게임으로 돌아가면 원래 커서를 사용한다.
+    // ShowCursor 카운터를 관찰한 직후 복구하여 반복 개폐의 누적 오류도 확인한다.
+    const auto cursorVisible = []() { const int count = ShowCursor(TRUE); ShowCursor(FALSE); return count > 0; };
+    for (int slot : {1, 4})
+    {
+        GameManager manager;
+        manager.Initialize(window); CompleteTransition(manager);
+        manager.DebugEnterMiniGameByIndex(slot); CompleteTransition(manager);
+        assert(!cursorVisible());
+        for (int cycle = 0; cycle < 3; ++cycle)
+        {
+            manager.OnKeyDown(VK_ESCAPE);
+            assert(manager.m_exitConfirmOpen && cursorVisible());
+            const int cursorX = manager.minigame2.mouseX;
+            manager.OnMouseMove(720, 830);
+            assert(manager.minigame2.mouseX == cursorX);
+            if (cycle == 1) manager.OnKeyDown(VK_ESCAPE);
+            else manager.OnMouseClick(720, 830);
+            assert(!manager.m_exitConfirmOpen && !cursorVisible());
+        }
+        manager.Shutdown();
+        assert(cursorVisible());
+    }
+    std::cout << "PASS: both rhythm pause menus restore cursor after repeated keyboard/click close\n";
+
     for (int heroine = 0; heroine < 3; ++heroine)
     {
         GameManager manager;
