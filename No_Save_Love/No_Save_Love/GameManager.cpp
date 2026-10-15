@@ -1007,6 +1007,7 @@ void GameManager::RenderExitConfirmPopup(HDC hDC)
     else if (now_game_mode == game_mode_info::Story || now_game_mode == game_mode_info::EndingDialogue)
         commands = {{L"Space / Enter / 클릭", L"문장 전체 표시, 한 번 더 누르면 다음 대사"},
             {L"F", L"스토리 빨리 감기 켜기 · 끄기"},
+            {L"S / 스킵 버튼", L"현재 이야기 건너뛰기 · 대화 기록에 보관"},
             {L"L", L"대화 기록 열기 · 닫기"},
             {L"휠 / ↑↓ / Page Up·Down", L"기록 스크롤 · Home/End로 처음/끝"}};
     else if (now_game_mode == game_mode_info::NameInput)

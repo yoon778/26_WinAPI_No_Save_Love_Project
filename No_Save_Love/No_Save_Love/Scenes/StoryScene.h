@@ -97,6 +97,7 @@ public:
 
 private:
     void AdvanceDialogue();
+    void SkipCurrentStory();
     void RecordCurrentLine();
     void ToggleHistory();
     void DrawHistory(HDC hDC);
@@ -114,6 +115,7 @@ private:
     double ambientSeconds = 0.0;
     RECT historyButtonRect = { 1570, 24, 1698, 64 };
     RECT fastButtonRect = { 1710, 24, 1858, 64 };
+    RECT skipButtonRect = { 1450, 24, 1558, 64 };
     RECT historyCloseRect = { 1500, 150, 1690, 210 };
     RECT historyOlderRect = { 1170, 900, 1410, 960 };
     RECT historyNewerRect = { 1440, 900, 1680, 960 };

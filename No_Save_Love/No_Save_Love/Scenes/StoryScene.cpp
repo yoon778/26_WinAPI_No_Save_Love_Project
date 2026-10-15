@@ -282,6 +282,7 @@ void StoryScene::OnMouseClick(int x, int y)
     }
     if (PtInRect(&historyButtonRect, point)) { ToggleHistory(); return; }
     if (PtInRect(&fastButtonRect, point)) { OnKeyDown('F'); return; }
+    if (PtInRect(&skipButtonRect, point)) { SkipCurrentStory(); return; }
     fastForward = false;
     AdvanceDialogue();
 }
@@ -300,6 +301,7 @@ bool StoryScene::OnKeyDown(WPARAM key)
         return true;
     }
     if (key == 'L') { ToggleHistory(); return true; }
+    if (key == 'S') { SkipCurrentStory(); return true; }
     if (key == 'F')
     {
         if (!finished && !dialogues.empty() && dialogues[currentDialogueIndex].presentation != StoryPresentation::Tutorial)
@@ -346,6 +348,34 @@ void StoryScene::AdvanceDialogue()
         fastForward = false;
         ResetHeroineAnimation();
     }
+}
+
+void StoryScene::SkipCurrentStory()
+{
+    if (historyOpen || finished || dialogues.empty()) return;
+    fastForward = false;
+    fastForwardWait = 0.0;
+    fadeState = FadeState::None;
+    fadeAlpha = 0;
+    // 이미 기록한 현재 줄은 중복하지 않고, 건너뛴 대사도 로그에서 다시 읽게 한다.
+    while (true)
+    {
+        isTypingFinished = true;
+        visibleTextCount = static_cast<int>(GetCurrentDisplayText().size());
+        RecordCurrentLine();
+        QueueCurrentLineBgmChange();
+        const auto& line = dialogues[currentDialogueIndex];
+        if (!line.backgroundKey.empty()) currentBackgroundKey = line.backgroundKey;
+        if (line.characterKey == L"none") currentCharacterKey.clear();
+        else if (!line.characterKey.empty()) currentCharacterKey = line.characterKey;
+        if (currentDialogueIndex + 1 == static_cast<int>(dialogues.size())) break;
+        ++currentDialogueIndex;
+        currentLineRecorded = false;
+    }
+    // 중간 이미지와 음악을 연달아 재생하지 않고 마지막 상태만 적용한다.
+    ApplyCurrentLineVisualInfo(true);
+    finished = true;
+    ResetHeroineAnimation();
 }
 
 void StoryScene::RecordCurrentLine()
@@ -426,6 +456,7 @@ StoryScene::SpeakerStyle StoryScene::GetSpeakerStyle(const std::wstring& speaker
 
 void StoryScene::DrawReadingControls(HDC hDC)
 {
+    ReadingButton(hDC, skipButtonRect, L"스킵");
     const bool tutorial = !dialogues.empty() && dialogues[currentDialogueIndex].presentation == StoryPresentation::Tutorial;
     if (tutorial)
     {

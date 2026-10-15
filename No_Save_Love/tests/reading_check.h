@@ -128,6 +128,34 @@ void CheckReading(StoryScene& scene, StoryData& data, CImage& frame, HDC dc,
     }
     scene.ClearHistory();
     assert(scene.history.empty() && !scene.historyOpen && !scene.fastForward);
+    // 스킵은 현재 묶음만 완료하고, 읽은 줄을 중복하지 않으며 건너뛴 줄도 보존한다.
+    scene.SetDialogues({
+        {L"한세아", L"이미 읽은 말", L"hansea_room", L"hansea_normal", L"", L"story1"},
+        {L"{PLAYER}", L"건너뛴 {PLAYER}의 답장", L"library_day", L"none", L"", L"story3", HeroineMotion::Idle, StoryPresentation::Phone},
+        {L"안내", L"안내도 로그에 남아요", L"", L"", L"", L"stop", HeroineMotion::Idle, StoryPresentation::Tutorial},
+        {L"", L"마지막 줄", L"", L"", L"", L""}
+    });
+    FinishFade(scene); scene.OnKeyDown(VK_SPACE);
+    assert(scene.history.size() == 1);
+    scene.OnKeyDown('F');
+    scene.OnMouseClick(1500, 44);
+    assert(scene.IsFinished() && !scene.fastForward && scene.history.size() == 4);
+    assert(scene.currentDialogueIndex == 3 && scene.currentBackgroundKey == L"library_day" && scene.currentCharacterKey.empty());
+    assert(scene.ConsumePendingBgmKey() == L"stop" && scene.ConsumePendingBgmKey().empty());
+    assert(scene.history[1].text.find(L"{PLAYER}") == std::wstring::npos);
+    assert(scene.history[1].presentation == StoryPresentation::Phone && scene.history[2].presentation == StoryPresentation::Tutorial);
+    scene.OnMouseClick(1500, 44); scene.OnKeyDown('S');
+    assert(scene.history.size() == 4);
+    scene.OnKeyDown('L'); capture(L"reading_skip_log.png"); scene.OnKeyDown(VK_ESCAPE);
+    scene.SetDialogues({{L"", L"새 장면", L"school_day", L"none"}});
+    scene.OnKeyDown('L'); scene.OnKeyDown('S');
+    assert(!scene.IsFinished()); // 로그 안의 단축키는 진행시키지 않는다.
+    scene.OnKeyDown(VK_ESCAPE);
+    scene.fadeState = FadeState::FadeOut;
+    scene.OnKeyDown('S');
+    assert(scene.IsFinished() && scene.fadeState == FadeState::None && scene.history.size() == 5);
+    scene.SetDialogues({}); scene.OnKeyDown('S'); assert(scene.IsFinished() && scene.history.size() == 5);
+    scene.ClearHistory();
     scene.SetPlayerName(L"윤서");
     std::cout << "READING PASS: keyboard, 16x sequential log, pause, tutorial, phone, 4 ambient effects, continuous original-art blinking\n";
 }

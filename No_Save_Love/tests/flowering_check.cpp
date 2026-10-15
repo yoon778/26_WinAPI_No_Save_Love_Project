@@ -411,6 +411,17 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.storyScene.historyOpen);
         manager.OnKeyDown(VK_ESCAPE);
         assert(!manager.storyScene.historyOpen && !manager.m_exitConfirmOpen);
+        manager.OnKeyDown('S');
+        assert(manager.storyScene.history.size() == manager.storyData.GetIntroStory().size());
+        assert(manager.currentMiniGameIndex == 0 && manager.currentStoryRound == 0);
+        CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::MiniGameTutor1);
+        for (const auto& character : manager.characters) assert(character.choice_time == 0);
+        // 스킵 버튼이 엔딩 대사에서는 크레딧으로 이동한다.
+        manager.now_game_mode = GameManager::EndingDialogue;
+        manager.storyScene.SetDialogues(manager.storyData.GetEndingStory(0, heroine));
+        manager.OnMouseClick(1500, 44); CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Ending);
         manager.Shutdown();
     }
     DestroyWindow(window);
