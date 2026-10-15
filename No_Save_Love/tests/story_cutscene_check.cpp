@@ -127,7 +127,7 @@ void CheckHeroineAnimation(StoryScene& scene, CImage& frame, HDC dc,
     scene.lastCutsceneTick = GetTickCount64() - 5000;
     scene.Update();
     assert(scene.heroineSeconds > 0.0 && scene.heroineSeconds <= 0.100001);
-    scene.OnMouseClick(1780, 65);
+    scene.OnMouseClick(1780, 44);
     assert(!scene.IsFinished() && scene.fastForward); // 배속은 현재 대사부터 차례로 진행한다.
     scene.SetDialogues({});
     assert(scene.IsFinished() && scene.animatedHeroineKey.empty());
@@ -169,6 +169,7 @@ int wmain(int argc, wchar_t** argv)
     const std::set<std::wstring> effects = {L"", L"rewind", L"rain", L"petals", L"memory", L"glitch",
         L"anim_letter", L"anim_photo", L"anim_map", L"anim_voice", L"anim_bookmark", L"anim_ink",
         L"anim_bread", L"anim_label", L"anim_bandage", L"anim_milk", L"anim_projector", L"anim_message",
+        L"anim_bookrepair", L"anim_manuscript", L"anim_raindrop", L"anim_straw",
         L"anim_window", L"anim_umbrella", L"anim_ribbon", L"anim_clock", L"anim_reading", L"anim_promise"};
     const std::set<std::wstring> music = {L"", L"stop", L"story1", L"story2", L"story3", L"story4", L"story5",
         L"story2.1", L"story3.1", L"story4.1", L"story5.1"};
@@ -220,9 +221,10 @@ int wmain(int argc, wchar_t** argv)
                 scene.SetPlayerName(name);
                 std::wstring text = scene.GetCurrentDisplayText();
                 assert(text.find(L"{PLAYER}") == std::wstring::npos);
-                RECT bounds = scene.textRect;
+                RECT bounds = line.presentation == StoryPresentation::Tutorial ? RECT{490, 465, 1430, 680} : scene.textRect;
+                const int allowedHeight = bounds.bottom - bounds.top;
                 const int height = DrawTextW(dc, text.c_str(), -1, &bounds, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_CALCRECT);
-                if (height > scene.textRect.bottom - scene.textRect.top)
+                if (height > allowedHeight)
                 {
                     std::wcerr << L"Text overflow (" << height << L"): " << text << L'\n';
                     return 2;
@@ -313,7 +315,7 @@ int wmain(int argc, wchar_t** argv)
         assert(scene.IsFinished());
     }
     assert(photographed.size() == 7);
-    assert(animated.size() == 18);
+    assert(animated.size() == 22);
     assert(renderedAnimations.size() == 22);
     assert(animationSegments == 23);
     assert(heroineReactions == 50);
@@ -382,7 +384,7 @@ int wmain(int argc, wchar_t** argv)
     scene.OnMouseClick(960, 950);
     assert(!scene.IsStoryAnimation() && scene.currentEffectKey.empty());
     scene.SetDialogues({{L"서이린", L"책갈피", L"library_day", L"seoirin_normal", L"anim_bookmark"}});
-    scene.OnMouseClick(1780, 65);
+    scene.OnMouseClick(1780, 44);
     assert(!scene.IsFinished() && scene.fastForward); // 페이드 중에도 건너뛰지 않는다.
     scene.SetDialogues({{L"유하린", L"사진", L"school_hallway", L"yuharin_normal", L"anim_photo"}});
     FinishFade(scene);
@@ -390,7 +392,7 @@ int wmain(int argc, wchar_t** argv)
 
     // 배속을 켜도 묶음을 즉시 끝내지 않는다. 다음 묶음에서 배속은 해제된다.
     scene.SetDialogues({ {L"", L"건너뛰기", L"cut_rewind", L"none", L"rewind"} });
-    scene.OnMouseClick(1780, 65);
+    scene.OnMouseClick(1780, 44);
     assert(!scene.IsFinished() && scene.fastForward);
     scene.SetDialogues({});
     assert(scene.IsFinished() && scene.currentBackgroundKey.empty() && !scene.IsCutscene());

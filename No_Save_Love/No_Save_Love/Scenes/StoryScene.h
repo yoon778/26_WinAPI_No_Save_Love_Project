@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <windows.h>
 #include <string>
@@ -112,8 +112,8 @@ private:
     bool fastForward = false;
     double fastForwardWait = 0.0;
     double ambientSeconds = 0.0;
-    RECT historyButtonRect = { 1340, 40, 1560, 100 };
-    RECT fastButtonRect = { 1590, 40, 1860, 100 };
+    RECT historyButtonRect = { 1570, 24, 1698, 64 };
+    RECT fastButtonRect = { 1710, 24, 1858, 64 };
     RECT historyCloseRect = { 1500, 150, 1690, 210 };
     RECT historyOlderRect = { 1170, 900, 1410, 960 };
     RECT historyNewerRect = { 1440, 900, 1680, 960 };
@@ -132,6 +132,11 @@ private:
     double reactionSeconds = 0.0;
     HeroineMotion currentHeroineMotion = HeroineMotion::Idle;
     std::wstring animatedHeroineKey;
+    std::wstring rasterCharacterKey;
+    std::vector<std::uint32_t> heroinePixels;
+    Gdiplus::Bitmap* heroineFrame = nullptr;
+    int heroineSourceWidth = 0;
+    int heroineSourceHeight = 0;
 
     std::wstring currentEffectKey;
     std::wstring nextEffectKey;
@@ -208,7 +213,7 @@ private:
     bool ShouldFadeCharacterChange(const std::wstring& newCharacterKey) const;
 
 private:
-    static const int BACKGROUND_IMAGE_COUNT = 20;
+    static const int BACKGROUND_IMAGE_COUNT = 21;
     CImage story_background_image[BACKGROUND_IMAGE_COUNT];
 
     Gdiplus::Image* bookGdiImage = nullptr;

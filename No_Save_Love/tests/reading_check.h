@@ -25,12 +25,14 @@ void CheckReading(StoryScene& scene, StoryData& data, CImage& frame, HDC dc,
     scene.OnKeyDown(VK_ESCAPE);
     scene.OnKeyDown('F');
     assert(scene.fastForward && !scene.IsFinished());
-    for (int i = 0; i < 1000 && !scene.IsFinished(); ++i)
+    int fastTicks = 0;
+    for (; fastTicks < 1000 && !scene.IsFinished(); ++fastTicks)
     {
         scene.lastCutsceneTick = GetTickCount64() - 60;
         scene.Update();
     }
     assert(scene.IsFinished() && scene.history.size() == script.size());
+    assert(fastTicks <= 45); // 기존 4배속보다 빠르면서 모든 줄을 순서대로 기록한다.
     for (int i = 0; i < 12; ++i)
         assert(scene.history[i].text == L"가나다라마바님, 기록 " + std::to_wstring(i));
     scene.OnKeyDown('L');
@@ -54,11 +56,16 @@ void CheckReading(StoryScene& scene, StoryData& data, CImage& frame, HDC dc,
     std::vector<DialogueLineInfo> tutorials;
     for (const auto& line : data.GetIntroStory())
         if (line.presentation == StoryPresentation::Tutorial) tutorials.push_back(line);
-    assert(tutorials.size() == 3);
+    assert(tutorials.size() == 6);
     scene.SetDialogues(tutorials);
     FinishFade(scene);
     scene.OnKeyDown(VK_SPACE);
     capture(L"reading_tutorial.png");
+    for (int i = 1; i < 6; ++i)
+    {
+        scene.OnKeyDown(VK_SPACE); scene.OnKeyDown(VK_SPACE);
+        capture((L"reading_tutorial_" + std::to_wstring(i + 1) + L".png").c_str());
+    }
 
     std::vector<DialogueLineInfo> messages;
     for (const auto& line : data.GetBranchStory(1, 0))
@@ -95,8 +102,32 @@ void CheckReading(StoryScene& scene, StoryData& data, CImage& frame, HDC dc,
         assert(heroine->animation && heroine->animation->GetLastStatus() == Gdiplus::Ok);
         assert(heroine->animation->GetWidth() >= 1000 && heroine->animation->GetHeight() >= 1400);
     }
+    // 도서관 왼쪽 책장에는 비가 내리지 않고 중앙 유리의 물방울만 움직인다.
+    scene.SetDialogues({{L"", L"창밖의 비", L"library_day", L"none", L"", L"",
+        HeroineMotion::Idle, StoryPresentation::Dialogue, AmbientEffect::Rain}});
+    FinishFade(scene); scene.OnKeyDown(VK_SPACE);
+    scene.ambientSeconds = 0; scene.Render(dc);
+    const auto shelves = Digest(frame, 150, 700, 30, 650);
+    const auto window = Digest(frame, 270, 610, 900, 1175);
+    scene.ambientSeconds = 3; scene.Render(dc);
+    assert(shelves == Digest(frame, 150, 700, 30, 650));
+    assert(window != Digest(frame, 270, 610, 900, 1175));
+    capture(L"reading_library_rain.png");
+    assert(scene.historyButtonRect.bottom - scene.historyButtonRect.top == 40);
+    // 같은 회차의 세 경로에서 같은 소품 애니메이션을 재사용하지 않는다.
+    for (int round = 0; round < 4; ++round)
+    {
+        std::set<std::wstring> previous;
+        for (int heroine = 0; heroine < 3; ++heroine)
+        {
+            std::set<std::wstring> effects;
+            for (const auto& line : data.GetBranchStory(round, heroine))
+                if (line.effectKey.starts_with(L"anim_")) effects.insert(line.effectKey);
+            for (const auto& effect : effects) assert(previous.insert(effect).second);
+        }
+    }
     scene.ClearHistory();
     assert(scene.history.empty() && !scene.historyOpen && !scene.fastForward);
     scene.SetPlayerName(L"윤서");
-    std::cout << "READING PASS: keyboard, 4x sequential log, pause, tutorial, phone, 4 ambient effects, 18 sprite frames\n";
+    std::cout << "READING PASS: keyboard, 16x sequential log, pause, tutorial, phone, 4 ambient effects, continuous original-art blinking\n";
 }

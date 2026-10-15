@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <windows.h>
 #include <string>
@@ -38,14 +38,14 @@ private:
 
     int scrollOffset = 0;
     int scrollSpeed = 2;
-    int fastScrollSpeed = 8;
+    int fastScrollSpeed = 32;
     int lineSpacing = 68;
     int startY = 1120;
     int stopOffset = 0;
     bool isFastScroll = false;
     bool exitRequested = false;
     bool returnRequested = false;
-    RECT fastButtonRect = { 1550, 40, 1860, 105 };
+    RECT fastButtonRect = { 1690, 24, 1858, 64 };
     RECT returnButtonRect = { 620, 910, 950, 990 };
     RECT exitButtonRect = { 990, 910, 1300, 990 };
 };

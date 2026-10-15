@@ -914,61 +914,50 @@ void GameManager::RenderExitConfirmPopup(HDC hDC)
     DeleteObject(popupBrush);
     DeleteObject(popupPen);
 
-    HFONT titleFont = CreateFontW(
-        42,
-        0,
-        0,
-        0,
-        FW_BOLD,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
-
-    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, titleFont));
-    SetBkMode(hDC, TRANSPARENT);
-    SetTextColor(hDC, RGB(245, 245, 250));
-
-    RECT titleRect = { m_exitPopupRect.left, m_exitPopupRect.top + 70, m_exitPopupRect.right, m_exitPopupRect.top + 135 };
-    DrawTextW(hDC, L"프로그램을 종료하시겠습니까?", -1, &titleRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-    SelectObject(hDC, oldFont);
-    DeleteObject(titleFont);
-
-    HFONT subFont = CreateFontW(
-        26,
-        0,
-        0,
-        0,
-        FW_NORMAL,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
-
-    oldFont = static_cast<HFONT>(SelectObject(hDC, subFont));
-    SetTextColor(hDC, RGB(205, 195, 220));
-
-    RECT subRect = { m_exitPopupRect.left, m_exitPopupRect.top + 145, m_exitPopupRect.right, m_exitPopupRect.top + 195 };
-    DrawTextW(hDC, L"No를 누르면 현재 화면으로 돌아갑니다.", -1, &subRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-    SelectObject(hDC, oldFont);
-    DeleteObject(subFont);
-
-    DrawExitConfirmButton(hDC, m_exitYesButtonRect, L"YES");
-    DrawExitConfirmButton(hDC, m_exitNoButtonRect, L"NO");
+    const auto text = [&](const std::wstring& value, RECT bounds, int size, COLORREF color)
+    {
+        HFONT font = CreateFontW(size, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
+            HANGEUL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, L"맑은 고딕");
+        auto old = SelectObject(hDC, font);
+        SetBkMode(hDC, TRANSPARENT); SetTextColor(hDC, color);
+        DrawTextW(hDC, value.c_str(), -1, &bounds, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+        SelectObject(hDC, old); DeleteObject(font);
+    };
+    text(L"조작 안내", {500, 215, 1400, 280}, 44, RGB(246, 226, 240));
+    text(L"ESC를 다시 누르거나 계속하기를 선택하면 돌아갑니다.",
+        {500, 295, 1420, 345}, 26, RGB(183, 191, 215));
+    std::vector<std::pair<std::wstring, std::wstring>> commands;
+    if (now_game_mode == game_mode_info::Ending)
+        commands = {{L"F / Space", L"크레딧 1배 · 16배 전환"},
+            {L"Enter", L"크레딧 종료 후 처음으로 돌아가기"}};
+    else if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5)
+        commands = {{L"마우스 클릭", L"접근 원이 겹치는 박자에 노트 누르기"},
+            {L"누른 채 이동", L"슬라이더 공을 끝까지 따라가기"}};
+    else if (now_game_mode == game_mode_info::MiniGame3)
+        commands = {{L"Space", L"점프"}, {L"↓ 누르기", L"슬라이딩"}};
+    else if (now_game_mode == game_mode_info::MiniGame4)
+        commands = {{L"← / →", L"이동"}, {L"↑ / Space", L"점프"}, {L"↓", L"발판에서 내려가기"}};
+    else if (now_game_mode == game_mode_info::MiniGame1)
+        commands = {{L"마우스 클릭", L"재료 선택 · 라면 조합 · 좌석으로 배달"}};
+    else if (now_game_mode == game_mode_info::Story || now_game_mode == game_mode_info::EndingDialogue)
+        commands = {{L"Space / Enter / 클릭", L"문장 전체 표시, 한 번 더 누르면 다음 대사"},
+            {L"F", L"스토리 빨리 감기 켜기 · 끄기"},
+            {L"L", L"대화 기록 열기 · 닫기"},
+            {L"휠 / ↑↓ / Page Up·Down", L"기록 스크롤 · Home/End로 처음/끝"}};
+    else if (now_game_mode == game_mode_info::NameInput)
+        commands = {{L"문자 입력", L"이름 입력 · 최대 6글자"},
+            {L"Backspace", L"마지막 글자 지우기"}, {L"Enter", L"이름 확정"}};
+    else
+        commands = {{L"마우스 클릭", L"화면의 버튼이나 인물 카드를 선택하기"}};
+    for (size_t i = 0; i < commands.size(); ++i)
+    {
+        const int y = 390 + static_cast<int>(i) * 86;
+        text(commands[i].first, {500, y, 885, y + 75}, 26, RGB(233, 200, 218));
+        text(commands[i].second, {900, y, 1415, y + 75}, 26, RGB(236, 239, 246));
+    }
+    DrawExitConfirmButton(hDC, m_exitNoButtonRect, L"계속하기");
+    DrawExitConfirmButton(hDC, m_exitYesButtonRect, L"게임 종료");
 }
 
 void GameManager::DrawExitConfirmButton(HDC hDC, const RECT& rect, const wchar_t* text)

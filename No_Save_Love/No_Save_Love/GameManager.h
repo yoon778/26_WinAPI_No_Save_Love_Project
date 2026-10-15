@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <windows.h>
 #include <string>
@@ -236,9 +236,9 @@ private:
 private: // 종료 확인 팝업
 
     bool m_exitConfirmOpen = false;
-    RECT m_exitPopupRect = { 610, 360, 1310, 720 };
-    RECT m_exitYesButtonRect = { 720, 585, 910, 655 };
-    RECT m_exitNoButtonRect = { 1010, 585, 1200, 655 };
+    RECT m_exitPopupRect = { 420, 170, 1500, 910 };
+    RECT m_exitYesButtonRect = { 1020, 800, 1370, 865 };
+    RECT m_exitNoButtonRect = { 550, 800, 900, 865 };
 
     void RenderExitConfirmPopup(HDC hDC);
     void DrawExitConfirmButton(HDC hDC, const RECT& rect, const wchar_t* text);

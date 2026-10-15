@@ -1,4 +1,4 @@
-﻿#include "EndingScene.h"
+#include "EndingScene.h"
 
 void EndingScene::Initialize(const std::vector<std::wstring>& credits)
 {
@@ -106,10 +106,10 @@ void EndingScene::Render(HDC hDC)
 
     if (IsCreditFinished())
     {
-        DrawButton(hDC, returnButtonRect, L"처음으로 · Enter");
+        DrawButton(hDC, returnButtonRect, L"처음으로");
         DrawExitButton(hDC);
     }
-    else DrawButton(hDC, fastButtonRect, isFastScroll ? L"4× 재생 중 · F 정지" : L"빨리 감기 · F / Space");
+    else DrawButton(hDC, fastButtonRect, isFastScroll ? L"16× · 멈추기" : L"빨리 감기");
 }
 
 std::wstring EndingScene::GetEndingImagePath(int endingType, int heroineIndex) const
