@@ -15,6 +15,7 @@
 #include "Scenes/ChoiceScene.h"
 #include "Scenes/ResultScene.h"
 #include "Scenes/EndingScene.h"
+#include "Scenes/PromiseScene.h"
 
 
 // 데이터
@@ -49,6 +50,7 @@ public:
     void OnMouseUp(int x, int y);
     void OnMouseMove(int x, int y);
     void OnMouseWheel(int delta);
+    void OnCaptureLost();
 
 private:
     HWND m_hWnd = nullptr;
@@ -63,11 +65,13 @@ private:
         MiniGameTutor3,
         MiniGameTutor4,
         MiniGameTutor5,
+        MiniGameTutor6,
         MiniGame1,
         MiniGame2,
         MiniGame3,
         MiniGame4,
         MiniGame5,
+        MiniGame6,
         Result,
         Choice,
         EndingDialogue,
@@ -80,7 +84,8 @@ private:
         PendingMiniGameRelease1,
         PendingMiniGameRelease2,
         PendingMiniGameRelease3,
-        PendingMiniGameRelease4
+        PendingMiniGameRelease4,
+        PendingMiniGameRelease5
     };
 
     game_mode_info now_game_mode = game_mode_info::Story;
@@ -93,6 +98,7 @@ private:
     ChoiceScene choiceScene;
     StoryData storyData;
     EndingScene endingScene;
+    PromiseScene promiseScene;
 
     MiniGame1TutorialScene minigam1_tutorial1;
     MiniGame2TutorialScene minigame2TutorialScene;
@@ -135,6 +141,7 @@ private:
     // 최종 선택 전용 도입 StoryScene을 이미 보여줬는지 확인한다.
     bool m_finalChoiceIntroShown = false;
     bool m_performanceIntroShown = false;
+    bool m_promiseIntroShown = false;
 
     // 엔딩 종류를 계산한다.
     // 0 = Happy, 1 = Bad, 2 = Hidden
@@ -167,7 +174,7 @@ private:
     // 현재 미니게임 번호에 맞는 실제 게임 모드로 들어간다.
     void StartCurrentMiniGame();
 
-    // F1~F5 디버그 입력으로 원하는 미니게임에 바로 들어간다.
+    // F1~F6 디버그 입력으로 원하는 미니게임에 바로 들어간다.
     void DebugEnterMiniGameByIndex(int miniGameIndex);
 
     // 현재 미니게임 번호에 맞는 튜토리얼 모드를 반환한다.

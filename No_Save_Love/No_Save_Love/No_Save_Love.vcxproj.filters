@@ -63,6 +63,9 @@
     <ClCompile Include="Scenes\ResultScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="Scenes\PromiseScene.cpp">
+      <Filter>소스 파일\Scenes</Filter>
+    </ClCompile>
     <ClCompile Include="Scenes\StoryScene.cpp">
       <Filter>소스 파일\Scenes</Filter>
     </ClCompile>
@@ -129,6 +132,9 @@
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="Scenes\ResultScene.h">
+      <Filter>헤더 파일\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Scenes\PromiseScene.h">
       <Filter>헤더 파일\Scenes</Filter>
     </ClInclude>
     <ClInclude Include="Scenes\StoryScene.h">

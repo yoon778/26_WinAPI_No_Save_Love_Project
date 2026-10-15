@@ -357,7 +357,7 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
         Label(g, L"숨을 고르고, 첫 박자를 기다려요", w * .19f, h * .42f,
             h * .04f, Color(255, 255, 227, 209), w * .51f);
     if (!floweringAudioReady && !isResultScreenActive)
-        Label(g, L"음원을 재생하지 못했습니다.\nF5로 공연을 다시 시작해 주세요.", w * .13f, h * .40f,
+        Label(g, L"음원을 재생하지 못했습니다.\nF6로 공연을 다시 시작해 주세요.", w * .13f, h * .40f,
             h * .033f, Color(255, 255, 202, 202), w * .55f);
     if (isResultScreenActive)
     {

@@ -1,4 +1,4 @@
-// 실제 StoryData/StoryScene을 사용한 Win32 오프스크린 회귀 검사.
+﻿// 실제 StoryData/StoryScene을 사용한 Win32 오프스크린 회귀 검사.
 // 테스트에서만 상태를 들여다본다. 게임에 디버그 조작이나 테스트 API를 추가하지 않는다.
 #include <windows.h>
 #include <string>
@@ -162,6 +162,8 @@ int wmain(int argc, wchar_t** argv)
 
     for (int heroine = 0; heroine < 3; ++heroine)
     {
+        scripts.push_back(&data.GetPromiseStory(heroine, false));
+        scripts.push_back(&data.GetPromiseStory(heroine, true));
         scripts.push_back(&data.GetPerformanceStory(heroine, false));
         scripts.push_back(&data.GetPerformanceStory(heroine, true));
     }
@@ -323,7 +325,7 @@ int wmain(int argc, wchar_t** argv)
     assert(photographed.size() == 7);
     assert(animated.size() == 22);
     assert(renderedAnimations.size() == 22);
-    assert(animationSegments == 23);
+    assert(animationSegments == 35); // 기존 23 + 세 경로의 약속 전후 소품 연출 12
     assert(heroineReactions == 50);
     for (int round = 0; round < 4; ++round)
         for (int heroine = 0; heroine < 3; ++heroine)
@@ -337,6 +339,7 @@ int wmain(int argc, wchar_t** argv)
     assert(data.GetEndingStory(-1, 0).empty() && data.GetEndingStory(3, 0).empty());
     assert(data.GetEndingStory(0, -1).empty() && data.GetEndingStory(0, 3).empty());
     assert(data.GetFinalChoiceIntroStory(-1).empty() && data.GetFinalChoiceIntroStory(4).empty());
+    assert(data.GetPromiseStory(-1, false).empty() && data.GetPromiseStory(3, true).empty());
     assert(data.GetPerformanceStory(-1, false).empty() && data.GetPerformanceStory(3, true).empty());
     for (int i = 0; i < 3; ++i)
     {

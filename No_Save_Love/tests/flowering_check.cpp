@@ -1,4 +1,4 @@
-#include <windows.h>
+﻿#include <windows.h>
 #include <mmsystem.h>
 #include <atlimage.h>
 #include <gdiplus.h>
@@ -38,6 +38,8 @@ MCIERROR TestMci(LPCWSTR command, LPWSTR result, UINT size, HWND callback)
 #include "../No_Save_Love/minigame2/RhythmMiniGameFlowering.cpp"
 #include "../No_Save_Love/GameManager.cpp"
 #undef mciSendStringW
+#include "../No_Save_Love/Scenes/PromiseScene.cpp"
+#include "promise_check.h"
 
 void SaveFrame(RhythmMiniGame& game, const std::filesystem::path& path)
 {
@@ -65,6 +67,7 @@ int wmain(int argc, wchar_t** argv)
     HWND window = CreateWindowW(L"STATIC", L"Flowering check", WS_POPUP,
         0, 0, 1920, 1080, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
     assert(window);
+    CheckPromises(output);
     const auto chart = FloweringChart::Build();
     int flags = 0;
     for (size_t i = 0; i < chart.size(); ++i)
@@ -220,7 +223,7 @@ int wmain(int argc, wchar_t** argv)
     // ESC 메뉴는 시스템 커서를 보이고 게임으로 돌아가면 원래 커서를 사용한다.
     // ShowCursor 카운터를 관찰한 직후 복구하여 반복 개폐의 누적 오류도 확인한다.
     const auto cursorVisible = []() { const int count = ShowCursor(TRUE); ShowCursor(FALSE); return count > 0; };
-    for (int slot : {1, 4})
+    for (int slot : {1, 5})
     {
         GameManager manager;
         manager.Initialize(window); CompleteTransition(manager);
@@ -256,12 +259,56 @@ int wmain(int argc, wchar_t** argv)
         manager.now_game_mode = GameManager::Story;
         manager.storyScene.finished = true;
         manager.OnMouseClick(0, 0);
+        assert(manager.m_promiseIntroShown && manager.finalHeroineIndex == heroine);
+        assert(manager.storyData.GetPromiseStory(heroine, false).size() >= 20);
+        manager.storyScene.finished = true;
+        manager.OnMouseClick(0, 0); CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::MiniGameTutor5);
+        assert(manager.promiseScene.heroine == heroine && manager.promiseScene.IsTutorial());
+        manager.OnMouseClick(960, 838); CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::MiniGame5 && !manager.promiseScene.IsTutorial());
+        const auto card = manager.promiseScene.ItemRect(0);
+        manager.OnMouseClick(card.left + 40, card.top + 45);
+        assert(manager.promiseScene.IsDragging() && GetCapture() == window);
+        manager.OnKeyDown(VK_ESCAPE);
+        assert(manager.m_exitConfirmOpen && !manager.promiseScene.IsDragging() && GetCapture() != window);
+        manager.OnMouseMove(580, 330); manager.OnMouseUp(580, 330);
+        assert(manager.promiseScene.PlacedCount() == 0);
+        manager.OnKeyDown(VK_ESCAPE);
+        manager.OnMouseClick(card.left + 40, card.top + 45);
+        manager.OnCaptureLost(); ReleaseCapture();
+        assert(!manager.promiseScene.IsDragging() && manager.promiseScene.selected == -1);
+        // 정상 mouse-up/capture 해제는 두 번 클릭 방식의 선택을 지우지 않는다.
+        manager.OnMouseClick(card.left + 40, card.top + 45);
+        manager.OnMouseUp(card.left + 40, card.top + 45); manager.OnCaptureLost();
+        assert(manager.promiseScene.selected == 0);
+        const auto slot = manager.promiseScene.SlotRect(manager.promiseScene.TargetFor(0));
+        manager.OnMouseClick(slot.left + 40, slot.top + 40); manager.OnMouseUp(slot.left + 40, slot.top + 40);
+        assert(manager.promiseScene.PlacedCount() == 1);
+        for (int stage = 0; stage < 3; ++stage)
+        {
+            for (int item = stage == 0 ? 1 : 0; item < 6; ++item)
+                PlacePromiseItem(manager.promiseScene, item, item % 2 == 0);
+            manager.OnMouseClick(1650, 880);
+        }
+        assert(manager.currentMiniGameIndex == 5);
+        const auto puzzleGain = StatBalance::CalculateGain(4, 100);
+        assert(manager.player.money == 50 + puzzleGain.money);
+        assert(manager.player.speech == 50 + puzzleGain.speech);
+        manager.FinishCurrentMiniGameIfNeeded(true); // 전환 중 중복 완료 방지
+        assert(manager.currentMiniGameIndex == 5 && manager.player.money == 50 + puzzleGain.money);
+        CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Result && !manager.promiseScene.background);
+        manager.OnMouseClick(960, 980); CompleteTransition(manager);
+        assert(manager.now_game_mode == GameManager::Story && !manager.m_performanceIntroShown);
+        assert(manager.storyScene.dialogues.size() == manager.storyData.GetPromiseStory(heroine, true).size());
+        manager.storyScene.finished = true; manager.OnMouseClick(0, 0);
         assert(manager.m_performanceIntroShown && manager.finalHeroineIndex == heroine);
         assert(!manager.storyData.GetPerformanceStory(heroine, false).empty());
         manager.storyScene.finished = true;
         manager.OnMouseClick(0, 0);
         CompleteTransition(manager);
-        assert(manager.now_game_mode == GameManager::MiniGameTutor5);
+        assert(manager.now_game_mode == GameManager::MiniGameTutor6);
         assert(manager.minigame2TutorialScene.floweringMode);
         CImage tutorial;
         tutorial.Create(1920, 1080, 24);
@@ -273,7 +320,7 @@ int wmain(int argc, wchar_t** argv)
         musicPosition = 0;
         manager.OnMouseClick(1800, 60); // 튜토리얼 SKIP
         CompleteTransition(manager);
-        assert(manager.now_game_mode == GameManager::MiniGame5);
+        assert(manager.now_game_mode == GameManager::MiniGame6);
         assert(manager.minigame2.floweringHeroine == heroine);
         musicPosition = 70000;
         manager.minigame2.Update();
@@ -281,10 +328,12 @@ int wmain(int argc, wchar_t** argv)
         manager.minigame2.score = manager.minigame2.floweringMaximumScore;
         manager.minigame2.floweringHitUnits = manager.minigame2.floweringMaximumScore / 300;
         manager.FinishCurrentMiniGameIfNeeded(true);
-        assert(manager.currentMiniGameIndex == 5);
+        assert(manager.currentMiniGameIndex == 6);
         CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Result);
-        assert(manager.player.speech == 81 && manager.player.charm == 72);
+        const auto performanceGain = StatBalance::CalculateGain(5, 100);
+        assert(manager.player.speech == 50 + puzzleGain.speech + performanceGain.speech);
+        assert(manager.player.charm == 50 + puzzleGain.charm + performanceGain.charm);
         manager.OnMouseClick(960, 980);
         CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Story); // 다섯 번째 Choice가 아님
@@ -324,7 +373,7 @@ int wmain(int argc, wchar_t** argv)
         CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Title);
         assert(manager.currentMiniGameIndex == 0 && manager.currentStoryRound == 0);
-        assert(!manager.m_performanceIntroShown && !manager.m_finalChoiceIntroShown);
+        assert(!manager.m_performanceIntroShown && !manager.m_finalChoiceIntroShown && !manager.m_promiseIntroShown);
         assert(manager.player.speech == 0 && manager.player.charm == 0);
         assert(manager.storyScene.history.empty() && !manager.titleScene.IsStartClicked());
         for (const auto& character : manager.characters) assert(character.choice_time == 0);

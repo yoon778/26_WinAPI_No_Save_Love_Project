@@ -107,6 +107,7 @@ void GameManager::Shutdown()
     }
     minigame3.Release();
     minigame4.Release();
+    promiseScene.Shutdown();
     audioManager.Shutdown();
 
     // StoryScene 내부 데이터 정리
@@ -207,7 +208,7 @@ void GameManager::OnMouseClick(int x, int y)
         break;
     }
     case game_mode_info::MiniGameTutor2:
-    case game_mode_info::MiniGameTutor5:
+    case game_mode_info::MiniGameTutor6:
     {
         minigame2TutorialScene.OnMouseClick(x, y);
         if (minigame2TutorialScene.IsFinished())
@@ -217,6 +218,12 @@ void GameManager::OnMouseClick(int x, int y)
             minigame2TutorialScene.Shutdown();
             StartCurrentMiniGame();
         }
+        break;
+    }
+    case game_mode_info::MiniGameTutor5:
+    {
+        promiseScene.OnMouseDown(x, y);
+        if (!promiseScene.IsTutorial()) RequestSceneChange(game_mode_info::MiniGame5);
         break;
     }
     case game_mode_info::MiniGameTutor3:
@@ -245,6 +252,7 @@ void GameManager::OnMouseClick(int x, int y)
     }
     case game_mode_info::MiniGame1: 
     case game_mode_info::MiniGame2:
+    case game_mode_info::MiniGame6:
     case game_mode_info::MiniGame5:
     case game_mode_info::MiniGame3:
     case game_mode_info::MiniGame4:
@@ -261,10 +269,12 @@ void GameManager::OnMouseClick(int x, int y)
         {
             audioManager.PlaySfx(L"click");
 
-            if (currentMiniGameIndex == 5)
+            if (currentMiniGameIndex == 5 || currentMiniGameIndex == 6)
             {
                 PrepareFinalChoiceIntro();
-                storyScene.SetDialogues(storyData.GetPerformanceStory(finalHeroineIndex, true));
+                storyScene.SetDialogues(currentMiniGameIndex == 5
+                    ? storyData.GetPromiseStory(finalHeroineIndex, true)
+                    : storyData.GetPerformanceStory(finalHeroineIndex, true));
                 RequestSceneChange(game_mode_info::Story);
                 break;
             }
@@ -345,6 +355,16 @@ void GameManager::AdvanceFinishedStory()
         }
         else if (currentMiniGameIndex == 4)
         {
+            if (!m_promiseIntroShown)
+            {
+                PrepareFinalChoiceIntro();
+                storyScene.SetDialogues(storyData.GetPromiseStory(finalHeroineIndex, false));
+                m_promiseIntroShown = true;
+            }
+            else EnterCurrentMiniGameTutorial();
+        }
+        else if (currentMiniGameIndex == 5)
+        {
             if (!m_performanceIntroShown)
             {
                 PrepareFinalChoiceIntro();
@@ -377,7 +397,7 @@ void GameManager::ReturnToTitle()
     {
         currentStoryRound = currentMiniGameIndex = 0;
         finalHeroineIndex = finalChoiceIntroIndex = 0;
-        m_choiceApplied = m_finalChoiceIntroShown = m_performanceIntroShown = false;
+        m_choiceApplied = m_finalChoiceIntroShown = m_performanceIntroShown = m_promiseIntroShown = false;
         m_exitConfirmOpen = false;
         player = {0, 0, 0, 0};
         for (auto& character : characters) character.choice_time = 0;
@@ -416,9 +436,14 @@ void GameManager::EnterResult(int whichGame, int score)
 
 void GameManager::EnterCurrentMiniGameTutorial()
 {
-    if (currentMiniGameIndex == 1 || currentMiniGameIndex == 4)
+    if (currentMiniGameIndex == 1 || currentMiniGameIndex == 5)
     {
-        minigame2TutorialScene.Initialize(currentMiniGameIndex == 4);
+        minigame2TutorialScene.Initialize(currentMiniGameIndex == 5);
+    }
+    else if (currentMiniGameIndex == 4)
+    {
+        PrepareFinalChoiceIntro();
+        promiseScene.Initialize(finalHeroineIndex, true);
     }
     else if (currentMiniGameIndex == 2)
     {
@@ -438,21 +463,22 @@ void GameManager::EnterCurrentMiniGameTutorial()
 
 void GameManager::StartCurrentMiniGame()
 {
-    if (currentMiniGameIndex != 1 && currentMiniGameIndex != 4 && m_isMiniGame2Initialized)
+    if (currentMiniGameIndex != 4) promiseScene.Shutdown();
+    if (currentMiniGameIndex != 1 && currentMiniGameIndex != 5 && m_isMiniGame2Initialized)
     {
         ForceSystemCursorVisible();
         minigame2.Release();
         m_isMiniGame2Initialized = false;
     }
 
-    if (currentMiniGameIndex == 1 || currentMiniGameIndex == 4)
+    if (currentMiniGameIndex == 1 || currentMiniGameIndex == 5)
     {
         // 미니게임 2는 리듬게임을 사용한다.
         // 리듬게임은 자체 BGM을 재생하므로 이전 공용 BGM을 먼저 정지한다.
         audioManager.StopBgm();
         minigame2.Release();
-        if (currentMiniGameIndex == 4) PrepareFinalChoiceIntro();
-        if (!minigame2.Init(m_hWnd, currentMiniGameIndex == 4, finalHeroineIndex))
+        if (currentMiniGameIndex == 5) PrepareFinalChoiceIntro();
+        if (!minigame2.Init(m_hWnd, currentMiniGameIndex == 5, finalHeroineIndex))
         {
             minigame2.Release();
             m_isMiniGame2Initialized = false;
@@ -462,6 +488,11 @@ void GameManager::StartCurrentMiniGame()
         }
         ForceSystemCursorHidden();
         m_isMiniGame2Initialized = true;
+    }
+    else if (currentMiniGameIndex == 4)
+    {
+        PrepareFinalChoiceIntro();
+        promiseScene.Initialize(finalHeroineIndex);
     }
     else if (currentMiniGameIndex == 3)
     {
@@ -492,10 +523,11 @@ void GameManager::DebugEnterMiniGameByIndex(int miniGameIndex)
         return;
     }
 
-    // F1~F5는 앞부분 진행을 건너뛰고 원하는 미니게임 슬롯으로 바로 들어간다.
+    // F1~F6는 앞부분 진행을 건너뛰고 원하는 미니게임 슬롯으로 바로 들어간다.
     currentMiniGameIndex = miniGameIndex;
     currentStoryRound = (std::min)(miniGameIndex, STORY_ROUND_COUNT);
-    m_performanceIntroShown = miniGameIndex == 4;
+    m_promiseIntroShown = miniGameIndex >= 4;
+    m_performanceIntroShown = miniGameIndex == 5;
     m_finalChoiceIntroShown = false;
     StartCurrentMiniGame();
 }
@@ -518,6 +550,8 @@ GameManager::game_mode_info GameManager::GetTutorialModeByIndex(int miniGameInde
         return game_mode_info::MiniGameTutor4;
     case 4:
         return game_mode_info::MiniGameTutor5;
+    case 5:
+        return game_mode_info::MiniGameTutor6;
 
     default:
         return game_mode_info::MiniGameTutor1;
@@ -542,6 +576,8 @@ GameManager::game_mode_info GameManager::GetMiniGameModeByIndex(int miniGameInde
         return game_mode_info::MiniGame4;
     case 4:
         return game_mode_info::MiniGame5;
+    case 5:
+        return game_mode_info::MiniGame6;
 
     default:
         return game_mode_info::MiniGame1;
@@ -550,13 +586,19 @@ GameManager::game_mode_info GameManager::GetMiniGameModeByIndex(int miniGameInde
 
 void GameManager::HandleCurrentMiniGameMouse(int x, int y)
 {
+    if (now_game_mode == game_mode_info::MiniGame5)
+    {
+        promiseScene.OnMouseDown(x, y);
+        if (promiseScene.IsDragging()) SetCapture(m_hWnd);
+        return;
+    }
     // 미니게임 4는 아직 마우스 입력을 사용하지 않는다.
     // 현재 실행 화면 기준으로 판단해야 Result 전환 페이드 중에도 다른 미니게임으로 잘못 빠지지 않는다.
     if (now_game_mode == game_mode_info::MiniGame4)
     {
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6) {
         minigame2.OnMouseDown(x, y);
         return;
     }
@@ -570,6 +612,7 @@ void GameManager::HandleCurrentMiniGameMouse(int x, int y)
 
 void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
 {
+    if (now_game_mode == game_mode_info::MiniGame5) return;
     // 미니게임 4는 방향키를 WM_KEYDOWN/WM_KEYUP에서 따로 처리한다.
     // 현재 실행 화면 기준으로 판단해야 Result 전환 페이드 중에도 다른 미니게임으로 잘못 빠지지 않는다.
     if (now_game_mode == game_mode_info::MiniGame4)
@@ -577,7 +620,7 @@ void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
         return;
     }
 
-    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5)
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6)
     {
         return;
     }
@@ -593,6 +636,7 @@ void GameManager::HandleCurrentMiniGameKey(wchar_t inputChar)
 
 void GameManager::UpdateCurrentMiniGame()
 {
+    if (now_game_mode == game_mode_info::MiniGame5) { promiseScene.Update(); return; }
     // 미니게임 4는 avoidgame의 Update를 사용한다.
     // 현재 실행 화면 기준으로 판단해야 currentMiniGameIndex가 증가한 뒤에도 안전하다.
     if (now_game_mode == game_mode_info::MiniGame4)
@@ -600,7 +644,7 @@ void GameManager::UpdateCurrentMiniGame()
         minigame4.Update();
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6) {
         minigame2.Update();
         return;
     }
@@ -616,6 +660,7 @@ void GameManager::UpdateCurrentMiniGame()
 
 void GameManager::RenderCurrentMiniGame(HDC hDC)
 {
+    if (now_game_mode == game_mode_info::MiniGame5) { promiseScene.Render(hDC); return; }
     // 미니게임 4는 avoidgame의 Render를 사용한다.
     // avoidgame 종료 직후 currentMiniGameIndex가 4로 증가해도,
     // 페이드가 끝나기 전 화면은 아직 MiniGame4이므로 now_game_mode로 판단한다.
@@ -624,7 +669,7 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
         minigame4.Render(hDC);
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6) {
         minigame2.Render(hDC);
         return;
     }
@@ -639,6 +684,16 @@ void GameManager::RenderCurrentMiniGame(HDC hDC)
 
 void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
 {
+    if (sceneTransition.IsActive()) return;
+    if (now_game_mode == game_mode_info::MiniGame5)
+    {
+        if (forceFinish) promiseScene.FinishImmediately();
+        if (!promiseScene.IsFinished()) return;
+        EnterResult(4, promiseScene.GetScore());
+        m_pendingMiniGameRelease = PendingMiniGameRelease5;
+        ++currentMiniGameIndex;
+        return;
+    }
     // 미니게임 4는 avoidgame의 종료 여부와 점수를 사용한다.
     // 결과 처리도 현재 실행 화면 기준으로 판단한다.
     if (now_game_mode == game_mode_info::MiniGame4)
@@ -653,7 +708,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
         currentMiniGameIndex++;
         return;
     }
-    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5)
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6)
     {
         if (forceFinish)
         {
@@ -665,7 +720,7 @@ void GameManager::FinishCurrentMiniGameIfNeeded(bool forceFinish)
             return;
         }
 
-        EnterResult(now_game_mode == game_mode_info::MiniGame5 ? 4 : 1, minigame2.GetResultScore100());
+        EnterResult(now_game_mode == game_mode_info::MiniGame6 ? 5 : 1, minigame2.GetResultScore100());
         ForceSystemCursorVisible();
         m_pendingMiniGameRelease = PendingMiniGameRelease2;
         currentMiniGameIndex++;
@@ -760,6 +815,9 @@ void GameManager::ReleasePendingMiniGame()
         minigame4.Release();
         break;
 
+    case PendingMiniGameRelease5:
+        promiseScene.Shutdown();
+        break;
     case PendingMiniGameReleaseNone:
     default:
         break;
@@ -814,11 +872,14 @@ void GameManager::Render(HDC hDC)
         break;
     }
     case game_mode_info::MiniGameTutor2:
-    case game_mode_info::MiniGameTutor5:
+    case game_mode_info::MiniGameTutor6:
     {
         minigame2TutorialScene.Render(hDC);
         break;
     }
+    case game_mode_info::MiniGameTutor5:
+        promiseScene.Render(hDC);
+        break;
     case game_mode_info::MiniGameTutor3:
     {
         minigame3TutorialScene.Render(hDC);
@@ -831,6 +892,7 @@ void GameManager::Render(HDC hDC)
     }
     case game_mode_info::MiniGame1:
     case game_mode_info::MiniGame2:
+    case game_mode_info::MiniGame6:
     case game_mode_info::MiniGame5:
     case game_mode_info::MiniGame3:
     case game_mode_info::MiniGame4:
@@ -930,9 +992,12 @@ void GameManager::RenderExitConfirmPopup(HDC hDC)
     if (now_game_mode == game_mode_info::Ending)
         commands = {{L"F / Space", L"크레딧 1배 · 16배 전환"},
             {L"Enter", L"크레딧 종료 후 처음으로 돌아가기"}};
-    else if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5)
+    else if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6)
         commands = {{L"마우스 클릭", L"접근 원이 겹치는 박자에 노트 누르기"},
             {L"누른 채 이동", L"슬라이더 공을 끝까지 따라가기"}};
+    else if (now_game_mode == game_mode_info::MiniGame5 || now_game_mode == game_mode_info::MiniGameTutor5)
+        commands = {{L"클릭 / 끌어 놓기", L"물건의 단서 읽기 · 목적지에 배치"},
+            {L"차례로 클릭", L"물건을 고른 뒤 목적지 클릭"}, {L"힌트 보기", L"현재 장의 정답 안내 · 한 장에 5점 차감"}};
     else if (now_game_mode == game_mode_info::MiniGame3)
         commands = {{L"Space", L"점프"}, {L"↓ 누르기", L"슬라이딩"}};
     else if (now_game_mode == game_mode_info::MiniGame4)
@@ -963,7 +1028,12 @@ void GameManager::SetPauseMenuOpen(bool open)
 {
     if (m_exitConfirmOpen == open) return;
     m_exitConfirmOpen = open;
-    const bool rhythm = now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5;
+    if (open && now_game_mode == game_mode_info::MiniGame5)
+    {
+        promiseScene.CancelDrag();
+        if (GetCapture() == m_hWnd) ReleaseCapture();
+    }
+    const bool rhythm = now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6;
     if (rhythm)
     {
         minigame2.SetPaused(open);
@@ -1176,6 +1246,7 @@ void GameManager::OnChar(wchar_t inputChar)
         
         case game_mode_info::MiniGame1:
         case game_mode_info::MiniGame2:
+        case game_mode_info::MiniGame6:
         case game_mode_info::MiniGame5:
         case game_mode_info::MiniGame3:
         case game_mode_info::MiniGame4:
@@ -1245,7 +1316,7 @@ void GameManager::OnKeyDown(WPARAM wParam)
         return;
     }
 
-    // F1~F5는 테스트용 바로가기다. F5는 개화 공연이다.
+    // F1~F6는 테스트용 바로가기다. F5는 노트 밖의 약속, F6는 개화 공연이다.
     // F1 = 미니게임 1, F2 = 미니게임 2, F3 = 미니게임 3, F4 = 미니게임 4.
     switch (wParam)
     {
@@ -1268,6 +1339,9 @@ void GameManager::OnKeyDown(WPARAM wParam)
     case VK_F5:
         DebugEnterMiniGameByIndex(4);
         return;
+    case VK_F6:
+        DebugEnterMiniGameByIndex(5);
+        return;
 
     default:
         break;
@@ -1279,7 +1353,8 @@ void GameManager::OnKeyDown(WPARAM wParam)
             now_game_mode == game_mode_info::MiniGame2 ||
             now_game_mode == game_mode_info::MiniGame3 ||
             now_game_mode == game_mode_info::MiniGame4 ||
-            now_game_mode == game_mode_info::MiniGame5))
+            now_game_mode == game_mode_info::MiniGame5 ||
+            now_game_mode == game_mode_info::MiniGame6))
     {
         FinishCurrentMiniGameIfNeeded(true);
         return;
@@ -1322,8 +1397,14 @@ void GameManager::OnKeyUp(WPARAM wParam)
 }
 
 void GameManager::OnMouseUp(int x, int y) {
-    if (m_exitConfirmOpen) return;
-    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
+    if (m_exitConfirmOpen || sceneTransition.IsActive()) return;
+    if (now_game_mode == game_mode_info::MiniGame5)
+    {
+        promiseScene.OnMouseUp(x, y);
+        if (GetCapture() == m_hWnd) ReleaseCapture();
+        return;
+    }
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6) {
         minigame2.OnMouseUp(x, y);
         return;
     }
@@ -1336,9 +1417,15 @@ void GameManager::OnMouseWheel(int delta)
         storyScene.OnMouseWheel(delta);
 }
 
+void GameManager::OnCaptureLost()
+{
+    if (promiseScene.IsDragging()) promiseScene.CancelDrag();
+}
+
 void GameManager::OnMouseMove(int x, int y) {
-    if (m_exitConfirmOpen) return;
-    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame5) {
+    if (m_exitConfirmOpen || sceneTransition.IsActive()) return;
+    if (now_game_mode == game_mode_info::MiniGame5) { promiseScene.OnMouseMove(x, y); return; }
+    if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6) {
         minigame2.OnMouseMove(x, y);
         return;
     }
@@ -1368,6 +1455,7 @@ void GameManager::OnTimer(HWND hWnd)
 
         case game_mode_info::MiniGame1:
         case game_mode_info::MiniGame2:
+        case game_mode_info::MiniGame6:
         case game_mode_info::MiniGame5:
         case game_mode_info::MiniGame3:
         case game_mode_info::MiniGame4:
@@ -1447,6 +1535,10 @@ void GameManager::ApplyPendingSceneChange()
     else if (now_game_mode == game_mode_info::MiniGame4)
     {
         audioManager.PlayBgmFadeIn(L"minigame4", 80, 350, 2000);
+    }
+    else if (now_game_mode == game_mode_info::MiniGame5)
+    {
+        audioManager.PlayBgmFadeIn(L"story4.1", 60, 250, 1200);
     }
     else if (now_game_mode == game_mode_info::EndingDialogue ||
         now_game_mode == game_mode_info::Ending)

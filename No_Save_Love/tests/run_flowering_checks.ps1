@@ -12,7 +12,7 @@ $testExe = Join-Path $testOutput 'flowering_check.exe'
 $sources = @('"' + (Join-Path $PSScriptRoot 'flowering_check.cpp') + '"')
 foreach ($item in $project.Project.ItemGroup.ClCompile) {
     $source = $item.Include
-    if (-not $source -or $source -in @('main.cpp','GameManager.cpp','minigame2\RhythmMiniGame.cpp','minigame2\RhythmMiniGameFlowering.cpp')) { continue }
+    if (-not $source -or $source -in @('main.cpp','GameManager.cpp','Scenes\PromiseScene.cpp','minigame2\RhythmMiniGame.cpp','minigame2\RhythmMiniGameFlowering.cpp')) { continue }
     $sources += '"' + (Join-Path $projectRoot ('No_Save_Love\' + $source)) + '"'
 }
 $sourceArguments = $sources -join ' '

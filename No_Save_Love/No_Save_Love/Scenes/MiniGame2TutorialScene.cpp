@@ -150,7 +150,7 @@ void MiniGame2TutorialScene::DrawHeader(HDC hDC)
     RECT titleRect = { 100, 35, 1550, 110 };
     DrawTextInRect(
         hDC,
-        floweringMode ? L"미니게임 5 - 개화 : 금요일의 작은 무대" : L"미니게임 2 - 노래 연습",
+        floweringMode ? L"미니게임 6 - 개화 : 금요일의 작은 무대" : L"미니게임 2 - 노래 연습",
         titleRect,
         46,
         RGB(255, 220, 110),

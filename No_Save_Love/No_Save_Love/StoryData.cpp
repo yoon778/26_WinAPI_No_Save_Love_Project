@@ -1,4 +1,4 @@
-#include "StoryData.h"
+﻿#include "StoryData.h"
 
 void StoryData::Initialize()
 {
@@ -128,7 +128,7 @@ void StoryData::Initialize()
         { L"네 장에 남길 네 번의 만남", L"일과 연습으로 하루를 보낸 뒤 함께할 사람을 고릅니다. 첫 네 미니게임마다 한 번씩, 총 네 번의 선택이 노트의 빈 장을 채웁니다. 같은 사람을 다시 만나면 그 사람의 다음 이야기를 보게 됩니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"같은 금요일, 서로 다른 고민", L"세아는 혼자 떠맡은 책임을, 하린은 전학 앞의 불안을, 이린은 자기 이야기를 꺼낼 용기를 마주합니다. 선택한 사람에 따라 사건과 연출이 달라집니다. 모두를 번갈아 만나도 괜찮습니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"약속을 지킬 힘을 기르기", L"미니게임 결과는 재력·대화·매력·외모를 올립니다. 주문을 듣고, 몸을 움직이고, 사람 앞에 서는 연습이 마지막 말을 전할 준비가 됩니다. 실패해도 이야기는 계속되고, 얻은 성장은 결과 화면에서 확인합니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
-        { L"노트가 닫히는 금요일", L"네 번 중 가장 많이 만난 사람과 마지막 개화 공연을 준비합니다. 만난 횟수가 같으면 세아, 하린, 이린 순입니다. 공연까지 다섯 미니게임에서 쌓은 능력치가 결말에 반영되며, 마지막에 상대를 다시 고르는 선택창은 없습니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
+        { L"노트가 닫히는 금요일", L"네 번 중 가장 많이 만난 사람과 물건과 약속을 정리하고, 마지막 개화 공연으로 향합니다. 횟수가 같으면 세아, 하린, 이린 순입니다. 여섯 미니게임에서 쌓은 능력치가 결말에 반영되며, 마지막에 상대를 다시 고르는 선택창은 없습니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"읽어도, 잠시 멈춰도 괜찮아", L"대화 기록에서 지나간 말을 다시 읽고, 빨리 감기로 본 이야기를 빠르게 넘길 수 있습니다. ESC를 누르면 조작 안내가 열립니다. 기록은 이번 플레이 동안 유지되며, 게임 종료나 처음으로 돌아가면 지워집니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"{PLAYER}", L"일단 첫 주문부터. 라면도 진로 조사서처럼 빈칸으로 내면 안 되겠지.", L"school_day", L"none", L"", L"stop" },
     };
@@ -1470,13 +1470,135 @@ void StoryData::Initialize()
         { L"", L"그곳에 가는 일을, 노트가 대신해주지는 않을 것이다.", L"school_hallway", L"none", L"", L"" },
     };
 
+    // 목요일 저녁 — 노트 바깥에 물건과 약속을 남기는 세 갈래 이야기.
+    promiseIntros[0] = {
+        {L"", L"네 번째 페이지를 덮자, 손끝에 묻은 잉크가 조금씩 옅어졌다.", L"school_hallway", L"none", L"", L"story4.1"},
+        {L"{PLAYER}", L"노트가 닫히고 나면, 여기 적힌 일은 얼마나 남을까.", L"school_hallway", L"none", L"", L""},
+        {L"", L"반복을 설명할 수는 없어도, 함께할 일까지 노트 안에만 둘 필요는 없었다.", L"school_hallway", L"none", L"", L""},
+        {L"", L"목요일 저녁. 학생회실에는 내일 설명회에 가져갈 상자가 펼쳐져 있었다.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"이것만 정리하면 끝이야. 아마도.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"아마도라는 말이 상자보다 무거워 보이는데.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"일정표, 영수증, 인계할 열쇠…… 끝날수록 챙길 게 늘어나네.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"", L"세아의 손이 모든 물건을 자기 가방 쪽으로 모았다.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"그 가방에 내일 담당자까지 넣을 생각은 아니지?", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"어떻게든 내가 들고 가면 안 잃어버리니까.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"그러면 네가 없을 때는 아무도 못 찾잖아.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"", L"세아는 지퍼를 잡은 손을 천천히 놓았다.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"알아. 그런데 맡기고 나면 계속 확인하고 싶어져.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"그럼 어디에 두는지 같이 정하자. 확인도 같이 하고.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"잘못 넣으면?", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"다시 꺼내면 되지. 상자는 되돌려도 안 혼나잖아.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"", L"노트 대신 빈 분류표를 책상 한가운데 펼쳤다.", L"hansea_room", L"hansea_normal", L"anim_label", L""},
+        {L"한세아", L"먼저 물건의 자리를 찾고, 내일 할 순서도 적자.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"마지막에는 정말 필요한 것만 상자에 넣기.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"그럼 이 빈 카드는 어디에 둬?", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"업무가 끝난 다음 시간. 우리 약속 칸.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"", L"세아는 잠깐 머뭇거리다가 카드 한쪽에 자기 이름을 썼다.", L"hansea_room", L"hansea_normal", L"anim_letter", L""},
+        {L"한세아", L"네 이름도 적어. 이번에는 둘이 맡는 일이니까.", L"hansea_room", L"hansea_normal", L"", L""},
+    };
+    promiseOutros[0] = {
+        {L"", L"마지막 열쇠까지 들어가자, 세아는 상자를 닫기 전에 목록을 한 번 더 읽었다.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"내가 가져갈 것보다 남겨둘 것이 더 많네.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"다른 사람도 찾을 수 있으면 된 거지.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"내가 없어도 되는 자리를 만드는 게, 내가 필요 없어진다는 뜻은 아니겠지?", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"응. 네가 쉬고 돌아올 자리도 만드는 거야.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"", L"세아는 상자 옆에 두 사람의 이름이 적힌 표를 붙였다.", L"hansea_room", L"hansea_normal", L"anim_label", L""},
+        {L"한세아", L"내일 설명회 끝나고 같이 서가 보러 가자. 잘 놓였는지 보고 싶어.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"점검은 한 번만. 그다음에는 쉬기.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"한세아", L"그 조건까지 카드에 써야겠네.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"", L"웃던 세아가 약속 카드만 따로 꺼내 자기 수첩에 끼웠다.", L"hansea_room", L"hansea_normal", L"anim_letter", L""},
+        {L"한세아", L"점심 공연 때 가져갈게. 긴장하면 이쪽을 봐.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"{PLAYER}", L"너도 발표할 때 봐. 내가 들고 있을 테니까.", L"hansea_room", L"hansea_normal", L"", L""},
+        {L"", L"검은 노트에는 새 문장이 생기지 않았다. 상자 위의 두 이름은 그대로였다.", L"hansea_room", L"hansea_normal", L"", L""},
+    };
+    promiseIntros[1] = {
+        {L"", L"네 번째 페이지를 덮자, 손끝에 묻은 잉크가 조금씩 옅어졌다.", L"school_hallway", L"none", L"", L"story4.1"},
+        {L"{PLAYER}", L"노트가 닫히고 나면, 여기 적힌 일은 얼마나 남을까.", L"school_hallway", L"none", L"", L""},
+        {L"", L"반복을 설명할 수는 없어도, 함께할 일까지 노트 안에만 둘 필요는 없었다.", L"school_hallway", L"none", L"", L""},
+        {L"", L"목요일 저녁. 텅 빈 교실에서 하린이 책상 위 물건을 줄 세우고 있었다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"전학 준비 특별 전시회에 오신 걸 환영합니다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"입장료는?", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"가방 한 번 들어주기. 생각보다 비싸지?", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"사진과 빌린 책, 새 주소를 적은 카드가 같은 자리를 차지하고 있었다.", L"yuharin_classroom", L"yuharin_normal", L"anim_photo", L""},
+        {L"{PLAYER}", L"다 가져가는 거야?", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"가져갈 것, 돌려줄 것, 너한테 맡길 것. 머리로는 나뉘는데.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"하린은 사진을 가방에 넣었다가 다시 꺼냈다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"정리하면 진짜 떠나는 것 같아서 자꾸 처음으로 돌아와.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"그럼 떠나는 준비만 하지 말자.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"뭘 더 해?", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"도착 문자 보낼 때까지. 그리고 다시 만나는 날까지.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"빈 종이에 여섯 칸을 그리자 하린이 마지막 칸부터 들여다봤다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"여기, 다시 만나기라고 써도 돼?", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"일정표니까 실제로 지켜야 돼.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"그런 무거운 조건은 입장 전에 말했어야지.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"하린은 웃으면서도 지우개를 치웠다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"먼저 물건을 어디에 둘지 정하고, 토요일부터 순서대로 적자.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"상자에는 새 교실까지 가져갈 것들을 담고.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"그 달력 카드는 밖에 잠깐 빼놔. 내일 네 공연에도 가져갈 거야.", L"yuharin_classroom", L"yuharin_normal", L"anim_map", L""},
+    };
+    promiseOutros[1] = {
+        {L"", L"상자 뚜껑을 덮기 전, 하린이 앨범의 빈 페이지를 펼쳐 보였다.", L"yuharin_classroom", L"yuharin_normal", L"anim_photo", L""},
+        {L"유하린", L"여기는 남겨둘 거야. 새 학교 사진 붙일 자리.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"그다음 장은 다시 만났을 때 찍자.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"사진 보내면 배경부터 맞혀야 해. 어려운 문제로 낼 거야.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"새 주소가 적힌 봉투를 내 가방 안쪽에 넣었다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"틀리면 설명해 줘. 길게 들을 준비는 됐어.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"오늘 한 말, 잘 기억해. 길 안내가 엄청 길 수도 있어.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"하린이 달력 카드에 같은 날짜를 두 번 눌러 썼다.", L"yuharin_classroom", L"yuharin_normal", L"anim_map", L""},
+        {L"유하린", L"한 장은 네 것. 한 장은 내 것. 한쪽이 잊어도 다시 물어보면 되잖아.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"{PLAYER}", L"도착 문자부터 기다릴게.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"유하린", L"그전에 내일 공연. 네가 먼저 도망가면 안 돼.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"작별을 준비하던 책상에 다음 약속이 놓였다. 떠나는 날짜만 적힌 종이는 아니었다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+        {L"", L"검은 노트가 조용한 동안에도, 하린은 상자 위에 붙일 그림을 계속 그렸다.", L"yuharin_classroom", L"yuharin_normal", L"", L""},
+    };
+    promiseIntros[2] = {
+        {L"", L"네 번째 페이지를 덮자, 손끝에 묻은 잉크가 조금씩 옅어졌다.", L"school_hallway", L"none", L"", L"story4.1"},
+        {L"{PLAYER}", L"노트가 닫히고 나면, 여기 적힌 일은 얼마나 남을까.", L"school_hallway", L"none", L"", L""},
+        {L"", L"반복을 설명할 수는 없어도, 함께할 일까지 노트 안에만 둘 필요는 없었다.", L"school_hallway", L"none", L"", L""},
+        {L"", L"목요일 저녁. 도서관 정리 시간에 이린이 작은 문집과 봉투를 가져왔다.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"폐부 정리 전에 어디에 둘지 정해야 해서요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"원고도 전부 보관함으로 가는 거야?", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"아직 보여주고 싶지 않은 글도 있어요. 같이 두면 구분이 안 될 것 같아요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"봉투 가장자리에는 지웠다가 다시 쓴 이름이 희미하게 남아 있었다.", L"library_day", L"seoirin_normal", L"anim_manuscript", L""},
+        {L"{PLAYER}", L"그럼 안 읽고 정리할 수 있게 표시부터 하자.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"무슨 내용인지 안 궁금해요?", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"궁금해. 그래도 네가 꺼내줄 때 읽을게.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"이린은 첫 원고를 자기 쪽에 두고, 관찰 메모만 가운데로 밀었다.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"이건 같이 봐도 돼요. 문예부실에서 들렸던 소리들이에요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"종이 넘기는 소리, 창문 닫는 소리…… 내 재채기도 있네.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"가장 크게 들렸거든요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"작게 웃은 이린이 빈 카드 한 장을 메모 옆에 놓았다.", L"library_day", L"seoirin_normal", L"anim_bookmark", L""},
+        {L"서이린", L"지워진 문장을 똑같이 다시 쓰려면 자꾸 막혀요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"그럼 오늘 문장부터 쓰자. 방금 웃은 것도 넣고.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"메모를 펴고, 한 줄을 골라서 고치고…… 읽는 순서까지 적어볼까요?", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"읽은 자리에 책갈피를 끼우고, 다음 만날 약속으로 끝내자.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"물건 자리부터 정한 다음에요. 봉투는 제가 직접 닫을게요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"이린이 연필 하나를 내 쪽으로 굴렸다.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"내일 공연에 들고 갈 문장도, 맨 마지막에 새로 쓸래요.", L"library_day", L"seoirin_normal", L"", L""},
+    };
+    promiseOutros[2] = {
+        {L"", L"문집과 연필이 상자에 들어갔다. 첫 원고의 봉투는 끝까지 열리지 않았다.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"다 읽지 않았는데도 정리는 끝나네요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"언제 읽을지까지 오늘 정할 필요는 없잖아.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"이린은 꽃 책갈피를 빼 들었다가, 오늘 고른 문장 사이에 다시 끼웠다.", L"library_day", L"seoirin_normal", L"anim_bookmark", L""},
+        {L"서이린", L"여기는 기억해 두고 싶어요. 재채기 다음에 웃었던 부분.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"문학적으로 괜찮은 위치야?", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"제가 고른 자리니까 괜찮아요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"빈 약속 카드에는 ‘다음 문장도 같이 읽기’라는 글씨가 생겼다.", L"library_day", L"seoirin_normal", L"anim_manuscript", L""},
+        {L"서이린", L"기억이 흐려져도 이걸 보고 다시 물어볼 수 있겠죠?", L"library_day", L"seoirin_normal", L"", L""},
+        {L"{PLAYER}", L"응. 그때는 그날의 이야기도 해주면 돼.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"서이린", L"내일 공연에는 다른 문장을 들고 갈게요. 무대에서도 읽을 수 있게 크게요.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"글씨가 마를 때까지 나란히 기다렸다. 이번에는 노트가 다음 말을 알려주지 않았다.", L"library_day", L"seoirin_normal", L"", L""},
+        {L"", L"이린이 직접 봉투를 닫고, 상자 위에 내일 날짜를 적었다.", L"library_day", L"seoirin_normal", L"", L""},
+    };
+
     // 금요일 점심 공연. 네 번의 만남 이후 모든 루트가 같은 무대에 선다.
     for (int heroine = 0; heroine < HEROINE_COUNT; ++heroine)
     {
         performanceIntros[heroine] = {
             {L"", L"금요일 점심. 운동장 옆 작은 무대에서 마이크를 두드리는 소리가 났다.", L"school_day", L"none", L"", L"story4"},
             {L"", L"연습할 때는 멀게만 느껴졌던 학교 행사가, 이제 내 이름을 기다리고 있었다.", L"school_day", L"none", L"", L""},
-            {L"방송부원", L"다음 순서 준비됐어? 곡은 ‘개화’, 두 분짜리 공연 버전 맞지?", L"school_day", L"none", L"", L""},
+            {L"방송부원", L"다음 순서 준비됐어? 곡은 ‘개화’, 원곡 끝까지 부르는 거 맞지?", L"school_day", L"none", L"", L""},
             {L"{PLAYER}", L"응. 목소리보다 심장이 먼저 시작했지만.", L"school_day", L"none", L"", L""},
             {L"방송부원", L"그건 마이크 안 타니까 괜찮아.", L"school_day", L"none", L"", L""},
             {L"", L"괜히 웃었다. 종이컵의 물은 다 마셨는데 손에는 아직 컵 모양의 힘이 남아 있었다.", L"school_day", L"none", L"", L""},
@@ -1525,6 +1647,12 @@ void StoryData::Initialize()
     for (int heroine = 0; heroine < HEROINE_COUNT; ++heroine)
     {
         auto& intro = performanceIntros[heroine];
+        const wchar_t* carriedPromises[] = {
+            L"세아의 수첩 밖으로 어제 만든 약속 카드가 보였다. 설명회가 끝나면 함께 쉬기로 한 글씨였다.",
+            L"하린이 주머니에서 달력 카드를 꺼내 흔들었다. 떠나는 날 옆에 다시 만날 날이 적혀 있었다.",
+            L"이린의 종이 뒤에는 어제 쓴 약속이 보였다. 지워진 문장을 베낀 것이 아니라, 새로 쓴 문장이었다."
+        };
+        intro.push_back({L"", carriedPromises[heroine], L"school_day", performanceCharacters[heroine], L"", L""});
         intro.insert(intro.end(), performanceEncouragements[heroine].begin(), performanceEncouragements[heroine].end());
         intro.push_back({L"", L"이번에는 혼자 세는 박자가 아니었다. 나는 마이크 앞에 섰다.", L"school_day", L"none", L"", L"stop"});
         auto& outro = performanceOutros[heroine];
@@ -2145,4 +2273,10 @@ const std::vector<DialogueLineInfo>& StoryData::GetPerformanceStory(int heroineI
 {
     if (heroineIndex < 0 || heroineIndex >= HEROINE_COUNT) return emptyStory;
     return after ? performanceOutros[heroineIndex] : performanceIntros[heroineIndex];
+}
+
+const std::vector<DialogueLineInfo>& StoryData::GetPromiseStory(int heroineIndex, bool after) const
+{
+    if (heroineIndex < 0 || heroineIndex >= HEROINE_COUNT) return emptyStory;
+    return after ? promiseOutros[heroineIndex] : promiseIntros[heroineIndex];
 }

@@ -217,17 +217,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         EndPaint(hWnd, &ps);
         return 0;
     }
+    case WM_CAPTURECHANGED:
+        g_gameManager.OnCaptureLost();
+        return 0;
     case WM_LBUTTONUP:
     {
-        int mouseX = LOWORD(lParam);
-        int mouseY = HIWORD(lParam);
+        int mouseX = static_cast<short>(LOWORD(lParam));
+        int mouseY = static_cast<short>(HIWORD(lParam));
         g_gameManager.OnMouseUp(mouseX, mouseY);
         return 0;
     }
     case WM_MOUSEMOVE:
     {
-        int mouseX = LOWORD(lParam);
-        int mouseY = HIWORD(lParam);
+        int mouseX = static_cast<short>(LOWORD(lParam));
+        int mouseY = static_cast<short>(HIWORD(lParam));
         g_gameManager.OnMouseMove(mouseX, mouseY);
         return 0;
     }
