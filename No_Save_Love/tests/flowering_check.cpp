@@ -40,6 +40,7 @@ MCIERROR TestMci(LPCWSTR command, LPWSTR result, UINT size, HWND callback)
 #undef mciSendStringW
 #include "../No_Save_Love/Scenes/PromiseScene.cpp"
 #include "promise_check.h"
+#include "audio_check.h"
 
 void SaveFrame(RhythmMiniGame& game, const std::filesystem::path& path)
 {
@@ -67,6 +68,7 @@ int wmain(int argc, wchar_t** argv)
     HWND window = CreateWindowW(L"STATIC", L"Flowering check", WS_POPUP,
         0, 0, 1920, 1080, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
     assert(window);
+    CheckEffectSounds(window);
     CheckPromises(output);
     const auto chart = FloweringChart::Build();
     int flags = 0;

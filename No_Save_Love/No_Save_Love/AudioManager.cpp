@@ -65,7 +65,8 @@ void AudioManager::RegisterSfx(const std::wstring& key, const std::wstring& path
     sfxAliases[key] = alias;
 
     SendMciCommand(L"close " + alias);
-    SendMciCommand(L"open \"" + path + L"\" type waveaudio alias " + alias);
+    // waveaudio는 긴 배포 경로에서 WAV를 열지 못한다. WAV도 mpegvideo로 재생한다.
+    SendMciCommand(L"open \"" + path + L"\" type mpegvideo alias " + alias);
     auto volumeIt = sfxVolumes.find(key);
     int volume = (volumeIt == sfxVolumes.end()) ? sfxVolume : volumeIt->second;
     SendMciCommand(L"setaudio " + alias + L" volume to " + std::to_wstring(volume));

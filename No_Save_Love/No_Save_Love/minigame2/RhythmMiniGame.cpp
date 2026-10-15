@@ -3751,28 +3751,28 @@ void RhythmMiniGame::PlayImpactSound()
 void RhythmMiniGame::LoadEffectSounds()
 {
     mciSendString(
-        L"open \"resource\\minigame2\\sound\\hit.wav\" type waveaudio alias hitSound",
+        L"open \"resource\\minigame2\\sound\\hit.wav\" type mpegvideo alias hitSound",
         NULL,
         0,
         NULL
     );
 
     mciSendString(
-        L"open \"resource\\minigame2\\sound\\miss.wav\" type waveaudio alias missSound",
+        L"open \"resource\\minigame2\\sound\\miss.wav\" type mpegvideo alias missSound",
         NULL,
         0,
         NULL
     );
 
     mciSendString(
-        L"open \"resource\\minigame2\\sound\\window.wav\" type waveaudio alias windowSound",
+        L"open \"resource\\minigame2\\sound\\window.wav\" type mpegvideo alias windowSound",
         NULL,
         0,
         NULL
     );
 
     mciSendString(
-        L"open \"resource\\minigame2\\sound\\impact.wav\" type waveaudio alias impactSound",
+        L"open \"resource\\minigame2\\sound\\impact.wav\" type mpegvideo alias impactSound",
         NULL,
         0,
         NULL
