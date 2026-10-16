@@ -59,6 +59,7 @@ namespace
     HBITMAP g_backBufferOldBitmap = nullptr;
     int g_backBufferWidth = 0;
     int g_backBufferHeight = 0;
+    UINT g_updateInterval = 60;
 
     void ReleaseBackBuffer()
     {
@@ -133,7 +134,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
     case WM_CREATE: {
         g_gameManager.Initialize(hWnd);
-        SetTimer(hWnd, 1, 60, nullptr);
+        SetTimer(hWnd, 1, g_updateInterval, nullptr);
         
         return 0;
     }
@@ -188,6 +189,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     case WM_TIMER: {
 
         g_gameManager.OnTimer(hWnd);
+        const UINT interval=g_gameManager.GetUpdateInterval();
+        if (interval!=g_updateInterval)
+        {
+            g_updateInterval=interval;
+            SetTimer(hWnd,1,interval,nullptr);
+        }
         return 0;
     }
 

@@ -66,7 +66,7 @@ void PromiseScene::Initialize(int who, bool showTutorial)
     practicedPlace = practicedRecall = practicedSupport = false;
     selected = selectedSlot = -1; upgradeRound = kills = combo = spawnIndex = 0;
     time = practiceTime = reaction = visualTime = comboTime = shotSoundCooldown = 0;
-    energy = 90; baseHp = support = 100; spawnTimer = 2;
+    energy = 110; baseHp = support = 100; spawnTimer = 2;
     units.fill(Unit{}); upgrades.fill(false); barrier.fill(0); slow.fill(0);
     enemies.clear(); sparks.clear();
     feedback = L"연습은 점수에 포함되지 않아요. 유닛을 골라 빛나는 칸에 놓아 보세요.";
@@ -78,12 +78,68 @@ void PromiseScene::Initialize(int who, bool showTutorial)
     const wchar_t* sheets[] = {L"allies.png", L"enemies.png", L"specials.png"};
     for (int i = 0; i < 3; ++i)
         spriteSheets[i] = new Image((L"resource/defense/" + std::wstring(sheets[i])).c_str());
+    PrepareRenderCache();
     ResetClock();
+}
+void PromiseScene::PrepareRenderCache()
+{
+    // 큰 PNG의 부분 영역을 매 프레임 축소하면 GDI+ 비용이 급증한다.
+    // 실제 표시 크기의 premultiplied-alpha 비트맵을 한 번 만들고 재사용한다.
+    for (int unit=0; unit<12; ++unit)
+    {
+        auto* sheet=spriteSheets[unit/4];
+        if (!sheet || sheet->GetLastStatus()!=Ok) continue;
+        const float w=sheet->GetWidth()/4.f, h=sheet->GetHeight()/4.f;
+        const int size=unit<4 ? 132 : unit==8 ? 152 : unit==7 ? 86 : 119;
+        for (int frame=0; frame<4; ++frame)
+        {
+            auto* cached=new Bitmap(size,size,PixelFormat32bppPARGB);
+            Status status;
+            {
+                Graphics g(cached); g.Clear(Color(0,0,0,0));
+                g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+                status=g.DrawImage(sheet,RectF(0,0,static_cast<float>(size),static_cast<float>(size)),frame*w,(unit%4)*h,w,h,UnitPixel);
+            }
+            if (status==Ok) spriteFrames[unit][frame]=cached;
+            else delete cached;
+        }
+    }
+    for (auto** face : {&portrait,&smile})
+    {
+        if (!*face || (*face)->GetLastStatus()!=Ok) continue;
+        const int width=static_cast<int>(420.f*(*face)->GetWidth()/(*face)->GetHeight());
+        auto* cached=new Bitmap(width,420,PixelFormat32bppPARGB);
+        Status status;
+        {
+            Graphics g(cached); g.Clear(Color(0,0,0,0));
+            g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+            status=g.DrawImage(*face,Rect(0,0,width,420));
+        }
+        if (status==Ok) { delete *face; *face=cached; }
+        else delete cached;
+    }
+    BITMAPINFO info{}; info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+    info.bmiHeader.biWidth=1920; info.bmiHeader.biHeight=-1080;
+    info.bmiHeader.biPlanes=1; info.bmiHeader.biBitCount=32; info.bmiHeader.biCompression=BI_RGB;
+    void* pixels=nullptr;
+    backdropDC=CreateCompatibleDC(nullptr);
+    backdropBitmap=CreateDIBSection(backdropDC,&info,DIB_RGB_COLORS,&pixels,nullptr,0);
+    if (backdropDC && backdropBitmap)
+    {
+        backdropOldBitmap=static_cast<HBITMAP>(SelectObject(backdropDC,backdropBitmap));
+        DrawArcade(backdropDC);
+        Graphics g(backdropDC); SolidBrush veil(Color(190,7,12,25)); g.FillRectangle(&veil,0,0,1920,1080);
+    }
 }
 void PromiseScene::Shutdown()
 {
     delete portrait; portrait = nullptr; delete smile; smile = nullptr;
     for (auto& sheet : spriteSheets) { delete sheet; sheet = nullptr; }
+    for (auto& unit : spriteFrames) for (auto& frame : unit) { delete frame; frame=nullptr; }
+    if (backdropDC && backdropOldBitmap) SelectObject(backdropDC,backdropOldBitmap);
+    if (backdropBitmap) DeleteObject(backdropBitmap);
+    if (backdropDC) DeleteDC(backdropDC);
+    backdropDC=nullptr; backdropBitmap=backdropOldBitmap=nullptr; boardCached=false;
     if (graphicsToken) GdiplusShutdown(graphicsToken);
     graphicsToken = 0; enemies.clear(); sparks.clear(); CancelDrag();
 }
@@ -158,9 +214,9 @@ void PromiseScene::BeginBattle()
 {
     practice = false; time = 0; spawnIndex = kills = combo = 0; spawnTimer = 2;
     units.fill(Unit{}); enemies.clear(); sparks.clear();
-    barrier.fill(0); slow.fill(0); energy = 90; support = baseHp = 100;
+    barrier.fill(0); slow.fill(0); energy = 110; support = baseHp = 100;
     selected = selectedSlot = -1;
-    feedback = L"실전 시작! 연습 상태를 초기화했어요. 에너지 90으로 첫 방어선을 만들어요.";
+    feedback = L"실전 시작! 연습 상태를 초기화했어요. 에너지 110으로 첫 방어선을 만들어요.";
 }
 int PromiseScene::NextLane() const { return (spawnIndex * 2 + spawnIndex / 4) % 3; }
 int PromiseScene::NextType() const
@@ -175,14 +231,14 @@ int PromiseScene::NextType() const
 void PromiseScene::SpawnWave()
 {
     const int lane = NextLane(), type = NextType();
-    static constexpr float hp[] = {135, 90, 360, 62, 1800, 180, 210, 165};
-    const int count = type == Swarm ? 4 : (!practice && time >= 80 ? 2 : 1);
+    static constexpr float hp[] = {135, 90, 360, 62, 1400, 180, 210, 165};
+    const int count = type == Swarm ? 3 : (!practice && time >= 80 && type <= Runner ? 2 : 1);
     for (int i = 0; i < count; ++i)
         enemies.push_back({lane, type, 1430.f + i*55, hp[type], hp[type]});
-    if (!practice && time >= 50 && (type == Medic || type == Mortar || type == Jammer))
+    if (!practice && time >= 60 && spawnIndex % 2 == 0 && (type == Medic || type == Mortar || type == Jammer))
         enemies.push_back({lane, Soldier, 1345, hp[Soldier], hp[Soldier]});
     ++spawnIndex;
-    spawnTimer += practice ? 6.f : time < 20 ? 4.2f : time < 40 ? 3.5f : time < 80 ? 3.f : 2.5f;
+    spawnTimer += practice ? 6.f : time < 20 ? 4.2f : time < 40 ? 4.f : time < 80 ? 3.8f : 3.1f;
 }
 void PromiseScene::Damage(Enemy& enemy, float damage, int source)
 {
@@ -202,9 +258,9 @@ void PromiseScene::HitUnit(int slot, float damage)
 }
 float PromiseScene::ChargingRate() const
 {
-    float rate = 2.2f;
+    float rate = 2.8f;
     for (const auto& unit : units)
-        if (unit.type == Charger && unit.jam <= 0) rate += unit.level == 2 ? 1.f : .7f;
+        if (unit.type == Charger && unit.jam <= 0) rate += unit.level == 2 ? 1.2f : .9f;
     return rate;
 }
 void PromiseScene::RemoveDefeated()
@@ -271,18 +327,18 @@ void PromiseScene::Step(float dt)
         unit.jam = (std::max)(0.f, unit.jam-dt); unit.arrival = (std::max)(0.f, unit.arrival-dt);
     }
     energy = (std::min)(140.f, energy + dt * ChargingRate());
-    support = (std::min)(100.f, support + dt * (practice ? 20.f : 3.3f));
+    support = (std::min)(100.f, support + dt * (practice ? 20.f : 4.5f));
     for (int lane=0; lane<3; ++lane) { barrier[lane] = (std::max)(0.f, barrier[lane]-dt); slow[lane] = (std::max)(0.f, slow[lane]-dt); }
     spawnTimer -= dt; if (spawnTimer <= 0) SpawnWave();
     if (!practice && !bossSpawned && time >= 120)
     {
-        enemies.push_back({1, Guardian, 1430, 1800, 1800}); bossSpawned = true;
+        enemies.push_back({1, Guardian, 1430, 1400, 1400}); bossSpawned = true;
         feedback = L"거대 파수꾼 등장! 중앙을 지키면서 위아래의 작은 적도 확인해요.";
     }
     for (int i=0; i<SlotCount; ++i)
     {
         auto& unit = units[i]; if (unit.type < 0 || unit.type == Charger) continue;
-        unit.cooldown -= dt * (unit.jam > 0 ? .45f : 1.f); if (unit.cooldown > 0) continue;
+        unit.cooldown -= dt * (unit.jam > 0 ? .65f : 1.f); if (unit.cooldown > 0) continue;
         Enemy* target = nullptr;
         for (auto& e : enemies)
             if (e.hp > 0 && e.x<=1450 && e.lane == i/Columns && e.x >= UnitX(i)-65 && e.x < UnitX(i)+(unit.type == Shield ? 115 : unit.type == Sniper ? 580 : 620)
@@ -328,7 +384,7 @@ void PromiseScene::Step(float dt)
         for (int i=e.lane*Columns+Columns-1; i>=e.lane*Columns; --i)
             if (units[i].type>=0 && e.x>=UnitX(i)-35 && e.x<=UnitX(i)+85) { blocked=i; break; }
 
-        // 포격은 조준점을 0.9초 예고한다. 방해병은 가까운 공격/생산 유닛을 일시 감속한다.
+        // 포격은 조준점을 1.4초 예고한다. 방해병은 가까운 공격/생산 유닛을 일시 감속한다.
         if (e.type == Mortar || e.type == Jammer)
         {
             if (e.aim >= 0)
@@ -336,15 +392,15 @@ void PromiseScene::Step(float dt)
                 e.windup -= dt * tempo;
                 if (e.windup <= 0)
                 {
-                    const int hit = e.aim; e.aim = -1; e.action = .3f; e.ability = e.type == Mortar ? 3.4f : 4.8f;
+                    const int hit = e.aim; e.aim = -1; e.action = .3f; e.ability = e.type == Mortar ? 4.5f : 6.f;
                     if (units[hit].type >= 0)
                     {
                         if (e.type == Mortar)
                         {
-                            HitUnit(hit, 37);
+                            HitUnit(hit, 26);
                             sparks.push_back({UnitX(hit), LaneY(e.lane), 0, 0, .45f, 2});
                         }
-                        else units[hit].jam = 3.5f;
+                        else units[hit].jam = 2.3f;
                         sparks.push_back({e.x, LaneY(e.lane)-20, UnitX(hit), LaneY(e.lane), .35f, 1});
                     }
                 }
@@ -353,7 +409,7 @@ void PromiseScene::Step(float dt)
             {
                 for (int i=e.lane*Columns; i<(e.lane+1)*Columns; ++i)
                     if (units[i].type>=0 && UnitX(i)<e.x && e.x-UnitX(i)<(e.type==Mortar?620:430))
-                    { e.aim=i; e.windup=.9f; break; }
+                    { e.aim=i; e.windup=1.4f; break; }
             }
         }
         if (e.type == Medic && e.ability <= 0)
@@ -361,9 +417,9 @@ void PromiseScene::Step(float dt)
             bool healed = false;
             for (auto& other : enemies)
                 if (&other != &e && other.hp>0 && other.hp<other.maxHp && other.lane==e.lane && std::abs(other.x-e.x)<240)
-                { other.hp = (std::min)(other.maxHp, other.hp+30); healed = true; }
+                { other.hp = (std::min)(other.maxHp, other.hp+20); healed = true; }
             if (healed) { e.action=.4f; sparks.push_back({e.x,LaneY(e.lane),0,0,.5f,4}); }
-            e.ability=2.6f;
+            e.ability=3.5f;
         }
         if (blocked >= 0)
         {
@@ -371,11 +427,11 @@ void PromiseScene::Step(float dt)
             {
                 const bool thorns = units[blocked].type==Shield && upgrades[Thorns];
                 const float reflection = units[blocked].level==2 ? 19*1.35f : 19;
-                const float hit[] = {18, 12, 34, 10, 58, 10, 14, 12};
+                const float hit[] = {18, 12, 34, 10, 42, 10, 14, 12};
                 HitUnit(blocked, hit[e.type]); e.cooldown = e.type==Runner ? .6f : .95f; e.action=.25f;
                 if (thorns) Damage(e, reflection);
                 // 보스 충격파는 앞줄 뒤의 유닛까지 위협한다.
-                if (e.type==Guardian && blocked%Columns>0) HitUnit(blocked-1, 18);
+                if (e.type==Guardian && blocked%Columns>0) HitUnit(blocked-1, 12);
             }
         }
         else if (e.aim < 0)
@@ -446,13 +502,15 @@ void PromiseScene::DrawUnit(Graphics& g, int type, float x, float y, float scale
 {
     const int sheetIndex = enemy ? (type >= Guardian ? 2 : 1) : 0;
     const int row = enemy && type >= Guardian ? type-Guardian : type;
-    auto* sheet = spriteSheets[sheetIndex];
-    const float size = 132*scale;
+    auto* sheet = spriteFrames[sheetIndex*4+row][frame];
+    const int size=static_cast<int>(std::lround(132*scale));
     SolidBrush shadow(Color(70,0,0,0)); g.FillEllipse(&shadow,x-37*scale,y+40*scale,74*scale,12*scale);
     if (sheet && sheet->GetLastStatus()==Ok)
     {
-        const float cellW=sheet->GetWidth()/4.f, cellH=sheet->GetHeight()/4.f;
-        g.DrawImage(sheet,RectF(x-size/2,y-size/2,size,size),frame*cellW,row*cellH,cellW,cellH,UnitPixel);
+        const int left=static_cast<int>(std::lround(x-size/2.f)), top=static_cast<int>(std::lround(y-size/2.f));
+        if (size==static_cast<int>(sheet->GetWidth()))
+            g.DrawImage(sheet,left,top,0,0,size,size,UnitPixel);
+        else g.DrawImage(sheet,Rect(left,top,size,size));
     }
     else
     {
@@ -462,11 +520,56 @@ void PromiseScene::DrawUnit(Graphics& g, int type, float x, float y, float scale
         Text(g,enemy?EnemyNames[type]:UnitNames[type],{x-65*scale,y-10*scale,130*scale,40*scale},18*scale,White,true);
     }
 }
+void PromiseScene::DrawBoard(Graphics& g) const
+{
+    g.SetSmoothingMode(SmoothingModeAntiAlias); g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
+    g.SetInterpolationMode(InterpolationModeBilinear);
+    SolidBrush heading(Color(255,13,21,37)); g.FillRectangle(&heading,55,135,1415,65);
+    Panel(g,{55,28,1810,106},Color(245,18,28,47),Color(255,57,80,107));
+    Text(g,L"방과 후 마지막 웨이브",{85,47,650,52},36,White,true);
+    for(int lane=0;lane<3;++lane)
+    {
+        const float y=LaneY(lane);
+        Panel(g,{80,y-86,1380,172},Color(245,19+lane*4,36+lane*3,54+lane*5),Color(255,52,75,98));
+        Text(g,L"0"+std::to_wstring(lane+1),{103,y-64,85,45},32,Muted,true);
+        DrawUnit(g,Shield,175,y+20,.8f);
+        Pen path(Color(90,130,166,190),2);
+        for(int x=235;x<1450;x+=48) g.DrawLine(&path,x,static_cast<int>(y+65),x+20,static_cast<int>(y+65));
+    }
+    for(int slot=0;slot<SlotCount;++slot)
+    {
+        const auto r=SlotRect(slot);
+        Panel(g,{static_cast<float>(r.left),static_cast<float>(r.top),136,136},Color(135,39,58,78),Color(180,66,92,115));
+    }
+    Panel(g,{1490,155,375,660},Color(245,25,34,55),Color(255,81,92,123));
+    Text(g,L"PARTNER / "+std::wstring(Names[heroine]),{1518,178,330,38},25,UnitColors[heroine],true);
+    if(portrait && portrait->GetLastStatus()==Ok)
+    {
+        const auto clip=g.Save(); g.SetClip(RectF(1500,222,350,330));
+        const int w=portrait->GetWidth();
+        g.DrawImage(portrait,1675-w/2,225,0,0,w,420,UnitPixel); g.Restore(clip);
+    }
+    Text(g,SupportNames[heroine],{1518,555,325,44},28,White,true);
+    Text(g,SupportHints[heroine],{1518,608,317,89},22,Muted);
+    for(int type=0;type<4;++type)
+    {
+        const float x=90.f+type*344;
+        Panel(g,{x,840,324,168},Color(250,24,38,58),UnitColors[type]);
+        DrawUnit(g,type,x+55,899,.8f);
+        Text(g,UnitNames[type],{x+105,862,190,40},28,White,true);
+        Text(g,UnitHints[type],{x+18,967,300,33},21,Muted);
+    }
+}
 void PromiseScene::Render(HDC dc)
 {
-    DrawArcade(dc);
-    Graphics g(dc); g.SetSmoothingMode(SmoothingModeAntiAlias); g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit); g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
-    SolidBrush veil(Color(190,7,12,25)); g.FillRectangle(&veil,0,0,1920,1080);
+    if (!tutorial && !boardCached && backdropDC && backdropBitmap)
+    {
+        Graphics cached(backdropDC); DrawBoard(cached); boardCached=true;
+    }
+    if (backdropDC && backdropBitmap) BitBlt(dc,0,0,1920,1080,backdropDC,0,0,SRCCOPY);
+    else DrawArcade(dc);
+    Graphics g(dc); g.SetSmoothingMode(SmoothingModeAntiAlias); g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit); g.SetInterpolationMode(InterpolationModeBilinear);
+    if (!backdropDC || !backdropBitmap) { SolidBrush veil(Color(190,7,12,25)); g.FillRectangle(&veil,0,0,1920,1080); }
     if(tutorial)
     {
         Panel(g,{260,145,1400,790},Color(248,18,29,48),Color(255,100,165,195));
@@ -487,9 +590,7 @@ void PromiseScene::Render(HDC dc)
         Text(g,L"같이 연습하기",{850,818,260,45},32,White,true);
         return;
     }
-    SolidBrush heading(Color(255,13,21,37)); g.FillRectangle(&heading,55,135,1415,65);
-    Panel(g,{55,28,1810,106},Color(245,18,28,47),Color(255,57,80,107));
-    Text(g,L"방과 후 마지막 웨이브",{85,47,650,52},36,White,true);
+    if (!boardCached) DrawBoard(g);
     const int seconds = static_cast<int>(std::ceil(practice ? PracticeDuration-practiceTime : Duration-time));
     Text(g,(practice?L"연습  ":L"남은 시간  ")+std::to_wstring(seconds)+L"초",{860,46,275,43},28,practice?Gold:White,true);
     Text(g,L"거점  "+std::to_wstring(static_cast<int>(std::ceil(baseHp)))+L"%",{1170,46,220,42},27,Blue,true);
@@ -502,11 +603,7 @@ void PromiseScene::Render(HDC dc)
     {
         const float y=LaneY(lane);
         const bool supportHover=selected==4 && mouse.x>=190 && mouse.x<1460 && mouse.y>=y-97 && mouse.y<y+97;
-        Panel(g,{80,y-86,1380,172},Color(245,19+lane*4,36+lane*3,54+lane*5),supportHover?Gold:Color(255,52,75,98));
-        Text(g,L"0"+std::to_wstring(lane+1),{103,y-64,85,45},32,Muted,true);
-        DrawUnit(g,Shield,175,y+20,.8f);
-        Pen path(Color(90,130,166,190),2);
-        for(int x=235;x<1450;x+=48) g.DrawLine(&path,x,static_cast<int>(y+65),x+20,static_cast<int>(y+65));
+        if(supportHover) Panel(g,{80,y-86,1380,172},Color(0,0,0,0),Gold);
         if(barrier[lane]>0 || slow[lane]>0)
         {
             const auto c=barrier[lane]>0?Blue:Violet;
@@ -520,7 +617,7 @@ void PromiseScene::Render(HDC dc)
     {
         const auto r=SlotRect(i); const auto& unit=units[i];
         const bool hover=Inside(r,mouse.x,mouse.y);
-        Panel(g,{static_cast<float>(r.left),static_cast<float>(r.top),136,136},Color(135,39,58,78),selectedSlot==i?Gold:hover?Blue:Color(180,66,92,115));
+        if(selectedSlot==i || hover) Panel(g,{static_cast<float>(r.left),static_cast<float>(r.top),136,136},Color(0,0,0,0),selectedSlot==i?Gold:Blue);
         if(unit.type<0)
         {
             Pen plus(Color(120,122,158,185),2); g.DrawLine(&plus,UnitX(i)-11,LaneY(i/Columns),UnitX(i)+11,LaneY(i/Columns));
@@ -579,12 +676,11 @@ void PromiseScene::Render(HDC dc)
         else g.DrawLine(&pen,s.x,s.y,s.endX,s.endY);
     }
     g.Restore(boardClip);
-    Panel(g,{1490,155,375,660},Color(245,25,34,55),Color(255,81,92,123));
-    Text(g,L"PARTNER / "+std::wstring(Names[heroine]),{1518,178,330,38},25,UnitColors[heroine],true);
     Image* face=reaction>0?smile:portrait;
-    if(face && face->GetLastStatus()==Ok)
+    if(reaction>0 && face && face->GetLastStatus()==Ok)
     {
         const auto clip=g.Save(); g.SetClip(RectF(1500,222,350,330));
+        SolidBrush clearFace(Color(255,25,34,55)); g.FillRectangle(&clearFace,1500,222,350,330);
         const float h=420, w=h*face->GetWidth()/face->GetHeight();
         const float bounce=heroine==1 && reaction>0?-std::abs(std::sin(reaction*8))*15:0;
         if(heroine==2 && reaction>0) { g.TranslateTransform(1675,385); g.RotateTransform(-3); g.TranslateTransform(-1675,-385); }
@@ -597,19 +693,14 @@ void PromiseScene::Render(HDC dc)
         if(heroine==1) for(int i=0;i<5;++i) g.DrawLine(&action,1790.f,390.f,1790+std::cos(i*1.25f)*32,390+std::sin(i*1.25f)*32);
         if(heroine==2) g.DrawArc(&action,1618,345,110,95,190,100);
     }
-    Text(g,SupportNames[heroine],{1518,555,325,44},28,White,true);
-    Text(g,SupportHints[heroine],{1518,608,317,89},22,Muted);
     Bar(g,1518,704,315,support/100,UnitColors[heroine]);
     Panel(g,{1510,724,330,66},support>=100?Color(255,48,89,112):Color(255,37,47,67),selected==4?Gold:UnitColors[heroine]);
     Text(g,support>=100?L"지원할 줄 선택":L"지원 충전  "+std::to_wstring(static_cast<int>(support))+L"%",{1550,740,280,41},26,White,true);
     for(int type=0;type<4;++type)
     {
         const float x=90.f+type*344;
-        Panel(g,{x,840,324,168},Color(250,24,38,58),selected==type?Gold:energy>=Costs[type]?UnitColors[type]:Color(255,65,75,95));
-        DrawUnit(g,type,x+55,899,.8f);
-        Text(g,UnitNames[type],{x+105,862,190,40},28,White,true);
+        Panel(g,{x,840,324,168},Color(0,0,0,0),selected==type?Gold:energy>=Costs[type]?UnitColors[type]:Color(255,65,75,95));
         Text(g,std::to_wstring(Costs[type])+L" 에너지",{x+105,906,200,33},23,energy>=Costs[type]?Gold:Muted);
-        Text(g,UnitHints[type],{x+18,967,300,33},21,Muted);
     }
     Text(g,L"처치 "+std::to_wstring(kills)+L"  /  연속 "+std::to_wstring(comboTime>0?combo:0),{1515,844,340,36},23,White,true);
     std::wstring active;
@@ -628,7 +719,7 @@ void PromiseScene::Render(HDC dc)
         Bar(g,90,813,1360,time/Duration,Blue,4);
         Text(g,L"치유병: 주변 회복   ·   포격병: 원거리 조준   ·   방해병: 공격·생산 감속",{90,781,1360,30},20,Muted);
     }
-    const wchar_t* enemyHints[]={L"균형 잡힌 근접병. 방패로 막고 후방에서 공격해요.",L"빠른 이동과 연속 타격. 빈 진입로를 먼저 노려요.",L"방패·폭죽 피해 45% 감소. 저격수로 장갑을 관통해요.",L"네 마리가 함께 출현해요. 폭죽의 범위 공격으로 정리해요.",L"강한 타격과 충격파가 방패 뒤 한 칸까지 닿아요.",L"주변 동료를 주기적으로 치유해요. 저격수가 우선 조준해요.",L"후방을 0.9초 조준하고 포격해요. 방패만으로는 막을 수 없어요.",L"보랏빛 조준 후 3.5초 동안 공격을 늦추고 충전기 생산을 멈춰요."};
+    const wchar_t* enemyHints[]={L"균형 잡힌 근접병. 방패로 막고 후방에서 공격해요.",L"빠른 이동과 연속 타격. 빈 진입로를 먼저 노려요.",L"방패·폭죽 피해 45% 감소. 저격수로 장갑을 관통해요.",L"세 마리가 함께 출현해요. 폭죽의 범위 공격으로 정리해요.",L"강한 타격과 충격파가 방패 뒤 한 칸까지 닿아요.",L"주변 동료를 주기적으로 치유해요. 저격수가 우선 조준해요.",L"후방을 1.4초 조준하고 포격해요. 방패만으로는 막을 수 없어요.",L"보랏빛 조준 후 2.3초 동안 공격을 늦추고 충전기 생산을 멈춰요."};
     Text(g,hoveredEnemy?std::wstring(EnemyNames[hoveredEnemy->type])+L"  /  "+enemyHints[hoveredEnemy->type]:feedback,{90,1031,1750,37},23,White);
     if(choosing)
     {

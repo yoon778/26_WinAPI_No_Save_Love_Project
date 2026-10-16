@@ -277,10 +277,12 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.promiseScene.heroine == partner && manager.promiseScene.IsTutorial());
         manager.OnMouseClick(960, 838); CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::MiniGame5 && !manager.promiseScene.IsTutorial());
+        assert(manager.GetUpdateInterval()==16);
         manager.OnMouseClick(130,880);
         assert(manager.promiseScene.selected == 0);
         manager.OnKeyDown(VK_ESCAPE);
         assert(manager.m_exitConfirmOpen && manager.promiseScene.selected == -1 && cursorVisible());
+        assert(manager.GetUpdateInterval()==60);
         const float pausedTime=manager.promiseScene.practiceTime;
         manager.OnMouseClick(860,295); manager.OnTimer(window);
         assert(manager.promiseScene.practiceTime == pausedTime);
@@ -300,6 +302,7 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.currentMiniGameIndex == 5 && manager.player.money == 50 + puzzleGain.money);
         CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Result && !manager.promiseScene.portrait);
+        assert(manager.GetUpdateInterval()==60);
         manager.OnMouseClick(960, 980); CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Story && !manager.m_performanceIntroShown);
         assert(manager.storyScene.dialogues.size() == manager.storyData.GetPromiseStory(partner, true).size() + 1);

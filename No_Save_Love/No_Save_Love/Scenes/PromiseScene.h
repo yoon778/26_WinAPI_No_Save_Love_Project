@@ -45,7 +45,7 @@ private:
     std::array<float, 3> barrier{}, slow{};
     int heroine = 0, selected = -1, selectedSlot = -1, upgradeRound = 0;
     int spawnIndex = 0, kills = 0, combo = 0;
-    float time = 0, practiceTime = 0, energy = 90, baseHp = 100;
+    float time = 0, practiceTime = 0, energy = 110, baseHp = 100;
     float support = 100, reaction = 0, visualTime = 0, spawnTimer = 2, comboTime = 0;
     float accumulator = 0, shotSoundCooldown = 0;
     bool tutorial = false, practice = true, choosing = false, finished = false, victory = false;
@@ -57,9 +57,15 @@ private:
     Gdiplus::Image* portrait = nullptr;
     Gdiplus::Image* smile = nullptr;
     std::array<Gdiplus::Image*, 3> spriteSheets{};
+    std::array<std::array<Gdiplus::Bitmap*, 4>, 12> spriteFrames{};
+    bool boardCached = false;
+    HDC backdropDC = nullptr;
+    HBITMAP backdropBitmap = nullptr, backdropOldBitmap = nullptr;
     std::wstring feedback;
 
     void Step(float dt);
+    void PrepareRenderCache();
+    void DrawBoard(Gdiplus::Graphics& g) const;
     void BeginBattle();
     bool PlaceUnit(int slot, int type);
     void RecallUnit(int slot);

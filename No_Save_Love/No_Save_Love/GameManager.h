@@ -47,6 +47,11 @@ public:
     void OnKeyDown(WPARAM wParam);
     void OnKeyUp(WPARAM wParam);
     void OnTimer(HWND hWnd);
+    UINT GetUpdateInterval() const
+    {
+        // 다른 게임과 장면 전환은 프레임 횟수에 의존하므로 기존 주기를 유지한다.
+        return now_game_mode==game_mode_info::MiniGame5 && !m_exitConfirmOpen && !sceneTransition.IsActive() ? 16 : 60;
+    }
     void OnMouseUp(int x, int y);
     void OnMouseMove(int x, int y);
     void OnMouseWheel(int delta);

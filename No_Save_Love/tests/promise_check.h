@@ -13,9 +13,9 @@ void ClickDefenseSlot(PromiseScene& game, int slot)
 void PlayDefenseStep(PromiseScene& game, int strategy)
 {
     if(game.choosing) { game.ChooseUpgrade(game.upgradeRound==0 ? strategy : 0); return; }
-    // 0.75초마다 한 번 의사결정한다. 자원/체력을 조작하지 않고 실제 클릭으로 배치한다.
+    // 첫 4초는 읽고, 이후 2초마다 한 번 의사결정한다. 자원/체력을 조작하지 않고 실제 클릭으로 배치한다.
     const int tick=static_cast<int>(game.time*60+.5f);
-    if(tick%45==0)
+    if(tick>=240 && tick%120==0)
     {
         int dangerLane=-1; float danger=0;
         for(int lane=0;lane<3;++lane)
@@ -78,6 +78,9 @@ void CheckPromises(const std::filesystem::path& output)
             assert(sheet && sheet->GetLastStatus()==Gdiplus::Ok && sheet->GetWidth()>=1000 && sheet->GetWidth()==sheet->GetHeight());
             assert(sheet->GetFlags() & Gdiplus::ImageFlagsHasAlpha);
         }
+        for(const auto& unit:game.spriteFrames) for(auto* frame:unit)
+            assert(frame && frame->GetLastStatus()==Gdiplus::Ok && frame->GetPixelFormat()==PixelFormat32bppPARGB);
+        assert(game.backdropDC && game.backdropBitmap && game.portrait->GetHeight()==420);
         for(int slot=0;slot<15;++slot) {
             const auto r=game.SlotRect(slot);
             assert(r.left>195 && r.right<1100 && r.top>=198 && r.bottom<780);
@@ -87,9 +90,9 @@ void CheckPromises(const std::filesystem::path& output)
         game.OnMouseDown(200,900); assert(game.IsTutorial());
         game.OnMouseDown(960,838); assert(!game.IsTutorial() && game.practice);
         game.OnMouseDown(130,880); ClickDefenseSlot(game,2);
-        assert(game.units[2].type==0 && game.energy==68);
+        assert(game.units[2].type==0 && game.energy==88);
         ClickDefenseSlot(game,2); game.OnMouseDown(1740,968);
-        assert(game.units[2].type==-1 && game.practicedRecall && game.energy>82 && game.energy<83);
+        assert(game.units[2].type==-1 && game.practicedRecall && game.energy>102 && game.energy<103);
         game.enemies.push_back({0,0,800,100,100});
         game.OnMouseDown(1670,755); game.OnMouseDown(1000,295);
         assert(game.support==0 && game.practicedSupport);
@@ -100,7 +103,7 @@ void CheckPromises(const std::filesystem::path& output)
         const auto before=game.energy;
         assert(!game.PlaceUnit(-1,0) && !game.PlaceUnit(15,0) && !game.PlaceUnit(0,4) && game.energy==before);
         for(int i=0;i<1201;++i) game.Step(1.f/60);
-        assert(!game.practice && game.time<.1f && game.kills==0 && game.energy>=90 && game.baseHp==100);
+        assert(!game.practice && game.time<.1f && game.kills==0 && game.energy>=110 && game.baseHp==100);
         for(const auto& unit:game.units) assert(unit.type==-1);
         for(int strategy=0;strategy<2;++strategy)
         {
@@ -145,8 +148,8 @@ void CheckPromises(const std::filesystem::path& output)
     assert(game.units[4].hp==222 && game.enemies[0].hp==81);
     fresh(); game.units[2]={0,120,100}; game.enemies={{0,0,1000,-1,100}};
     game.upgrades[0]=game.upgrades[5]=true; game.RemoveDefeated();
-    assert(game.units[2].hp==144 && game.energy==93 && game.enemies.empty());
-    game.RecallUnit(2); assert(std::abs(game.energy-110.6f)<.01f);
+    assert(game.units[2].hp==144 && game.energy==113 && game.enemies.empty());
+    game.RecallUnit(2); assert(std::abs(game.energy-130.6f)<.01f);
     fresh(); game.units[0]={3,100,100}; game.units[1]={1,110,0}; game.enemies={{0,0,1000,100,100}};
     game.upgrades[4]=true; game.Step(1.f/60);
     assert(std::abs(game.units[1].cooldown-.84f)<.01f);
@@ -174,21 +177,21 @@ void CheckPromises(const std::filesystem::path& output)
     // 치유병은 살아 있는 주변 동료만 회복한다. 자가 회복/부활은 없다.
     fresh(); game.enemies={{0,5,1200,90,180},{0,0,1100,30,135},{0,0,1150,0,135},{1,0,1100,30,135}};
     game.enemies[0].ability=0; game.Step(1.f/60);
-    assert(game.enemies.size()==3 && game.enemies[0].hp==90 && game.enemies[1].hp==60 && game.enemies[2].hp==30);
+    assert(game.enemies.size()==3 && game.enemies[0].hp==90 && game.enemies[1].hp==50 && game.enemies[2].hp==30);
     assert(game.enemies[0].action>0);
     // 포격은 예고 후 발사. 조준 도중 회수하면 빈 칸에 피해를 주지 않는다.
     fresh(); game.units[2]={2,150,100}; game.enemies={{0,6,1100,210,210}}; game.enemies[0].ability=0;
     game.Step(1.f/60); assert(game.enemies[0].aim==2 && game.units[2].hp==150);
     SavePromiseFrame(game,output/L"defense_mortar_warning.png");
-    game.Step(.5f); assert(game.units[2].hp==150); game.Step(.45f); assert(game.units[2].hp==113 && game.units[2].flash>0);
-    game.enemies[0].ability=0; game.Step(1.f/60); game.RecallUnit(2); game.Step(1); assert(game.units[2].type==-1);
+    game.Step(.9f); assert(game.units[2].hp==150); game.Step(.55f); assert(game.units[2].hp==124 && game.units[2].flash>0);
+    game.enemies[0].ability=0; game.Step(1.f/60); game.RecallUnit(2); game.Step(1.5f); assert(game.units[2].type==-1);
     // 방해는 생산을 멈추고 공격 간격을 늦춘다. 시간이 지나면 자동 회복한다.
     fresh(); game.units[3]={3,100,100}; game.enemies={{0,7,1150,165,165}}; game.enemies[0].ability=0;
-    game.Step(1.f/60); assert(game.enemies[0].aim==3); game.Step(1);
-    assert(game.units[3].jam>0 && std::abs(game.ChargingRate()-2.2f)<.01f);
+    game.Step(1.f/60); assert(game.enemies[0].aim==3); game.Step(1.5f);
+    assert(game.units[3].jam>0 && std::abs(game.ChargingRate()-2.8f)<.01f);
     SavePromiseFrame(game,output/L"defense_jammed.png");
-    game.enemies.clear(); game.Step(4); assert(game.units[3].jam==0 && game.ChargingRate()>2.8f);
-    game.units[3]={1,110,1}; game.units[3].jam=2; game.Step(.1f); assert(std::abs(game.units[3].cooldown-.955f)<.001f);
+    game.enemies.clear(); game.Step(4); assert(game.units[3].jam==0 && game.ChargingRate()>3.6f);
+    game.units[3]={1,110,1}; game.units[3].jam=2; game.Step(.1f); assert(std::abs(game.units[3].cooldown-.935f)<.001f);
     game.Initialize(2); game.BeginBattle(); game.spawnTimer=100;
     game.units[3]={2,150,0}; game.enemies={{0,0,1200,135,135}}; game.Step(1.f/60);
     assert(game.enemies[0].chill>1.5f && game.enemies[0].x>1199.4f);
@@ -204,7 +207,7 @@ void CheckPromises(const std::filesystem::path& output)
         for(const auto& e:game.enemies) seen[e.type]=true;
     }
     for(bool present:seen) assert(present);
-    // 이전 세 칸식 배치를 한 번 채운 뒤 방치하면 무피해 클리어가 불가능하다.
+    // 기본 세 칸식 방어선을 완성하면 강화·지원 없이도 완주할 여유를 준다.
     fresh(); int occupied=0;
     for(int i=0;i<11000 && !game.finished;++i) {
         if(game.choosing) game.ChooseUpgrade(0);
@@ -216,7 +219,7 @@ void CheckPromises(const std::filesystem::path& output)
         game.Step(1.f/60);
     }
     std::cout<<"Passive defense hp="<<game.baseHp<<" time="<<game.time<<" score="<<game.GetScore()<<std::endl;
-    assert(game.baseHp<75);
+    assert(game.victory);
     // 아무 배치도 하지 않으면 실제로 거점이 무너진다.
     game.Initialize(0); game.BeginBattle();
     for(int i=0;i<11000 && !game.finished;++i)
@@ -224,5 +227,7 @@ void CheckPromises(const std::filesystem::path& output)
     assert(game.finished && !game.victory && game.GetScore()<80);
     game.Initialize(0); game.FinishImmediately(); assert(game.GetScore()==0);
     game.Shutdown();
-    std::cout<<"PASS: defense 15 slots, 8 enemies, sprite alpha, telegraphs, armor, healing, jamming, 3 partners x 2 strategies, passive damage, integration controls\n";
+    assert(!game.backdropDC && !game.backdropBitmap && !game.boardCached);
+    for(const auto& unit:game.spriteFrames) for(auto* frame:unit) assert(!frame);
+    std::cout<<"PASS: defense 15 slots, 8 enemies, sprite alpha, telegraphs, armor, healing, jamming, 3 partners x 2 strategies, basic formation survival, integration controls\n";
 }
