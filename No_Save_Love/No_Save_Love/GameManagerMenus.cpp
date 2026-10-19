@@ -72,11 +72,12 @@ void GameManager::ClosePanel()
 
 void GameManager::RenderTitleActions(HDC dc)
 {
+    MenuUI::Box(dc, {490, 805, 1430, 915}, RGB(250, 247, 242));
     MenuUI::Button(dc, SettingsTitle, L"설정");
     MenuUI::Button(dc, GalleryTitle, L"장면 회상");
     MenuUI::Button(dc, PracticeTitle, L"미니게임 연습");
-    MenuUI::Text(dc, L"현재 난이도 · " + std::wstring(GameOptions::DifficultyName()), {620, 930, 1300, 980}, 26,
-        MenuUI::Ink, DT_CENTER | DT_SINGLELINE);
+    MenuUI::Badge(dc, {815, 940, 1105, 982}, L"난이도 · " + std::wstring(GameOptions::DifficultyName()),
+        MenuUI::Paper, MenuUI::Muted);
 }
 
 bool GameManager::HandleTitleAction(int x, int y)
@@ -91,62 +92,98 @@ bool GameManager::HandleTitleAction(int x, int y)
 void GameManager::RenderPanel(HDC dc)
 {
     using namespace MenuUI;
-    Box(dc, {0, 0, 1920, 1080}, RGB(227, 213, 220));
-    Box(dc, {170, 70, 1750, 1000});
+    Background(dc);
+    Box(dc, {176, 78, 1756, 1008}, RGB(218, 206, 211), RGB(218, 206, 211));
+    Box(dc, {170, 70, 1750, 1000}, Paper);
+    const wchar_t* category = m_panel == Panel::Settings ? L"플레이 설정" :
+        m_panel == Panel::Notebook ? L"우리의 기록" :
+        m_panel == Panel::Gallery ? L"장면 보관함" : L"자유 연습";
     const wchar_t* title = m_panel == Panel::Settings ? L"나에게 맞는 플레이" :
         m_panel == Panel::Notebook ? L"다섯 장의 사건 노트" :
         m_panel == Panel::Gallery ? L"다시 펼치는 장면" : L"미니게임 연습실";
-    Text(dc, title, {235, 115, 1470, 185}, 44, Rose);
-    Button(dc, PanelClose, m_notebookContinuesStory ? L"이야기 계속" : L"닫기");
+    Text(dc, category, {235, 99, 1470, 130}, 20, Rose, DT_LEFT | DT_SINGLELINE, FW_SEMIBOLD);
+    Text(dc, title, {235, 137, 1470, 195}, 40, Ink, DT_LEFT | DT_SINGLELINE, FW_BOLD);
+    Button(dc, PanelClose, m_notebookContinuesStory ? L"이야기 계속" : L"닫기", m_notebookContinuesStory);
+    Line(dc, 235, 210, 1680, 210);
 
     if (m_panel == Panel::Settings)
     {
-        Text(dc, L"난이도", {245, 260, 600, 310}, 32);
-        Text(dc, IsMiniGameRunning() ? L"진행 중에는 고정됩니다. 결과 화면에서 바꿔 재도전할 수 있어요." :
-            L"스토리는 여유롭게, 도전은 더 촘촘하게. 다음 게임 시작부터 적용됩니다.", {245, 325, 1690, 380}, 26, Muted);
+        Box(dc, {235, 235, 1680, 380}, SoftRose, SoftRose);
+        Text(dc, L"나만의 속도로", {265, 255, 975, 305}, 30, Ink, DT_LEFT | DT_SINGLELINE, FW_SEMIBOLD);
+        Text(dc, IsMiniGameRunning() ? L"이번 게임의 난이도는 고정됩니다.\n결과 화면에서 바꾸고 다시 도전할 수 있어요." :
+            L"여유로운 이야기부터 짜릿한 도전까지.\n선택한 난이도는 다음 게임부터 적용됩니다.", {265, 313, 995, 374}, 21, Muted);
         const wchar_t* levels[] = {L"스토리", L"보통", L"도전"};
         for (int i = 0; i < 3; ++i) Button(dc, DifficultyButton(i), levels[i], GameOptions::difficulty == i, !IsMiniGameRunning());
         const wchar_t* labels[] = {L"배경 음악", L"효과음", L"글자 속도", L"화면 흔들림", L"화면 모드"};
+        const wchar_t* descriptions[] = {L"장면과 함께 흐르는 음악", L"클릭, 타격, 노트의 소리", L"대사가 나타나는 빠르기",
+            L"움직임이 부담스럽다면 꺼 보세요", L"내 화면에 맞게 편안하게"};
         const wchar_t* speeds[] = {L"느리게", L"보통", L"빠르게"};
         const std::wstring values[] = {std::to_wstring(GameOptions::musicVolume) + L"%", std::to_wstring(GameOptions::effectsVolume) + L"%",
             speeds[GameOptions::textSpeed], GameOptions::screenShake ? L"켜짐" : L"꺼짐", GameOptions::fullscreen ? L"전체 화면" : L"창 모드"};
         for (int i = 0; i < 5; ++i)
         {
             int y = 410 + i * 90;
-            Text(dc, labels[i], {245, y, 900, y + 55}, 30);
-            Button(dc, {1030, y - 5, 1130, y + 55}, L"−");
-            Text(dc, values[i], {1150, y, 1510, y + 55}, 30, Ink, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            Button(dc, {1540, y - 5, 1640, y + 55}, L"+");
+            Box(dc, {235, y - 13, 1680, y + 66}, RGB(255, 253, 250), RGB(255, 253, 250));
+            Fill(dc, {263, y + 3, 267, y + 46}, i < 2 ? Rose : RGB(171, 154, 167));
+            Text(dc, labels[i], {285, y - 5, 955, y + 35}, 27, Ink, DT_LEFT | DT_SINGLELINE, FW_SEMIBOLD);
+            Text(dc, descriptions[i], {285, y + 32, 985, y + 64}, 19, Muted, DT_LEFT | DT_SINGLELINE);
+            const wchar_t* left = i == 2 ? L"느리게" : i == 3 ? L"끄기" : i == 4 ? L"창" : L"−";
+            const wchar_t* right = i == 2 ? L"빠르게" : i == 3 ? L"켜기" : i == 4 ? L"전체" : L"+";
+            const bool canDecrease = i == 0 ? GameOptions::musicVolume > 0 : i == 1 ? GameOptions::effectsVolume > 0 :
+                i == 2 ? GameOptions::textSpeed > 0 : true;
+            const bool canIncrease = i == 0 ? GameOptions::musicVolume < 100 : i == 1 ? GameOptions::effectsVolume < 100 :
+                i == 2 ? GameOptions::textSpeed < 2 : true;
+            Button(dc, {1030, y - 5, 1130, y + 55}, left,
+                (i == 3 && !GameOptions::screenShake) || (i == 4 && !GameOptions::fullscreen), canDecrease);
+            Text(dc, values[i], {1150, y - 3, 1510, y + 40}, 28, Ink,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE, FW_SEMIBOLD);
+            if (i < 2) Meter(dc, {1150, y + 48, 1510, y + 53}, i == 0 ? GameOptions::musicVolume : GameOptions::effectsVolume);
+            Button(dc, {1540, y - 5, 1640, y + 55}, right,
+                (i == 3 && GameOptions::screenShake) || (i == 4 && GameOptions::fullscreen), canIncrease);
         }
+        Line(dc, 245, 870, 1680, 870);
         Text(dc, m_profile.saveFailed ? L"설정을 파일에 저장하지 못했습니다. 현재 실행에는 적용됩니다." :
-            L"설정은 자동 저장됩니다. 모든 화면은 창 크기에 맞춰 비율을 유지합니다.", {245, 900, 1680, 965}, 25, Muted);
+            L"취향에 맞게 바꾸면 자동으로 저장돼요.", {255, 903, 1680, 955}, 23, m_profile.saveFailed ? Rose : Muted);
     }
     else if (m_panel == Panel::Notebook)
     {
         const int heroine = m_completedChoices[m_notebookPage];
-        Box(dc, {240, 235, 940, 860}, RGB(248, 238, 226));
-        Box(dc, {960, 235, 1680, 860}, RGB(255, 253, 247));
-        Text(dc, L"RECORD 0" + std::to_wstring(m_notebookPage + 1), {290, 265, 890, 315}, 26, Muted);
+        Box(dc, {240, 235, 940, 860}, RGB(243, 235, 227), RGB(235, 225, 217));
+        Box(dc, {960, 235, 1680, 860}, RGB(255, 253, 250));
+        Badge(dc, {280, 265, 465, 307}, L"기억 0" + std::to_wstring(m_notebookPage + 1), Paper, Rose);
+        Text(dc, heroine >= 0 ? L"함께 보낸 하루" : L"기다리는 기억", {585, 270, 890, 310}, 21, Muted, DT_RIGHT | DT_SINGLELINE);
         if (heroine >= 0)
         {
             PrepareNotebookPhoto();
+            Box(dc, {270, 325, 910, 700}, RGB(255, 255, 255), RGB(255, 255, 255));
             if (!m_notebookPhoto.IsNull()) m_notebookPhoto.Draw(dc, 280, 335);
-            Text(dc, HeroineNames[heroine], {290, 715, 885, 765}, 36, Rose);
-            Text(dc, L"기록한 날짜 · " + m_eventDates[m_notebookPage], {290, 780, 885, 835}, 24, Muted);
-            Text(dc, storyData.GetEventTitle(m_notebookPage, heroine), {1010, 295, 1620, 390}, 39, Rose);
-            Text(dc, storyData.GetEventSummary(m_notebookPage, heroine), {1010, 420, 1615, 620}, 31);
+            Text(dc, HeroineNames[heroine], {290, 725, 885, 775}, 32, Ink, DT_LEFT | DT_SINGLELINE, FW_SEMIBOLD);
+            Text(dc, L"기록한 날짜  " + m_eventDates[m_notebookPage], {290, 790, 885, 832}, 21, Muted);
+            Text(dc, storyData.GetEventTitle(m_notebookPage, heroine), {1010, 285, 1630, 395}, 35, Ink, DT_LEFT | DT_WORDBREAK, FW_BOLD);
+            Line(dc, 1010, 410, 1630, 410);
+            Text(dc, storyData.GetEventSummary(m_notebookPage, heroine), {1010, 438, 1625, 625}, 27);
             int counts[3]{};
             for (int who : m_completedChoices) if (who >= 0) ++counts[who];
-            Text(dc, L"지금까지 함께한 만남", {1010, 660, 1620, 710}, 27, Muted);
+            Text(dc, L"지금까지 함께한 만남", {1010, 655, 1620, 695}, 22, Muted);
             for (int i = 0; i < 3; ++i)
-                Text(dc, std::wstring(HeroineNames[i]) + L"  " + std::to_wstring(counts[i]) + L"번",
-                    {1010 + i * 200, 730, 1205 + i * 200, 785}, 27, i == heroine ? Rose : Ink);
+            {
+                const int x = 1010 + i * 210;
+                Box(dc, {x, 707, x + 195, 815}, i == heroine ? SoftRose : Paper, i == heroine ? SoftRose : Paper);
+                Text(dc, HeroineNames[i], {x + 16, 720, x + 179, 752}, 20, Muted);
+                Text(dc, std::to_wstring(counts[i]) + L"번", {x + 16, 757, x + 179, 802}, 30, i == heroine ? Rose : Ink,
+                    DT_LEFT | DT_SINGLELINE, FW_SEMIBOLD);
+            }
         }
         else
         {
-            Text(dc, L"아직 쓰지 않은 페이지", {300, 430, 870, 510}, 37, Muted);
-            Text(dc, L"사건을 마치면 사진과 함께\n그날의 기억이 이곳에 남습니다.", {1010, 390, 1615, 570}, 32, Muted);
+            Text(dc, L"0" + std::to_wstring(m_notebookPage + 1), {300, 390, 870, 570}, 120, RGB(211, 191, 192), DT_CENTER | DT_SINGLELINE, FW_BOLD);
+            Text(dc, L"아직 쓰지 않은 페이지", {300, 620, 880, 680}, 30, Muted, DT_CENTER | DT_SINGLELINE);
+            Text(dc, L"어떤 하루가 기다리고 있을까요?", {1010, 355, 1620, 445}, 31, Ink, DT_LEFT | DT_WORDBREAK, FW_SEMIBOLD);
+            Text(dc, L"사건을 마치면 사진과 함께\n그날의 기억이 이곳에 남습니다.", {1010, 480, 1615, 610}, 27, Muted);
         }
+        int completed = 0;
+        for (int who : m_completedChoices) if (who >= 0) ++completed;
+        Text(dc, std::to_wstring(completed) + L" / 5  기록한 사건", {245, 915, 600, 960}, 22, Muted);
         for (int i = 0; i < 5; ++i)
             Button(dc, {650 + i * 125, 905, 755 + i * 125, 960}, std::to_wstring(i + 1), m_notebookPage == i);
     }
@@ -154,36 +191,54 @@ void GameManager::RenderPanel(HDC dc)
     {
         Button(dc, {245, 220, 510, 275}, L"다섯 사건", m_galleryTab == 0);
         Button(dc, {535, 220, 800, 275}, L"엔딩", m_galleryTab == 1);
-        Text(dc, L"완료한 장면만 열립니다. 회상은 능력치와 선택을 바꾸지 않습니다.", {850, 225, 1680, 280}, 24, Muted);
+        int unlockedCount = 0;
+        const unsigned mask = m_galleryTab == 0 ? m_profile.events : m_profile.endings;
+        for (int i = 0; i < (m_galleryTab == 0 ? 15 : 7); ++i) if (mask & (1u << i)) ++unlockedCount;
+        Text(dc, L"열어 본 기억  " + std::to_wstring(unlockedCount) + (m_galleryTab == 0 ? L" / 15" : L" / 7"),
+            {850, 230, 1680, 275}, 23, Muted, DT_RIGHT | DT_SINGLELINE);
         const int count = m_galleryTab == 0 ? 15 : 7;
         for (int i = 0; i < count; ++i)
         {
             const bool unlocked = m_galleryTab == 0 ? m_profile.HasEvent(i / 3, i % 3) : (m_profile.endings & (1u << i)) != 0;
             const RECT card = EventCard(i);
-            std::wstring label;
-            if (!unlocked) label = m_galleryTab == 0 ? std::to_wstring(i / 3 + 1) + L"번째 사건 · 아직 만나지 않은 장면" : L"아직 만나지 않은 결말";
-            else if (m_galleryTab == 0) label = std::wstring(HeroineNames[i % 3]) + L" · " + storyData.GetEventTitle(i / 3, i % 3);
-            else label = i == 6 ? L"새누 · 숨겨진 결말" : std::wstring(HeroineNames[i % 3]) + (i < 3 ? L" · 해피 엔딩" : L" · 배드 엔딩");
-            Box(dc, card, unlocked ? Paper : RGB(237, 232, 229));
-            Text(dc, label, {card.left + 20, card.top + 17, card.right - 20, card.bottom - 10}, 25, unlocked ? Ink : Muted);
+            const bool hovered = unlocked && Interactive(card);
+            Box(dc, card, unlocked ? (hovered ? SoftRose : RGB(255, 253, 250)) : RGB(240, 236, 233), hovered ? Rose : Border);
+            std::wstring meta = m_galleryTab == 0 ? L"사건 0" + std::to_wstring(i / 3 + 1) + L"  ·  " + HeroineNames[i % 3] :
+                i == 6 ? L"특별한 결말" : std::wstring(HeroineNames[i % 3]);
+            std::wstring label = !unlocked ? L"아직 만나지 않은 장면" :
+                m_galleryTab == 0 ? storyData.GetEventTitle(i / 3, i % 3) : i == 6 ? L"새누 · 숨겨진 결말" :
+                i < 3 ? L"해피 엔딩" : L"배드 엔딩";
+            Text(dc, meta, {card.left + 22, card.top + 12, card.right - 100, card.top + 42}, 19, unlocked ? Rose : Muted,
+                DT_LEFT | DT_SINGLELINE, FW_SEMIBOLD);
+            Text(dc, label, {card.left + 22, card.top + 48, card.right - 20, card.bottom - 8}, 23, unlocked ? Ink : Muted,
+                DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS, unlocked ? FW_SEMIBOLD : FW_NORMAL);
+            Badge(dc, {card.right - 85, card.top + 10, card.right - 15, card.top + 40}, unlocked ? L"회상" : L"잠김",
+                unlocked ? SoftRose : RGB(232, 226, 224), unlocked ? Rose : Muted);
         }
         Text(dc, m_profile.saveFailed ? L"해금 기록을 파일에 저장하지 못했습니다." : L"해금한 장면은 게임을 다시 켜도 남아 있습니다.",
-            {245, 920, 1680, 970}, 25, Muted);
+            {245, 920, 1680, 970}, 23, Muted);
     }
     else if (m_panel == Panel::Practice)
     {
-        Text(dc, L"능력치와 사건 진행에 영향을 주지 않는 자유 연습입니다.", {245, 220, 1680, 270}, 29, Muted);
+        Text(dc, L"마음에 드는 게임을 골라, 부담 없이 한 번 더.", {245, 230, 1680, 275}, 25, Muted);
         Text(dc, L"동행", {245, 310, 405, 365}, 28);
         for (int i = 0; i < 3; ++i) Button(dc, {410 + i * 240, 300, 630 + i * 240, 360}, HeroineNames[i], m_practiceHeroine == i);
         Button(dc, {1200, 300, 1660, 360}, L"난이도 · " + std::wstring(GameOptions::DifficultyName()));
         for (int i = 0; i < 6; ++i)
         {
             const RECT card = PracticeCard(i);
-            Box(dc, card, RGB(250, 241, 237));
-            Text(dc, GameNames[i], {card.left + 25, card.top + 18, card.right - 20, card.top + 67}, 32, Rose);
-            Text(dc, L"최고 점수 " + std::to_wstring(m_profile.bestScores[GameOptions::difficulty][i]) + L" / 100  ·  눌러서 연습",
-                {card.left + 25, card.top + 77, card.right - 20, card.bottom - 8}, 25, Muted);
+            const wchar_t* genres[] = {L"주문과 배달", L"박자와 리듬", L"달리기와 점프", L"순발력과 회피", L"배치와 전략", L"마지막 무대"};
+            const bool hovered = Interactive(card);
+            Box(dc, card, hovered ? SoftRose : RGB(255, 253, 250), hovered ? Rose : Border);
+            Badge(dc, {card.left + 20, card.top + 25, card.left + 82, card.top + 86}, L"0" + std::to_wstring(i + 1), SoftRose, Rose);
+            Text(dc, GameNames[i], {card.left + 102, card.top + 17, card.right - 30, card.top + 57}, 27, Ink,
+                DT_LEFT | DT_SINGLELINE, FW_SEMIBOLD);
+            Text(dc, genres[i], {card.left + 102, card.top + 61, card.right - 180, card.top + 94}, 20, Muted);
+            Text(dc, L"최고 " + std::to_wstring(m_profile.bestScores[GameOptions::difficulty][i]) + L"점",
+                {card.right - 180, card.top + 62, card.right - 30, card.top + 94}, 21, Rose, DT_RIGHT | DT_SINGLELINE, FW_SEMIBOLD);
+            Meter(dc, {card.left + 102, card.bottom - 21, card.right - 30, card.bottom - 16}, m_profile.bestScores[GameOptions::difficulty][i]);
         }
+        Text(dc, L"연습에서는 이야기 능력치와 사건 기록이 바뀌지 않아요.", {245, 920, 1680, 970}, 23, Muted);
     }
 }
 
@@ -234,8 +289,8 @@ void GameManager::HandlePanelClick(int x, int y)
             if (i == 0) GameOptions::musicVolume = std::clamp(GameOptions::musicVolume + direction * 10, 0, 100);
             else if (i == 1) GameOptions::effectsVolume = std::clamp(GameOptions::effectsVolume + direction * 10, 0, 100);
             else if (i == 2) GameOptions::textSpeed = std::clamp(GameOptions::textSpeed + direction, 0, 2);
-            else if (i == 3) GameOptions::screenShake = !GameOptions::screenShake;
-            else { GameOptions::fullscreen = !GameOptions::fullscreen; windowChanged = true; }
+            else if (i == 3) GameOptions::screenShake = direction > 0;
+            else { windowChanged = GameOptions::fullscreen != (direction > 0); GameOptions::fullscreen = direction > 0; }
         }
         if (changed) ApplyOptions(windowChanged);
     }

@@ -937,6 +937,7 @@ void GameManager::AddChoiceCount(std::array<CharacterInfo, HEROINE_COUNT>& chara
 
 void GameManager::Render(HDC hDC)
 {
+    MenuUI::BeginFrame();
     // 전용 메뉴는 화면 전체를 덮는다. 뒤의 PNG·미니게임을 중복 렌더하지 않는다.
     if (m_panel != Panel::None) { RenderPanel(hDC); return; }
     switch (now_game_mode)
@@ -1022,66 +1023,61 @@ void GameManager::Render(HDC hDC)
     sceneTransition.Render(hDC, 1920, 1080); // 페이드 인 아웃 덮기
 
     if (m_panel != Panel::None) RenderPanel(hDC);
-    else if (m_exitConfirmOpen) RenderExitConfirmPopup(hDC);
+    else if (m_exitConfirmOpen)
+    {
+        MenuUI::BeginFrame(); // 덮개 뒤의 버튼은 마우스 강조 대상에서 제외한다.
+        RenderExitConfirmPopup(hDC);
+    }
 }
 
 void GameManager::RenderExitConfirmPopup(HDC hDC)
 {
-    // 어두운 덮개
+    // 단색 덮개는 한 픽셀을 늘려 합성한다. 메뉴가 열려 있는 동안 큰 비트맵을 반복 생성하지 않는다.
     HDC overlayDC = CreateCompatibleDC(hDC);
-    HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, 1920, 1080);
+    HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, 1, 1);
     HBITMAP oldOverlayBitmap = static_cast<HBITMAP>(SelectObject(overlayDC, overlayBitmap));
-
-    RECT screenRect = { 0, 0, 1920, 1080 };
-    HBRUSH overlayBrush = CreateSolidBrush(RGB(0, 0, 0));
-    FillRect(overlayDC, &screenRect, overlayBrush);
-
+    SetPixel(overlayDC, 0, 0, MenuUI::Plum);
     BLENDFUNCTION blend = {};
     blend.BlendOp = AC_SRC_OVER;
-    blend.SourceConstantAlpha = 120;
-    AlphaBlend(hDC, 0, 0, 1920, 1080, overlayDC, 0, 0, 1920, 1080, blend);
-
-    DeleteObject(overlayBrush);
+    blend.SourceConstantAlpha = 166;
+    AlphaBlend(hDC, 0, 0, 1920, 1080, overlayDC, 0, 0, 1, 1, blend);
     SelectObject(overlayDC, oldOverlayBitmap);
     DeleteObject(overlayBitmap);
     DeleteDC(overlayDC);
 
-    // 팝업 본체
-    HBRUSH popupBrush = CreateSolidBrush(RGB(22, 22, 30));
-    HPEN popupPen = CreatePen(PS_SOLID, 3, RGB(230, 210, 255));
-    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, popupBrush));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, popupPen));
+    MenuUI::Box(hDC, {432, 182, 1512, 922}, RGB(81, 59, 74), RGB(81, 59, 74));
+    MenuUI::Box(hDC, m_exitPopupRect, MenuUI::Paper, MenuUI::Border);
+    MenuUI::Fill(hDC, {500, 211, 505, 259}, MenuUI::Rose);
+    MenuUI::Text(hDC, L"잠깐 쉬어가기", {523, 208, 1060, 265}, 42, MenuUI::Ink,
+        DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX, FW_BOLD);
+    MenuUI::Text(hDC, L"진행은 잠시 멈췄어요. 준비되면 이어서 플레이하세요.",
+        {500, 267, 1420, 296}, 22, MenuUI::Muted);
+    MenuUI::Badge(hDC, {1090, 224, 1158, 262}, L"F11", MenuUI::SoftRose, MenuUI::Rose);
+    MenuUI::Text(hDC, L"전체 화면 / 창 모드", {1175, 224, 1420, 262}, 22, MenuUI::Muted,
+        DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
 
-    RoundRect(
-        hDC,
-        m_exitPopupRect.left,
-        m_exitPopupRect.top,
-        m_exitPopupRect.right,
-        m_exitPopupRect.bottom,
-        28,
-        28
-    );
-
-    SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldPen);
-    DeleteObject(popupBrush);
-    DeleteObject(popupPen);
-
-    const auto text = [&](const std::wstring& value, RECT bounds, int size, COLORREF color)
+    const auto keycap = [&](const std::wstring& key, int y)
     {
-        HFONT font = CreateFontW(size, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
+        HFONT font = CreateFontW(-22, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
             HANGEUL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, L"맑은 고딕");
-        auto old = SelectObject(hDC, font);
-        SetBkMode(hDC, TRANSPARENT); SetTextColor(hDC, color);
-        DrawTextW(hDC, value.c_str(), -1, &bounds, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
-        SelectObject(hDC, old); DeleteObject(font);
+        const auto previous = SelectObject(hDC, font);
+        SIZE measured{};
+        GetTextExtentPoint32W(hDC, key.c_str(), static_cast<int>(key.size()), &measured);
+        SelectObject(hDC, previous);
+        DeleteObject(font);
+        const int width = (std::clamp)(static_cast<int>(measured.cx) + 32, 64, 340);
+        RECT rect{500, y, 500 + width, y + 42};
+        MenuUI::Box(hDC, rect, MenuUI::SoftRose, MenuUI::Border);
+        MenuUI::Text(hDC, key, rect, 22, MenuUI::Rose,
+            DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX, FW_MEDIUM);
     };
-    text(L"조작 안내", {500, 215, 1400, 280}, 44, RGB(246, 226, 240));
-    text(L"F11 · 전체 화면 / 창 모드", {1020, 235, 1420, 280}, 24, RGB(183, 191, 215));
     MenuUI::Button(hDC, {500, 300, 740, 355}, L"설정");
     MenuUI::Button(hDC, {760, 300, 1000, 355}, L"사건 노트");
     if (m_practice || m_replaying) MenuUI::Button(hDC, {1020, 300, 1420, 355}, L"목록으로 돌아가기");
+    MenuUI::Line(hDC, 500, 377, 1420, 377, MenuUI::Border);
+    MenuUI::Text(hDC, L"이 화면의 조작", {500, 389, 1420, 420}, 23, MenuUI::Rose,
+        DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX, FW_BOLD);
     std::vector<std::pair<std::wstring, std::wstring>> commands;
     if (now_game_mode == game_mode_info::Ending)
         commands = {{L"F / Space", L"크레딧 1배 · 16배 전환"},
@@ -1112,10 +1108,12 @@ void GameManager::RenderExitConfirmPopup(HDC hDC)
         commands = {{L"마우스 클릭", L"화면의 버튼이나 인물 카드를 선택하기"}};
     for (size_t i = 0; i < commands.size(); ++i)
     {
-        const int y = 390 + static_cast<int>(i) * 86;
-        text(commands[i].first, {500, y, 885, y + 75}, 26, RGB(233, 200, 218));
-        text(commands[i].second, {900, y, 1415, y + 75}, 26, RGB(236, 239, 246));
+        const int y = 432 + static_cast<int>(i) * 64;
+        keycap(commands[i].first, y);
+        MenuUI::Text(hDC, commands[i].second, {870, y - 1, 1420, y + 54}, 24, MenuUI::Ink);
     }
+    MenuUI::Text(hDC, L"ESC를 다시 누르면 이어서 플레이합니다.", {550, 754, 1370, 784}, 22, MenuUI::Muted,
+        DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
     DrawExitConfirmButton(hDC, m_exitNoButtonRect, L"계속하기");
     DrawExitConfirmButton(hDC, m_exitYesButtonRect, L"게임 종료");
 }
@@ -1154,44 +1152,8 @@ void GameManager::SetPauseMenuOpen(bool open)
 
 void GameManager::DrawExitConfirmButton(HDC hDC, const RECT& rect, const wchar_t* text)
 {
-    // StoryScene SKIP 버튼 스타일
-    HBRUSH buttonBrush = CreateSolidBrush(RGB(35, 35, 45));
-    HPEN buttonPen = CreatePen(PS_SOLID, 2, RGB(230, 210, 255));
-
-    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, buttonBrush));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, buttonPen));
-
-    RoundRect(hDC, rect.left, rect.top, rect.right, rect.bottom, 18, 18);
-
-    SelectObject(hDC, oldBrush);
-    SelectObject(hDC, oldPen);
-    DeleteObject(buttonBrush);
-    DeleteObject(buttonPen);
-
-    HFONT buttonFont = CreateFontW(
-        28,
-        0,
-        0,
-        0,
-        FW_BOLD,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
-
-    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, buttonFont));
-    SetBkMode(hDC, TRANSPARENT);
-    SetTextColor(hDC, RGB(245, 245, 250));
-    DrawTextW(hDC, text, -1, const_cast<RECT*>(&rect), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-    SelectObject(hDC, oldFont);
-    DeleteObject(buttonFont);
+    const bool resume = rect.left == m_exitNoButtonRect.left && rect.top == m_exitNoButtonRect.top;
+    MenuUI::Button(hDC, rect, text, resume);
 }
 
 bool GameManager::IsPointInsideRect(const RECT& rect, int x, int y) const
@@ -1542,6 +1504,8 @@ void GameManager::OnCaptureLost()
 }
 
 void GameManager::OnMouseMove(int x, int y) {
+    if (MenuUI::MovePointer(x, y) && m_hWnd)
+        InvalidateRect(m_hWnd, nullptr, FALSE);
     if (m_exitConfirmOpen || sceneTransition.IsActive()) return;
     if (now_game_mode == game_mode_info::MiniGame5) { promiseScene.OnMouseMove(x, y); return; }
     if (now_game_mode == game_mode_info::MiniGame2 || now_game_mode == game_mode_info::MiniGame6) {

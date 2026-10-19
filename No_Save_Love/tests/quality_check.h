@@ -61,23 +61,36 @@ void CheckQualityFeatures(HWND window, const std::filesystem::path& output)
 
     GameManager manager; manager.Initialize(window); CompleteTransition(manager);
     SaveQualityFrame(manager, output / L"quality_title.png");
+    SaveQualityFrame(manager, output / L"quality_title_1366.png", true);
     manager.OnMouseClick(600, 850);
     assert(manager.m_panel == GameManager::Panel::Settings);
     manager.OnMouseClick(1060, 280); // 스토리 난이도
     manager.OnMouseClick(1080, 425); // 음악 90%
     manager.OnMouseClick(1080, 505); // 효과음 90%
     manager.OnMouseClick(1580, 590); // 글자 빠르게
-    manager.OnMouseClick(1580, 680); // 흔들림 끄기
-    manager.OnMouseClick(1580, 770); // 창 모드
+    manager.OnMouseClick(1080, 680); // 흔들림 끄기
+    manager.OnMouseClick(1080, 770); // 창 모드
+    manager.OnMouseClick(1080, 680); // 끄기를 다시 눌러도 켜지지 않는다.
+    manager.OnMouseClick(1080, 770); // 창 버튼은 상태를 뒤집지 않는다.
     assert(GameOptions::difficulty == 0 && GameOptions::musicVolume == 90 && GameOptions::effectsVolume == 90);
     assert(GameOptions::textSpeed == 2 && !GameOptions::screenShake && !GameOptions::fullscreen);
     SaveQualityFrame(manager, output / L"quality_settings.png");
     SaveQualityFrame(manager, output / L"quality_settings_1366.png", true);
+    const int savedMusicVolume = GameOptions::musicVolume;
+    GameOptions::musicVolume = 0;
+    SaveQualityFrame(manager, output / L"quality_settings_music0_1366.png", true);
+    GameOptions::musicVolume = 100;
+    SaveQualityFrame(manager, output / L"quality_settings_music100_1366.png", true);
+    GameOptions::musicVolume = savedMusicVolume;
     PlayerProfile loaded; loaded.Load(profilePath);
     assert(GameOptions::difficulty == 0 && GameOptions::musicVolume == 90 && !GameOptions::fullscreen);
     assert(loaded.events == 0 && loaded.endings == 0);
     manager.OnMouseClick(1600, 145);
     assert(!manager.m_exitConfirmOpen && manager.m_panel == GameManager::Panel::None);
+    manager.OpenPanel(GameManager::Panel::Notebook);
+    SaveQualityFrame(manager, output / L"quality_notebook_empty_1366.png", true);
+    manager.ClosePanel();
+    assert(manager.now_game_mode == GameManager::Title && !manager.m_exitConfirmOpen);
 
     const auto samePlayer = [](const Player_state& a, const Player_state& b) {
         return a.money == b.money && a.speech == b.speech && a.charm == b.charm && a.appearance == b.appearance;
@@ -96,11 +109,18 @@ void CheckQualityFeatures(HWND window, const std::filesystem::path& output)
     };
     GameOptions::difficulty = 1; GameOptions::musicVolume = GameOptions::effectsVolume = 0; manager.ApplyOptions();
     manager.DebugEnterMiniGameByIndex(4); CompleteTransition(manager);
+    manager.OnKeyDown(VK_ESCAPE);
+    assert(manager.m_exitConfirmOpen && manager.now_game_mode == GameManager::MiniGame5);
+    SaveQualityFrame(manager, output / L"quality_pause_defense.png");
+    SaveQualityFrame(manager, output / L"quality_pause_defense_1366.png", true);
+    manager.OnKeyDown(VK_ESCAPE);
+    assert(!manager.m_exitConfirmOpen && manager.now_game_mode == GameManager::MiniGame5);
     const Player_state before{20, 20, 20, 20}; manager.player = before;
     finishDefense();
     assert(samePlayer(manager.player, gained(before, 4, 100)));
     assert(manager.resultScene.m_difficulty == 1 && manager.resultScene.m_details[0].find(L"100%") != std::wstring::npos);
     SaveQualityFrame(manager, output / L"quality_result.png");
+    SaveQualityFrame(manager, output / L"quality_result_1366.png", true);
     manager.EnterResult(4, 100); // 같은 결과의 중복 반영 방지
     assert(samePlayer(manager.player, gained(before, 4, 100)));
     manager.OnMouseClick(440, 980); CompleteTransition(manager);
@@ -113,6 +133,7 @@ void CheckQualityFeatures(HWND window, const std::filesystem::path& output)
     assert(manager.m_panel == GameManager::Panel::Practice);
     manager.OnMouseClick(1000, 330); // 연습 동행 이린
     SaveQualityFrame(manager, output / L"quality_practice.png");
+    SaveQualityFrame(manager, output / L"quality_practice_1366.png", true);
     manager.OnMouseClick(500, 760); CompleteTransition(manager);
     assert(manager.m_practice && manager.now_game_mode == GameManager::MiniGameTutor5);
     manager.OpenPanel(GameManager::Panel::Settings);
@@ -137,6 +158,17 @@ void CheckQualityFeatures(HWND window, const std::filesystem::path& output)
         manager.currentStoryRound = round;
         manager.currentMiniGameIndex = round < 4 ? round + 1 : 4;
         assert(manager.EnterBranchStory(round % 3)); CompleteTransition(manager);
+        if (round == 0)
+        {
+            const int dialogueBeforePause = manager.storyScene.currentDialogueIndex;
+            manager.OnKeyDown(VK_ESCAPE);
+            assert(manager.m_exitConfirmOpen && manager.now_game_mode == GameManager::Story);
+            SaveQualityFrame(manager, output / L"quality_pause_story.png");
+            SaveQualityFrame(manager, output / L"quality_pause_story_1366.png", true);
+            manager.OnKeyDown(VK_ESCAPE);
+            assert(!manager.m_exitConfirmOpen && manager.now_game_mode == GameManager::Story);
+            assert(manager.storyScene.currentDialogueIndex == dialogueBeforePause);
+        }
         manager.storyScene.finished = true; manager.OnMouseClick(0, 0);
         if (round == 4)
         {
@@ -167,6 +199,7 @@ void CheckQualityFeatures(HWND window, const std::filesystem::path& output)
     manager.OnMouseClick(950, 850);
     assert(manager.m_panel == GameManager::Panel::Gallery);
     SaveQualityFrame(manager, output / L"quality_gallery.png");
+    SaveQualityFrame(manager, output / L"quality_gallery_1366.png", true);
     const auto events = manager.m_profile.events, endings = manager.m_profile.endings;
     manager.OnMouseClick(900, 340); // 잠긴 첫 사건 하린 경로
     assert(!manager.m_replaying && manager.m_panel == GameManager::Panel::Gallery);
@@ -174,7 +207,9 @@ void CheckQualityFeatures(HWND window, const std::filesystem::path& output)
     assert(manager.m_replaying && manager.now_game_mode == GameManager::Story);
     manager.storyScene.finished = true; manager.OnMouseClick(0, 0); CompleteTransition(manager); manager.OnTimer(window);
     assert(manager.m_panel == GameManager::Panel::Gallery && manager.m_profile.events == events);
-    manager.OnMouseClick(600, 245); manager.OnMouseClick(400, 340); CompleteTransition(manager);
+    manager.OnMouseClick(600, 245);
+    SaveQualityFrame(manager, output / L"quality_gallery_endings_1366.png", true);
+    manager.OnMouseClick(400, 340); CompleteTransition(manager);
     assert(manager.m_replaying && manager.now_game_mode == GameManager::EndingDialogue);
     manager.storyScene.finished = true; manager.OnMouseClick(0, 0); CompleteTransition(manager);
     assert(manager.now_game_mode == GameManager::Ending && manager.m_profile.endings == endings);

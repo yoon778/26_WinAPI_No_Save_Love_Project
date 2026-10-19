@@ -321,10 +321,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_MOUSEMOVE:
     {
+        TRACKMOUSEEVENT tracking{sizeof(TRACKMOUSEEVENT), TME_LEAVE, hWnd, 0};
+        TrackMouseEvent(&tracking);
         const POINT mouse = LogicalMouse(hWnd, lParam);
         g_gameManager.OnMouseMove(mouse.x, mouse.y);
         return 0;
     }
+    case WM_MOUSELEAVE:
+        g_gameManager.OnMouseMove(-1, -1);
+        return 0;
     case WM_APP + 10:
         ApplyWindowMode(hWnd);
         g_gameManager.OnWindowModeChanged();

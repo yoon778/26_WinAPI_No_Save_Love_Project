@@ -16,8 +16,18 @@
 #define private public
 #include "../No_Save_Love/GameManager.h"
 #undef private
+
+HWND invalidationWindow = nullptr;
+int invalidationCount = 0;
+BOOL WINAPI RecordedInvalidateRect(HWND window, const RECT* rect, BOOL erase)
+{
+    if (window == invalidationWindow) ++invalidationCount;
+    return InvalidateRect(window, rect, erase);
+}
+#define InvalidateRect RecordedInvalidateRect
 #include "../No_Save_Love/GameManager.cpp"
 #include "../No_Save_Love/GameManagerMenus.cpp"
+#undef InvalidateRect
 
 struct PaintOperation { bool clear; RECT bounds; HDC source; };
 std::vector<PaintOperation> paintOperations;
@@ -172,6 +182,28 @@ int wmain(int argc, wchar_t** argv)
     CompleteFade(window);
     assert(g_gameManager.now_game_mode == GameManager::game_mode_info::Title);
     CheckPaintSequence(window, "5:4 letterbox");
+
+    // Hidden windows may discard update regions, so observe actual invalidation calls.
+    // Hover changes redraw once; motion inside the same button does not redraw continuously.
+    const RECT startButton = {760, 680, 1160, 770};
+    assert(std::any_of(MenuUI::HitAreas.begin(), MenuUI::HitAreas.end(),
+        [&](const RECT& area) { return EqualRect(&area, &startButton); }));
+    assert(MenuUI::Pointer.x == -1 && MenuUI::Pointer.y == -1);
+    invalidationWindow = window;
+    invalidationCount = 0;
+    POINT hoverStart = ClientPoint(window, 900, 720);
+    SendMessageW(window, WM_MOUSEMOVE, 0, MAKELPARAM(hoverStart.x, hoverStart.y));
+    assert(MenuUI::Pointer.x == 900 && MenuUI::Pointer.y == 720);
+    assert(MenuUI::Hit(startButton, MenuUI::Pointer.x, MenuUI::Pointer.y));
+    assert(invalidationCount == 1);
+    hoverStart = ClientPoint(window, 920, 720);
+    SendMessageW(window, WM_MOUSEMOVE, 0, MAKELPARAM(hoverStart.x, hoverStart.y));
+    assert(MenuUI::Hit(startButton, MenuUI::Pointer.x, MenuUI::Pointer.y));
+    assert(invalidationCount == 1);
+    SendMessageW(window, WM_MOUSELEAVE, 0, 0);
+    assert(MenuUI::Pointer.x == -1 && MenuUI::Pointer.y == -1 && invalidationCount == 2);
+    invalidationWindow = nullptr;
+    std::cout << "PASS menu hover: redraw on enter/leave, no continuous redraw inside a button\n";
 
     CheckSettings(window);
     RECT client{};

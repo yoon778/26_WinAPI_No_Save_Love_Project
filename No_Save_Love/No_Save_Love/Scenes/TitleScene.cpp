@@ -1,4 +1,5 @@
-﻿#include "TitleScene.h"
+#include "TitleScene.h"
+#include "../MenuUI.h"
 
 void TitleScene::Initialize() {
     // 이전에 로드된 배경 이미지가 있다면 새로 로드하기 전에 해제한다.
@@ -84,7 +85,7 @@ void TitleScene::Render(HDC hDC)
     else
     {
         // 이미지가 없을 때 임시 배경색을 칠한다.
-        HBRUSH bgBrush = CreateSolidBrush(RGB(245, 220, 230));
+        HBRUSH bgBrush = CreateSolidBrush(RGB(250, 247, 242));
         RECT bgRect = { 0, 0, 1920, 1080 };
         FillRect(hDC, &bgRect, bgBrush);
         DeleteObject(bgBrush);
@@ -104,62 +105,13 @@ void TitleScene::Render(HDC hDC)
         titleLogoImage.Draw(hDC, 330, 135, 1260, 420);
     }
 
-    // 4. START 버튼 출력
-    HBRUSH buttonBrush = CreateSolidBrush(RGB(235, 90, 140));
-    HPEN buttonPen = CreatePen(PS_SOLID, 3, RGB(255, 230, 240));
+    MenuUI::Text(hDC, L"다섯 번의 만남, 다시 돌아갈 수 없는 마음", {520, 580, 1400, 625},
+        28, MenuUI::Ink, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, buttonBrush));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, buttonPen));
-
-    // 타원형에 가까운 둥근 버튼을 코드로 그린다.
-    RoundRect(
-        hDC,
-        startButtonRect.left,
-        startButtonRect.top,
-        startButtonRect.right,
-        startButtonRect.bottom,
-        80,
-        80
-    );
-
-    HFONT startFont = CreateFontW(
-        44,
-        0,
-        0,
-        0,
-        FW_BOLD,
-        FALSE,
-        FALSE,
-        FALSE,
-        HANGEUL_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_NATURAL_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"맑은 고딕"
-    );
-
-    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, startFont));
-
-    SetTextColor(hDC, RGB(255, 255, 255));
-
-    // 5. START 텍스트 출력
-    DrawTextW(
-        hDC,
-        L"START",
-        -1,
-        &startButtonRect,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE
-    );
-
-    // GDI 객체 복구 및 삭제
-    SelectObject(hDC, oldFont);
-    SelectObject(hDC, oldPen);
-    SelectObject(hDC, oldBrush);
-
-    DeleteObject(buttonPen);
-    DeleteObject(buttonBrush);
-    DeleteObject(startFont);
+    // 시작 버튼의 클릭 영역은 그대로 두고 공통 메뉴의 색과 글자 계층을 사용한다.
+    MenuUI::Button(hDC, startButtonRect, L"", true);
+    MenuUI::Text(hDC, L"이야기 시작", startButtonRect, 32, RGB(255, 255, 255),
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX, FW_SEMIBOLD);
 
     // 다른 Scene 출력에 영향을 주지 않도록 StretchBlt 모드를 원래대로 되돌린다.
     SetStretchBltMode(hDC, oldStretchMode);
@@ -167,26 +119,25 @@ void TitleScene::Render(HDC hDC)
 
 void TitleScene::DrawSoftOverlay(HDC hDC)
 {
-    RECT overlayRect = { 0, 0, 1920, 1080 };
-
-    // 반투명 출력용 메모리 DC를 만든다.
+    // 단색 소스를 확대해 큰 임시 비트맵을 매 프레임 만들지 않는다.
     HDC overlayDC = CreateCompatibleDC(hDC);
-    HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, 1920, 1080);
-    HBITMAP oldOverlayBitmap = static_cast<HBITMAP>(SelectObject(overlayDC, overlayBitmap));
-
-    // 흰색보다 약간 연핑크가 도는 색을 사용한다.
-    HBRUSH overlayBrush = CreateSolidBrush(RGB(255, 245, 250));
-    FillRect(overlayDC, &overlayRect, overlayBrush);
-
-    // alpha는 40~70 사이에서 조금 더 부드러워 보이는 68로 둔다.
-    BLENDFUNCTION blend = {};
+    if (!overlayDC) return;
+    HBITMAP overlayBitmap = CreateCompatibleBitmap(hDC, 1, 1);
+    if (!overlayBitmap) { DeleteDC(overlayDC); return; }
+    HBITMAP oldBitmap = static_cast<HBITMAP>(SelectObject(overlayDC, overlayBitmap));
+    SetPixelV(overlayDC, 0, 0, RGB(250, 247, 242));
+    BLENDFUNCTION blend{};
     blend.BlendOp = AC_SRC_OVER;
-    blend.SourceConstantAlpha = 90;
+    blend.SourceConstantAlpha = 76;
+    AlphaBlend(hDC, 0, 0, 1920, 1080, overlayDC, 0, 0, 1, 1, blend);
 
-    AlphaBlend(hDC, 0, 0, 1920, 1080, overlayDC, 0, 0, 1920, 1080, blend);
-
-    SelectObject(overlayDC, oldOverlayBitmap);
-    DeleteObject(overlayBrush);
+    // 하단은 밝은 종이색을 조금 더 얹어 시작 버튼과 보조 메뉴의 대비를 확보한다.
+    for (int band = 0; band < 12; ++band)
+    {
+        blend.SourceConstantAlpha = static_cast<BYTE>(12 + band * 7);
+        AlphaBlend(hDC, 0, 600 + band * 40, 1920, 40, overlayDC, 0, 0, 1, 1, blend);
+    }
+    SelectObject(overlayDC, oldBitmap);
     DeleteObject(overlayBitmap);
     DeleteDC(overlayDC);
 }
