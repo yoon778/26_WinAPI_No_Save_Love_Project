@@ -1,40 +1,6 @@
 #include "ResultScene.h"
 #include "../MenuUI.h"
 
-// 결과 화면은 사용자가 선호한 이전 색상, 테두리, 글자 크기를 유지한다.
-// 공통 메뉴 스타일을 바꾸지 않도록 이 화면 안에서만 적용한다.
-namespace
-{
-    namespace ResultUI
-    {
-        constexpr COLORREF Paper = RGB(255, 250, 242);
-        constexpr COLORREF Ink = RGB(65, 48, 65);
-        constexpr COLORREF Muted = RGB(117, 99, 115);
-        constexpr COLORREF Rose = RGB(184, 74, 111);
-        void Box(HDC dc, RECT r, COLORREF fill = Paper)
-        {
-            HBRUSH brush = CreateSolidBrush(fill);
-            HPEN pen = CreatePen(PS_SOLID, 2, RGB(224, 203, 208));
-            auto oldBrush = SelectObject(dc, brush); auto oldPen = SelectObject(dc, pen);
-            RoundRect(dc, r.left, r.top, r.right, r.bottom, 22, 22);
-            SelectObject(dc, oldBrush); SelectObject(dc, oldPen);
-            DeleteObject(brush); DeleteObject(pen);
-        }
-        void Text(HDC dc, const std::wstring& value, RECT r, int size = 28,
-            COLORREF color = Ink, UINT format = DT_LEFT | DT_WORDBREAK | DT_NOPREFIX)
-        {
-            // MenuUI는 음수 글꼴 높이를 사용하므로 부호를 바꿔 이전 셀 높이를 복원한다.
-            MenuUI::Text(dc, value, r, -size, color, format, FW_MEDIUM);
-        }
-        void Button(HDC dc, RECT r, const std::wstring& label, bool selected = false)
-        {
-            Box(dc, r, selected ? Rose : Paper);
-            Text(dc, label, r, 26, selected ? RGB(255, 255, 255) : Ink,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        }
-    }
-}
-
 void ResultScene::Reset()
 {
     m_whichGame = m_score = 0;
@@ -57,49 +23,683 @@ void ResultScene::OnMouseClick(int x, int y)
 }
 bool ResultScene::IsFinished() const { return m_finished; }
 Player_state ResultScene::GetPlusState() const { return m_plusState; }
-std::wstring ResultScene::GetGameName(int game) const
+std::wstring ResultScene::GetGameName(int whichGame) const
 {
-    const wchar_t* names[] = {L"PC방 알바", L"노래 연습", L"등교길", L"유혹 피하기",
-        L"방과 후 마지막 웨이브", L"개화 - 금요일의 작은 무대"};
-    return game >= 0 && game < 6 ? names[game] : L"미니게임";
-}
-void ResultScene::RenderResult(HDC dc)
-{
-    if (!m_hasResult) return;
-    using namespace ResultUI;
-    Box(dc, {0, 0, 1920, 1080}, RGB(236, 224, 228));
-    Box(dc, {100, 70, 1820, 910});
-    Text(dc, GetGameName(m_whichGame), {155, 110, 1460, 180}, 44);
-    const wchar_t* levels[] = {L"스토리", L"보통", L"도전"};
-    Text(dc, std::wstring(m_practice ? L"연습 · " : L"이번 도전 · ") + levels[m_difficulty],
-        {1430, 125, 1760, 175}, 27, Muted, DT_RIGHT | DT_SINGLELINE);
-    Box(dc, {150, 220, 650, 815}, RGB(250, 236, 239));
-    Text(dc, GetResultGradeText(m_score), {190, 250, 610, 450}, 148, Rose,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    Text(dc, std::to_wstring(m_score) + L" / 100", {190, 470, 610, 540}, 48, Ink,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    Text(dc, L"S 90   A 80   B 60\nC 40   D 20   F 0", {205, 580, 610, 680}, 28, Muted);
-    Text(dc, m_practice ? L"연습 기록은 따로 보관합니다." : L"재도전하면 이번 결과를 교체합니다.",
-        {190, 725, 620, 795}, 25, Muted);
-    Text(dc, L"플레이 기록", {710, 220, 1740, 270}, 34, Rose);
-    for (size_t i = 0; i < m_details.size() && i < 4; ++i)
-        Text(dc, m_details[i], {715, 285 + int(i) * 65, 1735, 345 + int(i) * 65}, 27);
-    Text(dc, m_practice ? L"현재 능력치 · 연습에서는 증가하지 않습니다" : L"이번에 성장한 능력치",
-        {710, 565, 1750, 615}, 30, Rose);
-    const wchar_t* names[] = {L"재력", L"대화", L"매력", L"외모"};
-    const int values[] = {m_currentState.money, m_currentState.speech, m_currentState.charm, m_currentState.appearance};
-    const int gains[] = {m_plusState.money, m_plusState.speech, m_plusState.charm, m_plusState.appearance};
-    for (int i = 0; i < 4; ++i)
+    switch (whichGame)
     {
-        int left = 710 + i * 260;
-        Box(dc, {left, 635, left + 235, 815}, RGB(248, 241, 235));
-        Text(dc, names[i], {left + 20, 655, left + 215, 700}, 29);
-        Text(dc, std::to_wstring(values[i]), {left + 20, 705, left + 125, 775}, 44);
-        Text(dc, L"+" + std::to_wstring(m_practice ? 0 : gains[i]), {left + 135, 720, left + 220, 775}, 30, Rose);
+    case 0:
+        return m_playerName + L"의 PC방 알바";
+
+    case 1:
+        return m_playerName + L"의 노래 연습";
+
+    case 2:
+        return m_playerName + L"의 등교길";
+
+    case 3:
+        return L"유혹 피하기";
+
+    case 4:
+        return L"방과 후 마지막 웨이브";
+
+    case 5:
+        return L"개화 - 금요일의 작은 무대";
+
+    default:
+        return L"알 수 없는 미니게임";
     }
-    Text(dc, m_practice ? L"최고 점수는 난이도별로 저장됩니다." : L"이야기 계속을 누르면 이 결과로 다음 만남을 시작합니다.",
-        {710, 845, 1750, 890}, 25, Muted);
-    Button(dc, m_retryButton, L"다시 도전");
-    Button(dc, m_confirmButton, m_practice ? L"연습 메뉴" : L"이야기 계속", true);
-    Text(dc, L"난이도 변경은 ESC의 설정에서", {1270, 965, 1780, 1020}, 26, Muted);
+}
+
+void ResultScene::RenderResult(HDC hDC)
+{
+    // 결과 데이터가 준비되지 않았으면 아무것도 출력하지 않는다.
+    if (!m_hasResult)
+    {
+        return;
+    }
+
+    // =========================
+    // 기본 계산
+    // =========================
+
+    // 모든 결과 화면에서 같은 100점 기준 등급표를 사용한다.
+    std::wstring gradeText = GetResultGradeText(m_score);
+
+    // =========================
+    // 배경 출력
+    // =========================
+
+    RECT fullScreen = { 0, 0, 1920, 1080 };
+
+    HBRUSH backgroundBrush = CreateSolidBrush(RGB(9, 18, 45));
+    FillRect(hDC, &fullScreen, backgroundBrush);
+    DeleteObject(backgroundBrush);
+
+    // 글자 배경을 투명하게 한다.
+    SetBkMode(hDC, TRANSPARENT);
+
+    // =========================
+    // 큰 패널 출력
+    // =========================
+
+    RECT leftPanel = { 70, 70, 760, 910 };
+    RECT rightPanel = { 800, 70, 1850, 910 };
+
+    HBRUSH panelBrush = CreateSolidBrush(RGB(18, 28, 62));
+    HPEN panelPen = CreatePen(PS_SOLID, 2, RGB(75, 84, 120));
+
+    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hDC, panelBrush));
+    HPEN oldPen = static_cast<HPEN>(SelectObject(hDC, panelPen));
+
+    RoundRect(hDC, leftPanel.left, leftPanel.top, leftPanel.right, leftPanel.bottom, 28, 28);
+    RoundRect(hDC, rightPanel.left, rightPanel.top, rightPanel.right, rightPanel.bottom, 28, 28);
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+
+    DeleteObject(panelBrush);
+    DeleteObject(panelPen);
+
+    // =========================
+    // 폰트 생성
+    // =========================
+
+    HFONT titleFont = CreateFontW(
+        58, 0, 0, 0, FW_BOLD,
+        FALSE, FALSE, FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT bigGradeFont = CreateFontW(
+        150, 0, 0, 0, FW_BOLD,
+        FALSE, FALSE, FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT largeFont = CreateFontW(
+        72, 0, 0, 0, FW_BOLD,
+        FALSE, FALSE, FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT normalFont = CreateFontW(
+        32, 0, 0, 0, FW_NORMAL,
+        FALSE, FALSE, FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT boldFont = CreateFontW(
+        34, 0, 0, 0, FW_BOLD,
+        FALSE, FALSE, FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT smallFont = CreateFontW(
+        26, 0, 0, 0, FW_NORMAL,
+        FALSE, FALSE, FALSE,
+        HANGEUL_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"맑은 고딕"
+    );
+
+    HFONT oldFont = static_cast<HFONT>(SelectObject(hDC, normalFont));
+
+    // =========================
+    // 왼쪽 RESULT 제목
+    // =========================
+
+    SelectObject(hDC, titleFont);
+    SetTextColor(hDC, RGB(245, 245, 250));
+
+    RECT resultTitleRect = { 120, 105, 710, 175 };
+    DrawTextW(
+        hDC,
+        L"RESULT",
+        -1,
+        &resultTitleRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, boldFont);
+    SetTextColor(hDC, RGB(245, 90, 150));
+
+    RECT resultSubTitleRect = { 190, 180, 640, 230 };
+    DrawTextW(
+        hDC,
+        L"게임 결과",
+        -1,
+        &resultSubTitleRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+
+    // =========================
+    // 왼쪽 등급 리스트
+    // =========================
+
+    RECT gradeBox = { 120, 270, 350, 810 };
+
+    HBRUSH gradeBoxBrush = CreateSolidBrush(RGB(20, 30, 65));
+    HPEN gradeBoxPen = CreatePen(PS_SOLID, 2, RGB(75, 84, 120));
+
+    oldBrush = static_cast<HBRUSH>(SelectObject(hDC, gradeBoxBrush));
+    oldPen = static_cast<HPEN>(SelectObject(hDC, gradeBoxPen));
+
+    RoundRect(hDC, gradeBox.left, gradeBox.top, gradeBox.right, gradeBox.bottom, 20, 20);
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+
+    DeleteObject(gradeBoxBrush);
+    DeleteObject(gradeBoxPen);
+
+    std::wstring gradeList[6] = { L"S", L"A", L"B", L"C", L"D", L"F" };
+
+    SelectObject(hDC, largeFont);
+
+    for (int i = 0; i < 6; i++)
+    {
+        RECT itemRect =
+        {
+            gradeBox.left,
+            gradeBox.top + i * 90,
+            gradeBox.right,
+            gradeBox.top + (i + 1) * 90
+        };
+
+        bool isSelected = (gradeText == gradeList[i]);
+
+        // 현재 등급이면 분홍색 배경을 칠한다.
+        if (isSelected)
+        {
+            HBRUSH selectedBrush = CreateSolidBrush(RGB(240, 80, 145));
+            FillRect(hDC, &itemRect, selectedBrush);
+            DeleteObject(selectedBrush);
+        }
+
+        // 등급 칸 구분선을 그린다.
+        HPEN linePen = CreatePen(PS_SOLID, 1, RGB(65, 73, 105));
+        oldPen = static_cast<HPEN>(SelectObject(hDC, linePen));
+
+        MoveToEx(hDC, itemRect.left, itemRect.bottom, nullptr);
+        LineTo(hDC, itemRect.right, itemRect.bottom);
+
+        SelectObject(hDC, oldPen);
+        DeleteObject(linePen);
+
+        if (isSelected)
+        {
+            SetTextColor(hDC, RGB(255, 255, 255));
+        }
+        else
+        {
+            SetTextColor(hDC, RGB(165, 170, 190));
+        }
+
+        DrawTextW(
+            hDC,
+            gradeList[i].c_str(),
+            -1,
+            &itemRect,
+            DT_CENTER | DT_VCENTER | DT_SINGLELINE
+        );
+    }
+
+    // =========================
+    // 왼쪽 큰 등급 출력
+    // =========================
+
+    SelectObject(hDC, bigGradeFont);
+    SetTextColor(hDC, RGB(245, 90, 150));
+
+    RECT bigGradeRect = { 400, 300, 710, 500 };
+    DrawTextW(
+        hDC,
+        gradeText.c_str(),
+        -1,
+        &bigGradeRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+
+    // =========================
+    // 왼쪽 점수 / 등급 요약
+    // =========================
+
+    HPEN middleLinePen = CreatePen(PS_SOLID, 2, RGB(85, 92, 125));
+    oldPen = static_cast<HPEN>(SelectObject(hDC, middleLinePen));
+
+    MoveToEx(hDC, 390, 525, nullptr);
+    LineTo(hDC, 710, 525);
+
+    MoveToEx(hDC, 390, 730, nullptr);
+    LineTo(hDC, 710, 730);
+
+    SelectObject(hDC, oldPen);
+    DeleteObject(middleLinePen);
+
+    SelectObject(hDC, boldFont);
+    SetTextColor(hDC, RGB(245, 90, 150));
+
+    RECT scoreLabelRect = { 420, 555, 580, 610 };
+    DrawTextW(
+        hDC,
+        L"총점",
+        -1,
+        &scoreLabelRect,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, largeFont);
+    SetTextColor(hDC, RGB(255, 255, 255));
+
+    RECT scoreNumberRect = { 425, 620, 585, 710 };
+    std::wstring scoreNumberText = std::to_wstring(m_score);
+
+    DrawTextW(
+        hDC,
+        scoreNumberText.c_str(),
+        -1,
+        &scoreNumberRect,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, boldFont);
+    SetTextColor(hDC, RGB(165, 170, 190));
+
+    RECT scoreMaxRect = { 560, 640, 720, 700 };
+    DrawTextW(
+        hDC,
+        L"/ 100",
+        -1,
+        &scoreMaxRect,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, boldFont);
+    SetTextColor(hDC, RGB(245, 90, 150));
+
+    RECT gainLabelRect = { 415, 765, 600, 820 };
+    DrawTextW(
+        hDC,
+        L"획득 등급",
+        -1,
+        &gainLabelRect,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, largeFont);
+    SetTextColor(hDC, RGB(245, 90, 150));
+
+    RECT gainGradeRect = { 600, 745, 720, 840 };
+    DrawTextW(
+        hDC,
+        gradeText.c_str(),
+        -1,
+        &gainGradeRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, smallFont);
+    SetTextColor(hDC, RGB(165, 170, 190));
+
+    RECT gameNameRect = { 120, 835, 710, 890 };
+    std::wstring gameNameText = GetGameName(m_whichGame);
+
+    DrawTextW(
+        hDC,
+        gameNameText.c_str(),
+        -1,
+        &gameNameRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+
+    // =========================
+    // 오른쪽 STATUS 제목
+    // =========================
+
+    // 분홍색 포인트 막대
+    RECT pointBarRect = { 855, 120, 870, 175 };
+    HBRUSH pointBrush = CreateSolidBrush(RGB(245, 90, 150));
+    FillRect(hDC, &pointBarRect, pointBrush);
+    DeleteObject(pointBrush);
+
+    SelectObject(hDC, titleFont);
+    SetTextColor(hDC, RGB(245, 245, 250));
+
+    RECT statusTitleRect = { 890, 100, 1300, 180 };
+    DrawTextW(
+        hDC,
+        L"STATUS",
+        -1,
+        &statusTitleRect,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE
+    );
+
+    SelectObject(hDC, smallFont);
+    SetTextColor(hDC, RGB(165, 170, 190));
+
+    RECT statusSubRect = { 1320, 120, 1810, 170 };
+    DrawTextW(
+        hDC,
+        m_practice ? L"연습에서는 능력치가 증가하지 않습니다." : L"점수가 높을수록 더 성장합니다.",
+        -1,
+        &statusSubRect,
+        DT_RIGHT | DT_VCENTER | DT_SINGLELINE
+    );
+
+    // =========================
+    // 스탯 정보 배열
+    // =========================
+
+    std::wstring statNames[4] =
+    {
+        L"재력",
+        L"대화 스킬",
+        L"매력",
+        L"외모"
+    };
+
+    int plusValues[4] =
+    {
+        m_practice ? 0 : m_plusState.money,
+        m_practice ? 0 : m_plusState.speech,
+        m_practice ? 0 : m_plusState.charm,
+        m_practice ? 0 : m_plusState.appearance
+    };
+
+    int currentValues[4] =
+    {
+        m_currentState.money,
+        m_currentState.speech,
+        m_currentState.charm,
+        m_currentState.appearance
+    };
+
+    int rowTops[4] =
+    {
+        215,
+        375,
+        535,
+        695
+    };
+
+    // =========================
+    // 오른쪽 스탯 줄 출력
+    // =========================
+
+    for (int i = 0; i < 4; i++)
+    {
+        int top = rowTops[i];
+
+        int currentValue = currentValues[i];
+
+        if (currentValue < 0)
+        {
+            currentValue = 0;
+        }
+
+        if (currentValue > 100)
+        {
+            currentValue = 100;
+        }
+
+        int beforeValue = currentValue - plusValues[i];
+
+        if (beforeValue < 0)
+        {
+            beforeValue = 0;
+        }
+
+        if (beforeValue > 100)
+        {
+            beforeValue = 100;
+        }
+
+        // 스탯 줄 배경 카드
+        RECT rowRect = { 835, top, 1815, top + 140 };
+
+        HBRUSH rowBrush = CreateSolidBrush(RGB(31, 37, 67));
+        HPEN rowPen = CreatePen(PS_SOLID, 1, RGB(31, 37, 67));
+
+        oldBrush = static_cast<HBRUSH>(SelectObject(hDC, rowBrush));
+        oldPen = static_cast<HPEN>(SelectObject(hDC, rowPen));
+
+        RoundRect(hDC, rowRect.left, rowRect.top, rowRect.right, rowRect.bottom, 20, 20);
+
+        SelectObject(hDC, oldBrush);
+        SelectObject(hDC, oldPen);
+
+        DeleteObject(rowBrush);
+        DeleteObject(rowPen);
+
+        // 스탯 이름
+        SelectObject(hDC, boldFont);
+        SetTextColor(hDC, RGB(245, 245, 250));
+
+        RECT statNameRect = { 875, top + 35, 1060, top + 100 };
+        DrawTextW(
+            hDC,
+            statNames[i].c_str(),
+            -1,
+            &statNameRect,
+            DT_LEFT | DT_VCENTER | DT_SINGLELINE
+        );
+
+        // 증가량
+        std::wstring plusText = L"+" + std::to_wstring(plusValues[i]);
+
+        SetTextColor(hDC, RGB(245, 90, 150));
+
+        RECT plusRect = { 1070, top + 35, 1190, top + 100 };
+        DrawTextW(
+            hDC,
+            plusText.c_str(),
+            -1,
+            &plusRect,
+            DT_CENTER | DT_VCENTER | DT_SINGLELINE
+        );
+
+        // 중간 구분선
+        HPEN statLinePen = CreatePen(PS_SOLID, 2, RGB(75, 83, 120));
+        oldPen = static_cast<HPEN>(SelectObject(hDC, statLinePen));
+
+        MoveToEx(hDC, 1215, top + 35, nullptr);
+        LineTo(hDC, 1215, top + 105);
+
+        SelectObject(hDC, oldPen);
+        DeleteObject(statLinePen);
+
+        // 이전값 → 현재값
+        SelectObject(hDC, boldFont);
+        SetTextColor(hDC, RGB(245, 245, 250));
+
+        std::wstring valueText =
+            std::to_wstring(beforeValue) +
+            L"  →  " +
+            std::to_wstring(currentValue);
+
+        RECT valueRect = { 1250, top + 35, 1430, top + 100 };
+        DrawTextW(
+            hDC,
+            valueText.c_str(),
+            -1,
+            &valueRect,
+            DT_LEFT | DT_VCENTER | DT_SINGLELINE
+        );
+
+        // 스탯 바 배경
+        RECT barBackRect = { 1450, top + 58, 1740, top + 82 };
+
+        HBRUSH barBackBrush = CreateSolidBrush(RGB(210, 215, 225));
+        HPEN barBackPen = CreatePen(PS_SOLID, 1, RGB(210, 215, 225));
+
+        oldBrush = static_cast<HBRUSH>(SelectObject(hDC, barBackBrush));
+        oldPen = static_cast<HPEN>(SelectObject(hDC, barBackPen));
+
+        RoundRect(
+            hDC,
+            barBackRect.left,
+            barBackRect.top,
+            barBackRect.right,
+            barBackRect.bottom,
+            12,
+            12
+        );
+
+        SelectObject(hDC, oldBrush);
+        SelectObject(hDC, oldPen);
+
+        DeleteObject(barBackBrush);
+        DeleteObject(barBackPen);
+
+        // 스탯 바 채워진 부분
+        int barWidth = barBackRect.right - barBackRect.left;
+        int fillWidth = barWidth * currentValue / 100;
+
+        if (fillWidth > 0)
+        {
+            RECT barFillRect = barBackRect;
+            barFillRect.right = barFillRect.left + fillWidth;
+
+            HBRUSH barFillBrush = CreateSolidBrush(RGB(240, 80, 145));
+            HPEN barFillPen = CreatePen(PS_SOLID, 1, RGB(240, 80, 145));
+
+            oldBrush = static_cast<HBRUSH>(SelectObject(hDC, barFillBrush));
+            oldPen = static_cast<HPEN>(SelectObject(hDC, barFillPen));
+
+            RoundRect(
+                hDC,
+                barFillRect.left,
+                barFillRect.top,
+                barFillRect.right,
+                barFillRect.bottom,
+                12,
+                12
+            );
+
+            SelectObject(hDC, oldBrush);
+            SelectObject(hDC, oldPen);
+
+            DeleteObject(barFillBrush);
+            DeleteObject(barFillPen);
+        }
+
+        // /100 출력
+        SelectObject(hDC, normalFont);
+        SetTextColor(hDC, RGB(170, 175, 195));
+
+        RECT maxTextRect = { 1750, top + 35, 1810, top + 100 };
+        DrawTextW(
+            hDC,
+            L"/100",
+            -1,
+            &maxTextRect,
+            DT_LEFT | DT_VCENTER | DT_SINGLELINE
+        );
+    }
+
+    // =========================
+    // 하단 확인 버튼
+    // =========================
+
+    RECT confirmButtonRect = m_confirmButton;
+
+    HBRUSH confirmBrush = CreateSolidBrush(RGB(19, 29, 62));
+    HPEN confirmPen = CreatePen(PS_SOLID, 3, RGB(245, 90, 150));
+
+    oldBrush = static_cast<HBRUSH>(SelectObject(hDC, confirmBrush));
+    oldPen = static_cast<HPEN>(SelectObject(hDC, confirmPen));
+
+    RoundRect(
+        hDC,
+        confirmButtonRect.left,
+        confirmButtonRect.top,
+        confirmButtonRect.right,
+        confirmButtonRect.bottom,
+        22,
+        22
+    );
+
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+
+    DeleteObject(confirmBrush);
+    DeleteObject(confirmPen);
+
+    SelectObject(hDC, boldFont);
+    SetTextColor(hDC, RGB(250, 250, 255));
+
+    DrawTextW(
+        hDC,
+        m_practice ? L"연습 메뉴" : L"확인",
+        -1,
+        &confirmButtonRect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    );
+
+    // 재도전은 기존 동작과 클릭 영역을 유지하고 원래 결과 화면의 색상으로 표시한다.
+    HBRUSH retryBrush = CreateSolidBrush(RGB(19, 29, 62));
+    HPEN retryPen = CreatePen(PS_SOLID, 2, RGB(75, 84, 120));
+    oldBrush = static_cast<HBRUSH>(SelectObject(hDC, retryBrush));
+    oldPen = static_cast<HPEN>(SelectObject(hDC, retryPen));
+    RoundRect(hDC, m_retryButton.left, m_retryButton.top,
+        m_retryButton.right, m_retryButton.bottom, 22, 22);
+    SelectObject(hDC, oldBrush);
+    SelectObject(hDC, oldPen);
+    DeleteObject(retryBrush);
+    DeleteObject(retryPen);
+    DrawTextW(hDC, L"다시 도전", -1, &m_retryButton,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(hDC, smallFont);
+    SetTextColor(hDC, RGB(165, 170, 190));
+    const wchar_t* levels[] = {L"스토리", L"보통", L"도전"};
+    const int level = m_difficulty >= 0 && m_difficulty <= 2 ? m_difficulty : 1;
+    const std::wstring attempt = std::wstring(m_practice ? L"연습 · " : L"이번 도전 · ") + levels[level];
+    RECT modeRect = {1270, 945, 1830, 985};
+    DrawTextW(hDC, attempt.c_str(), -1, &modeRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    RECT retryHelpRect = {1270, 985, 1830, 1030};
+    DrawTextW(hDC, m_practice ? L"최고 점수는 난이도별로 저장됩니다."
+        : L"재도전하면 이번 결과를 교체합니다.", -1, &retryHelpRect,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+    // =========================
+    // GDI 폰트 정리
+    // =========================
+
+    SelectObject(hDC, oldFont);
+
+    DeleteObject(titleFont);
+    DeleteObject(bigGradeFont);
+    DeleteObject(largeFont);
+    DeleteObject(normalFont);
+    DeleteObject(boldFont);
+    DeleteObject(smallFont);
 }
