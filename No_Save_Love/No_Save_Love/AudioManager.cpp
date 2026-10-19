@@ -1,5 +1,16 @@
 ﻿#include "AudioManager.h"
 
+#include "GameOptions.h"
+#include <algorithm>
+
+namespace
+{
+    int UserVolume(int mix, int percent)
+    {
+        return (std::clamp)(mix, 0, 1000) * (std::clamp)(percent, 0, 100) / 100;
+    }
+}
+
 AudioManager::AudioManager()
 {
     bgmVolume = 250;
@@ -69,7 +80,7 @@ void AudioManager::RegisterSfx(const std::wstring& key, const std::wstring& path
     SendMciCommand(L"open \"" + path + L"\" type mpegvideo alias " + alias);
     auto volumeIt = sfxVolumes.find(key);
     int volume = (volumeIt == sfxVolumes.end()) ? sfxVolume : volumeIt->second;
-    SendMciCommand(L"setaudio " + alias + L" volume to " + std::to_wstring(volume));
+    SendMciCommand(L"setaudio " + alias + L" volume to " + std::to_wstring(UserVolume(volume, GameOptions::effectsVolume)));
 }
 
 void AudioManager::PlayBgm(const std::wstring& key, bool repeat)
@@ -104,7 +115,7 @@ void AudioManager::PlayBgm(const std::wstring& key, bool repeat)
     const std::wstring& path = it->second;
 
     SendMciCommand(L"open \"" + path + L"\" type mpegvideo alias " + currentBgmAlias);
-    SendMciCommand(L"setaudio " + currentBgmAlias + L" volume to " + std::to_wstring(bgmVolume));
+    SendMciCommand(L"setaudio " + currentBgmAlias + L" volume to " + std::to_wstring(UserVolume(bgmVolume, GameOptions::musicVolume)));
 
     if (repeat)
     {
@@ -257,29 +268,29 @@ void AudioManager::Update()
 
 void AudioManager::SetBgmVolume(int volume)
 {
-    bgmVolume = volume;
+    bgmVolume = (std::clamp)(volume, 0, 1000);
 
     if (!currentBgmKey.empty())
     {
-        SendMciCommand(L"setaudio " + currentBgmAlias + L" volume to " + std::to_wstring(bgmVolume));
+        SendMciCommand(L"setaudio " + currentBgmAlias + L" volume to " + std::to_wstring(UserVolume(bgmVolume, GameOptions::musicVolume)));
     }
 }
 
 void AudioManager::SetSfxVolume(int volume)
 {
-    sfxVolume = volume;
+    sfxVolume = (std::clamp)(volume, 0, 1000);
 
     for (const auto& pair : sfxAliases)
     {
         auto volumeIt = sfxVolumes.find(pair.first);
         int volume = (volumeIt == sfxVolumes.end()) ? sfxVolume : volumeIt->second;
-        SendMciCommand(L"setaudio " + pair.second + L" volume to " + std::to_wstring(volume));
+        SendMciCommand(L"setaudio " + pair.second + L" volume to " + std::to_wstring(UserVolume(volume, GameOptions::effectsVolume)));
     }
 }
 
 void AudioManager::SetSfxVolume(const std::wstring& key, int volume)
 {
-    sfxVolumes[key] = volume;
+    sfxVolumes[key] = (std::clamp)(volume, 0, 1000);
 
     auto aliasIt = sfxAliases.find(key);
     if (aliasIt == sfxAliases.end())
@@ -287,7 +298,14 @@ void AudioManager::SetSfxVolume(const std::wstring& key, int volume)
         return;
     }
 
-    SendMciCommand(L"setaudio " + aliasIt->second + L" volume to " + std::to_wstring(volume));
+    SendMciCommand(L"setaudio " + aliasIt->second + L" volume to " + std::to_wstring(UserVolume(volume, GameOptions::effectsVolume)));
+}
+
+void AudioManager::ApplyUserVolumes()
+{
+    // 장면의 페이드와 효과음별 믹스를 보존한 채 사용자 음량만 곱한다.
+    SetBgmVolume(bgmVolume);
+    SetSfxVolume(sfxVolume);
 }
 
 std::wstring AudioManager::GetCurrentBgmKey() const

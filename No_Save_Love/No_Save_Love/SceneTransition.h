@@ -18,7 +18,7 @@ class SceneTransition
 public:
     void Start();
     //timer
-    void Update();
+    void Update(float deltaSeconds = 0.06f);
 
     void Render(HDC hDC, int screenWidth, int screenHeight);
 
@@ -37,7 +37,7 @@ private:
 
     // 검은 화면 투명도
     // 0이면 안 보이고, 255면 완전 검정이다.
-    int alpha = 0;
+    float alpha = 0.0f;
 
     // 페이드 속도
     // 숫자가 클수록 빠르다.

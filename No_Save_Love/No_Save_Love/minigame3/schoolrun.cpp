@@ -1,6 +1,7 @@
 ﻿#include "schoolrun.h"
 
 #include "../AudioManager.h"
+#include "../GameOptions.h"
 
 #include <algorithm>
 
@@ -208,6 +209,33 @@ void schoolrun::LoadImages()
     {
         m_cloudImage.Load(L"resource\\minigame3\\cloud.png");
     }
+
+    // Prepare opaque scrolling backgrounds once, instead of scaling them every frame.
+    for (CImage* image : { &m_backgroundImage, &m_backgroundImage2 })
+    {
+        if (image->IsNull() || (image->GetWidth() == SCREEN_WIDTH && image->GetHeight() == SCREEN_HEIGHT)) continue;
+        CImage resized;
+        if (!resized.Create(SCREEN_WIDTH, SCREEN_HEIGHT, 24)) continue;
+        HDC dc = resized.GetDC();
+        image->Draw(dc, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        resized.ReleaseDC();
+        image->Destroy();
+        image->Attach(resized.Detach());
+    }
+
+    // The ground PNG has a large transparent sky; only blend rows that contain pixels.
+    m_groundVisibleTop = 0;
+    if (!m_groundImage.IsNull() && m_groundImage.GetBPP() == 32)
+    {
+        for (int y = 0; y < m_groundImage.GetHeight(); ++y)
+        {
+            const BYTE* row = static_cast<const BYTE*>(m_groundImage.GetPixelAddress(0, y));
+            bool visible = false;
+            for (int x = 0; x < m_groundImage.GetWidth(); ++x)
+                if (row[x * 4 + 3] != 0) { visible = true; break; }
+            if (visible) { m_groundVisibleTop = y; break; }
+        }
+    }
 }
 
 void schoolrun::DestroyImages()
@@ -268,6 +296,10 @@ void schoolrun::DestroyImages()
 
 void schoolrun::Reset()
 {
+    m_startLife = GameOptions::difficulty == 0 ? 5 : GameOptions::difficulty == 2 ? 2 : 3;
+    m_invincibleDuration = GameOptions::difficulty == 0 ? 1.6f : GameOptions::difficulty == 2 ? 0.8f : 1.0f;
+    m_damageCount = 0;
+    m_distanceProgress = 0.0f;
     // 플레이어 위치
     m_playerX = FIXED_PLAYER_X;
     m_playerY = static_cast<float>(GROUND_TOP - PLAYER_STAND_HEIGHT);
@@ -284,7 +316,7 @@ void schoolrun::Reset()
 
     // 결과 상태
     m_score = 0;
-    m_life = MAX_LIFE;
+    m_life = m_startLife;
     m_invincibleTime = 0.0f;
     m_isFinished = false;
     m_isGrounded = true;
@@ -305,8 +337,20 @@ void schoolrun::Reset()
     SpawnInitialJellies();
 }
 
-void schoolrun::Update()
+void schoolrun::Update(float deltaSeconds)
 {
+    for (float remaining = (std::max)(0.0f, deltaSeconds); remaining > 0.000001f;)
+    {
+        const float step = (std::min)(remaining, 0.02f);
+        UpdateStep(step);
+        remaining -= step;
+    }
+}
+
+void schoolrun::UpdateStep(float deltaSeconds)
+{
+    m_deltaSeconds = deltaSeconds;
+    m_tickScale = deltaSeconds / UPDATE_DELTA_SECONDS;
     // 종료 후 정지
     if (m_isFinished)
     {
@@ -314,14 +358,15 @@ void schoolrun::Update()
     }
 
     // 중력 적용
-    m_velocityY += m_gravity;
-    m_playerY += m_velocityY;
+    // Preserve the original 60ms jump arc while integrating smaller, smooth steps.
+    m_playerY += m_velocityY * m_tickScale + 0.5f * m_gravity * m_tickScale * (m_tickScale + 1.0f);
+    m_velocityY += m_gravity * m_tickScale;
 
     // 시간 갱신
-    m_remainingTime -= UPDATE_DELTA_SECONDS;
+    m_remainingTime -= m_deltaSeconds;
     if (m_invincibleTime > 0.0f)
     {
-        m_invincibleTime -= UPDATE_DELTA_SECONDS;
+        m_invincibleTime -= m_deltaSeconds;
         if (m_invincibleTime < 0.0f)
         {
             m_invincibleTime = 0.0f;
@@ -361,7 +406,7 @@ void schoolrun::Update()
     }
     if (m_jumpBufferTime > 0.0f)
     {
-        m_jumpBufferTime -= UPDATE_DELTA_SECONDS;
+        m_jumpBufferTime -= m_deltaSeconds;
         if (m_jumpBufferTime < 0.0f)
         {
             m_jumpBufferTime = 0.0f;
@@ -373,7 +418,7 @@ void schoolrun::Update()
 
     // 바닥 이미지 이동
     UpdateBackground();
-    m_scrollOffset += m_gameSpeed;
+    m_scrollOffset += m_gameSpeed * m_tickScale;
     while (m_scrollOffset >= SCREEN_WIDTH)
     {
         m_scrollOffset -= SCREEN_WIDTH;
@@ -383,7 +428,8 @@ void schoolrun::Update()
     UpdateClouds();
 
     // 거리 점수
-    m_distanceScore += DISTANCE_GAIN_PER_FRAME;
+    m_distanceProgress += DISTANCE_GAIN_PER_FRAME * m_tickScale;
+    m_distanceScore = static_cast<int>(m_distanceProgress + 0.0001f);
 
     // 플레이어 애니메이션
     UpdatePlayerAnimation();
@@ -584,7 +630,7 @@ bool schoolrun::TryJump()
 
 void schoolrun::UpdateBackground()
 {
-    m_backgroundOffset += m_gameSpeed * BACKGROUND_SPEED_MULTIPLIER;
+    m_backgroundOffset += m_gameSpeed * BACKGROUND_SPEED_MULTIPLIER * m_tickScale;
     while (m_backgroundOffset >= BACKGROUND_CYCLE_WIDTH)
     {
         m_backgroundOffset -= BACKGROUND_CYCLE_WIDTH;
@@ -608,7 +654,7 @@ void schoolrun::ResetClouds()
 
 void schoolrun::UpdateClouds()
 {
-    const float cloudSpeed = m_gameSpeed * CLOUD_SPEED_MULTIPLIER;
+    const float cloudSpeed = m_gameSpeed * CLOUD_SPEED_MULTIPLIER * m_tickScale;
 
     for (Cloud& cloud : m_clouds)
     {
@@ -639,7 +685,7 @@ void schoolrun::UpdateObstacles()
     // 장애물 이동과 삭제
     for (size_t i = 0; i < m_obstacles.size();)
     {
-        m_obstacles[i].x -= m_gameSpeed;
+        m_obstacles[i].x -= m_gameSpeed * m_tickScale;
 
         if (m_obstacles[i].x + m_obstacles[i].width < 0.0f)
         {
@@ -656,7 +702,7 @@ void schoolrun::UpdateJellies()
 {
     for (Jelly& jelly : m_jellies)
     {
-        jelly.x -= m_gameSpeed;
+        jelly.x -= m_gameSpeed * m_tickScale;
     }
 
     m_jellies.erase(
@@ -677,7 +723,7 @@ void schoolrun::UpdatePlayerAnimation()
         return;
     }
 
-    m_playerAnimationTime += UPDATE_DELTA_SECONDS;
+    m_playerAnimationTime += m_deltaSeconds;
     while (m_playerAnimationTime >= PLAYER_ANIMATION_INTERVAL)
     {
         m_playerAnimationTime -= PLAYER_ANIMATION_INTERVAL;
@@ -703,8 +749,9 @@ void schoolrun::CheckObstacleCollisions()
         if (IntersectRect(&intersectRect, &playerHitBox, &obstacleRect))
         {
             m_life--;
+            ++m_damageCount;
             audioManager.PlaySfx(L"minigame3_hit");
-            m_invincibleTime = INVINCIBLE_DURATION;
+            m_invincibleTime = m_invincibleDuration;
             if (m_life <= 0)
             {
                 m_life = 0;
@@ -1201,7 +1248,7 @@ void schoolrun::RenderBackground(HDC hDC)
     int segmentIndex = static_cast<int>(m_backgroundOffset) / SCREEN_WIDTH;
     int offsetX = static_cast<int>(m_backgroundOffset) % SCREEN_WIDTH;
 
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         CImage* backgroundImage = ((segmentIndex + i) % 2 == 0 || m_backgroundImage2.IsNull()) ?
             &m_backgroundImage :
@@ -1243,8 +1290,10 @@ void schoolrun::RenderGround(HDC hDC)
 
     if (!m_groundImage.IsNull())
     {
-        DrawImage(hDC, m_groundImage, -offsetX, 0, SCREEN_WIDTH+50, groundHeight);
-        DrawImage(hDC, m_groundImage, SCREEN_WIDTH - offsetX, 0, SCREEN_WIDTH+50, groundHeight);
+        const int top = m_groundVisibleTop * groundHeight / m_groundImage.GetHeight();
+        for (int x : { -offsetX, SCREEN_WIDTH - offsetX })
+            m_groundImage.Draw(hDC, x, top, SCREEN_WIDTH + 50, groundHeight - top,
+                0, m_groundVisibleTop, m_groundImage.GetWidth(), m_groundImage.GetHeight() - m_groundVisibleTop);
         return;
     }
 
@@ -1536,3 +1585,13 @@ void schoolrun::DrawImageFrame(HDC hDC, CImage& image, int drawX, int drawY, int
         frameHeight);
 }
 
+
+std::vector<std::wstring> schoolrun::GetResultDetails() const
+{
+    return {
+        L"생존 " + std::to_wstring(static_cast<int>(GAME_TIME_LIMIT - m_remainingTime)) + L" / 40초 · 피격 " + std::to_wstring(m_damageCount) + L"회",
+        L"젤리 " + std::to_wstring(m_jellyCount) + L"개 · 남은 하트 " + std::to_wstring(m_life) + L" / " + std::to_wstring(m_startLife),
+        L"목표 젤리 " + std::to_wstring(m_totalJellyCount) + L"개 중 획득 비율로 채점해요. 86%부터 100점!",
+        L"팁: 젤리를 따라 점프하고, 머리 위 장애물은 슬라이드!"
+    };
+}

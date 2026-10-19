@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <string>
+#include <vector>
 #include "../ResultGrade.h"
 #include "../StatBalance.h"
 
@@ -33,6 +34,10 @@ public:
 
     // 결과 화면을 출력한다.
     void RenderResult(HDC hDC);
+    void SetDetails(const std::vector<std::wstring>& details) { m_details = details; }
+    void SetPractice(bool practice) { m_practice = practice; }
+    void SetDifficulty(int difficulty) { m_difficulty = difficulty; }
+    bool IsRetryRequested() const { return m_retryRequested; }
 
 private:
     // 미니게임 번호를 이름으로 바꿔준다.
@@ -44,10 +49,15 @@ private:
 
     bool m_hasResult = false;     // 결과 데이터가 준비되었는지
     bool m_finished = false;      // Result 화면이 끝났는지
+    bool m_retryRequested = false;
+    bool m_practice = false;
+    int m_difficulty = 1;
+    std::vector<std::wstring> m_details;
 
     Player_state m_plusState{};   // 이번 Result에서 상승한 스탯
     Player_state m_currentState{}; // 상승량 반영 후 현재 총 스탯
     std::wstring m_playerName = L"윤서"; // 입력이 비어 있을 때 사용할 기본 이름
 
     RECT m_confirmButton = { 710, 945, 1210, 1030 };
+    RECT m_retryButton = { 260, 945, 650, 1030 };
 };

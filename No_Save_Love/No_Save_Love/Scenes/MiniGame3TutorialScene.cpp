@@ -1,5 +1,7 @@
 ﻿#include "MiniGame3TutorialScene.h"
 
+#include "../GameOptions.h"
+
 void MiniGame3TutorialScene::Initialize()
 {
     Shutdown();
@@ -165,7 +167,8 @@ void MiniGame3TutorialScene::DrawPageControlGuide(HDC hDC)
     DrawGuideStep(hDC, 2, L"3. 장애물에 맞으면 하트가 줄어듭니다.");
 
     RECT warning = { 1230, 710, 1770, 830 };
-    DrawTextInRect(hDC, L"하트 3개 안에서 최대한 멀리 달리세요!", warning, 30, RGB(255, 210, 90), DT_CENTER | DT_VCENTER | DT_WORDBREAK, FW_BOLD);
+    const int hearts = GameOptions::difficulty == 0 ? 5 : GameOptions::difficulty == 2 ? 2 : 3;
+    DrawTextInRect(hDC, L"하트 " + std::to_wstring(hearts) + L"개 안에서 최대한 멀리 달리세요!", warning, 30, RGB(255, 210, 90), DT_CENTER | DT_VCENTER | DT_WORDBREAK, FW_BOLD);
 }
 
 void MiniGame3TutorialScene::DrawPageGoalGuide(HDC hDC)

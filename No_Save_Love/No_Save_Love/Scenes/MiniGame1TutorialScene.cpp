@@ -1,5 +1,7 @@
 ﻿#include "MiniGame1TutorialScene.h"
 
+#include "../GameOptions.h"
+
 void MiniGame1TutorialScene::Initialize()
 {
     // 혹시 이미 이미지가 로드되어 있다면 먼저 정리한다.
@@ -359,7 +361,7 @@ void MiniGame1TutorialScene::DrawPageScoreGuide(HDC hDC)
     RECT failScore = { 1050, 760, 1740, 845 };
     DrawTextInRect(
         hDC,
-        L"-50점",
+        GameOptions::difficulty == 0 ? L"-25점" : GameOptions::difficulty == 2 ? L"-65점" : L"-50점",
         failScore,
         54,
         RGB(255, 120, 120),

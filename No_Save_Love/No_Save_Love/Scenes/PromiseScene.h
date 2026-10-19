@@ -21,6 +21,7 @@ public:
     bool IsTutorial() const { return tutorial; }
     bool IsFinished() const { return finished; }
     int GetScore() const;
+    std::vector<std::wstring> GetResultDetails() const;
     void FinishImmediately() { finished = true; }
     void ResetClock() { lastTick = GetTickCount64(); accumulator = 0; }
     static void DrawArcade(HDC dc);
@@ -45,6 +46,7 @@ private:
     std::array<float, 3> barrier{}, slow{};
     int heroine = 0, selected = -1, selectedSlot = -1, upgradeRound = 0;
     int spawnIndex = 0, kills = 0, combo = 0;
+    int difficulty = 1;
     float time = 0, practiceTime = 0, energy = 110, baseHp = 100;
     float support = 100, reaction = 0, visualTime = 0, spawnTimer = 2, comboTime = 0;
     float accumulator = 0, shotSoundCooldown = 0;

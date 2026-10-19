@@ -13,8 +13,9 @@ void SceneTransition::Start()
     alpha = 0;
 }
 
-void SceneTransition::Update()
+void SceneTransition::Update(float deltaSeconds)
 {
+    if (deltaSeconds <= 0.0f) return;
     // 전환 중이 아니면 아무것도 하지 않는다.
     if (state == SceneTransitionState::None)
     {
@@ -24,7 +25,7 @@ void SceneTransition::Update()
     // FadeOut: 현재 화면을 점점 어둡게 만든다.
     if (state == SceneTransitionState::FadeOut)
     {
-        alpha += speed;
+        alpha += speed * deltaSeconds / 0.06f;
 
         // 완전히 어두워졌으면 검은 화면 상태로 멈춘다.
         if (alpha >= 255)
@@ -36,7 +37,7 @@ void SceneTransition::Update()
     // FadeIn: 새 화면을 점점 밝게 만든다.
     else if (state == SceneTransitionState::FadeIn)
     {
-        alpha -= speed;
+        alpha -= speed * deltaSeconds / 0.06f;
 
         // 완전히 밝아졌으면 전환 종료
         if (alpha <= 0)
@@ -58,15 +59,15 @@ void SceneTransition::Render(HDC hDC, int screenWidth, int screenHeight)
     // 검은색 레이어를 그릴 메모리 DC를 만든다.
     HDC memDC = CreateCompatibleDC(hDC);
 
-    // 화면 크기와 같은 비트맵을 만든다.
-    HBITMAP memBitmap = CreateCompatibleBitmap(hDC, screenWidth, screenHeight);
+    // 단색 1픽셀을 늘려서 매 프레임 전체 화면 비트맵 할당을 피한다.
+    HBITMAP memBitmap = CreateCompatibleBitmap(hDC, 1, 1);
 
     // 메모리 DC에 비트맵을 연결한다.
     HBITMAP oldBitmap = static_cast<HBITMAP>(SelectObject(memDC, memBitmap));
 
     // 메모리 DC 전체를 검은색으로 칠한다.
-    RECT rect = { 0, 0, screenWidth, screenHeight };
-    HBRUSH blackBrush = CreateSolidBrush(RGB(0, 0, 0));
+    RECT rect = { 0, 0, 1, 1 };
+    HBRUSH blackBrush = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
     FillRect(memDC, &rect, blackBrush);
 
     // AlphaBlend 설정
@@ -86,14 +87,13 @@ void SceneTransition::Render(HDC hDC, int screenWidth, int screenHeight)
         memDC,
         0,
         0,
-        screenWidth,
-        screenHeight,
+        1,
+        1,
         blend
     );
 
     // GDI 객체 정리
     SelectObject(memDC, oldBitmap);
-    DeleteObject(blackBrush);
     DeleteObject(memBitmap);
     DeleteDC(memDC);
 }

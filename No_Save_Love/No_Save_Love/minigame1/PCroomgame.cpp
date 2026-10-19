@@ -1,7 +1,9 @@
 ﻿#include "PCroomgame.h"
 #include "ramen.h"
 #include "../AudioManager.h"
+#include "../GameOptions.h"
 #include <ctime>
+#include <algorithm>
 
 extern AudioManager audioManager;
 
@@ -129,7 +131,10 @@ void PCroomgame::DrawTextW(HDC hDC, int x, int y, std::wstring text)
 
 void PCroomgame::Init() {
 	score = 0;
-	timer = 50.0;
+	timer = GameOptions::difficulty == 0 ? 60.0 : GameOptions::difficulty == 2 ? 45.0 : 50.0;
+	mistakePenalty = GameOptions::difficulty == 0 ? 25 : GameOptions::difficulty == 2 ? 65 : 50;
+	successfulOrders = failedOrders = 0;
+	moveRemainder = 0.0f;
 	finished = false;
 
 	hudImg.Load(L"resource/minigame1/TIMER.png");
@@ -291,14 +296,14 @@ void PCroomgame::UpdateCenterPotAnimation()
 		return;
 	}
 
-	centerPotAnimTick++;
+	centerPotAnimTick += tickScale;
 
 	if (centerPotAnimTick < centerPotAnimDelay)
 	{
 		return;
 	}
 
-	centerPotAnimTick = 0;
+	centerPotAnimTick -= centerPotAnimDelay;
 
 	switch (centerPotState)
 	{
@@ -483,8 +488,20 @@ void PCroomgame::MOUSE(int x, int y) {
 	}
 }
 
-void PCroomgame::Update()
+void PCroomgame::Update(float deltaSeconds)
 {
+	// Small steps preserve collision/arrival handling after delayed frames.
+	for (float remaining = (std::max)(0.0f, deltaSeconds); remaining > 0.000001f;)
+	{
+		const float step = (std::min)(remaining, 0.02f);
+		UpdateStep(step);
+		remaining -= step;
+	}
+}
+
+void PCroomgame::UpdateStep(float deltaSeconds)
+{
+	tickScale = deltaSeconds / 0.06f;
 	// =========================
 	// 1. 이미 게임이 끝났다면 아무것도 하지 않음
 	// =========================
@@ -495,9 +512,9 @@ void PCroomgame::Update()
 
 	if (resultTimer > 0)
 	{
-		resultTimer--;
+		resultTimer -= tickScale;
 
-		if (resultTimer == 0)
+		if (resultTimer <= 0)
 		{
 			resultMessage = L"";
 		}
@@ -505,9 +522,9 @@ void PCroomgame::Update()
 
 	// =========================
 	// 2. 제한시간 감소
-	// SetTimer가 60ms이므로 Update() 한 번마다 0.06초 감소
+	// 실제 경과 시간만큼 감소
 	// =========================
-	timer -= 0.06;
+	timer -= deltaSeconds;
 
 	if (timer <= 0.0)
 	{
@@ -538,17 +555,10 @@ void PCroomgame::Update()
 		return;
 	}
 
-	// =========================
-	// 3. 현재 이동 중이 아니라면
-	// 캐릭터는 정지 프레임으로 유지
-	// =========================
-	if (ismoving == false)
-	{
-		currentFrame = 1;
-		animTick = 0;
-		return;
-	}
 	UpdateAnimation();
+	moveRemainder += moveSpeed * tickScale;
+	const int movement = static_cast<int>(moveRemainder);
+	moveRemainder -= movement;
 
 	// ==================================================
 	// 4. 좌석으로 배달하러 가는 중
@@ -564,7 +574,7 @@ void PCroomgame::Update()
 			// 아래쪽으로 이동
 			currentDir = DIR_FRONT;
 
-			playerPos.y += moveSpeed;
+			playerPos.y += movement;
 
 			if (playerPos.y > targetPos.y)
 			{
@@ -579,7 +589,7 @@ void PCroomgame::Update()
 			currentDir = DIR_BACK;
 
 
-			playerPos.y -= moveSpeed;
+			playerPos.y -= movement;
 
 			if (playerPos.y < targetPos.y)
 			{
@@ -598,7 +608,7 @@ void PCroomgame::Update()
 			currentDir = DIR_RIGHT;
 
 
-			playerPos.x += moveSpeed;
+			playerPos.x += movement;
 
 			if (playerPos.x > targetPos.x)
 			{
@@ -613,7 +623,7 @@ void PCroomgame::Update()
 			currentDir = DIR_LEFT;
 
 
-			playerPos.x -= moveSpeed;
+			playerPos.x -= movement;
 
 			if (playerPos.x < targetPos.x)
 			{
@@ -658,7 +668,7 @@ void PCroomgame::Update()
 			currentDir = DIR_RIGHT;
 
 
-			playerPos.x += moveSpeed;
+			playerPos.x += movement;
 
 			if (playerPos.x > targetPos.x)
 			{
@@ -673,7 +683,7 @@ void PCroomgame::Update()
 			currentDir = DIR_LEFT;
 
 
-			playerPos.x -= moveSpeed;
+			playerPos.x -= movement;
 
 			if (playerPos.x < targetPos.x)
 			{
@@ -692,7 +702,7 @@ void PCroomgame::Update()
 			currentDir = DIR_FRONT;
 
 
-			playerPos.y += moveSpeed;
+			playerPos.y += movement;
 
 			if (playerPos.y > targetPos.y)
 			{
@@ -707,7 +717,7 @@ void PCroomgame::Update()
 			currentDir = DIR_BACK;
 
 
-			playerPos.y -= moveSpeed;
+			playerPos.y -= movement;
 
 			if (playerPos.y < targetPos.y)
 			{
@@ -737,7 +747,7 @@ void PCroomgame::Update()
 
 void PCroomgame::UpdateAnimation()
 {
-	animTick++;
+	animTick += tickScale;
 
 	if (animTick >= animDelay)
 	{
@@ -748,7 +758,7 @@ void PCroomgame::UpdateAnimation()
 			currentFrame = 0;
 		}
 
-		animTick = 0;
+		animTick -= animDelay;
 	}
 }
 
@@ -762,6 +772,7 @@ void PCroomgame::DeliverToSeat(int seatIndex)
 	if (curramen.ramenSame(seatorder[seatIndex]))
 	{
 		score += 100;
+		++successfulOrders;
 		resultMessage = L"주문 성공! +100";
 		lastDeliverySucceeded = true;
 		audioManager.PlaySfx(L"minigame1_success");
@@ -771,8 +782,9 @@ void PCroomgame::DeliverToSeat(int seatIndex)
 	}
 	else
 	{
-		score -= 50;
-		resultMessage = L"주문 실패! -50";
+		score -= mistakePenalty;
+		++failedOrders;
+		resultMessage = L"주문 실패! -" + std::to_wstring(mistakePenalty);
 		lastDeliverySucceeded = false;
 		audioManager.PlaySfx(L"minigame1_fail");
 
@@ -1104,7 +1116,7 @@ void PCroomgame::SetCustomerState(int index, CustomerState state, int duration)
 		return;
 
 	customerState[index] = state;
-	customerStateTimer[index] = duration;
+	customerStateTimer[index] = static_cast<float>(duration);
 
 	customerFrame[index] = 0;
 	customerAnimTick[index] = 0;
@@ -1115,7 +1127,7 @@ void PCroomgame::UpdateCustomers()
 	for (int i = 0; i < 6; i++)
 	{
 		// 손님 애니메이션 프레임 갱신
-		customerAnimTick[i]++;
+		customerAnimTick[i] += tickScale;
 
 		if (customerAnimTick[i] >= customerAnimDelay)
 		{
@@ -1123,15 +1135,15 @@ void PCroomgame::UpdateCustomers()
 			if (customerFrame[i] >= 3)
 				customerFrame[i] = 0;
 
-			customerAnimTick[i] = 0;
+			customerAnimTick[i] -= customerAnimDelay;
 		}
 
 		// 상태 지속시간 감소
 		if (customerStateTimer[i] > 0)
 		{
-			customerStateTimer[i]--;
+			customerStateTimer[i] -= tickScale;
 
-			if (customerStateTimer[i] == 0)
+			if (customerStateTimer[i] <= 0)
 			{
 				// 먹기 애니메이션이 끝났으면 새 주문 생성
 				if (customerState[i] == ORDER2)
@@ -1347,7 +1359,7 @@ void PCroomgame::DrawIngredientImage(HDC hDC, RECT rc, int imageIndex, bool sele
 
 void PCroomgame::UpdateWaterAnimation()
 {
-	waterAnimTick++;
+	waterAnimTick += tickScale;
 
 	if (waterAnimTick >= waterAnimDelay)
 	{
@@ -1358,7 +1370,7 @@ void PCroomgame::UpdateWaterAnimation()
 			waterFrame = 0;
 		}
 
-		waterAnimTick = 0;
+		waterAnimTick -= waterAnimDelay;
 	}
 }
 
@@ -1513,7 +1525,7 @@ void PCroomgame::DrawBowls(HDC hDC)
 
 void PCroomgame::UpdateBoilingWaterAnimation()
 {
-	boilingWaterAnimTick++;
+	boilingWaterAnimTick += tickScale;
 
 	if (boilingWaterAnimTick >= boilingWaterAnimDelay)
 	{
@@ -1524,7 +1536,7 @@ void PCroomgame::UpdateBoilingWaterAnimation()
 			boilingWaterFrame = 0;
 		}
 
-		boilingWaterAnimTick = 0;
+		boilingWaterAnimTick -= boilingWaterAnimDelay;
 	}
 }
 
@@ -1632,4 +1644,14 @@ void PCroomgame::Release()
 	if (!boilingCheeseImg.IsNull()) boilingCheeseImg.Destroy();
 	if (!boilingDumplingImg.IsNull()) boilingDumplingImg.Destroy();
 	if (!boilingEggImg.IsNull()) boilingEggImg.Destroy();
+}
+
+std::vector<std::wstring> PCroomgame::GetResultDetails() const
+{
+    return {
+        L"주문 성공 " + std::to_wstring(successfulOrders) + L"회 · 잘못 배달 " + std::to_wstring(failedOrders) + L"회",
+        L"성공 +100점 · 실수 -" + std::to_wstring(mistakePenalty) + L"점 · 원점수 " + std::to_wstring(score) + L"점",
+        L"원점수 1,000점 이상이면 결과 점수 100점이에요.",
+        L"팁: 가까운 손님부터, 출발 전에는 재료를 확인하세요."
+    };
 }

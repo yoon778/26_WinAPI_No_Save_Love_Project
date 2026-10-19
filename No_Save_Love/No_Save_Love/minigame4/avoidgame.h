@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <gdiplus.h>
 #include <vector>
+#include <string>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -16,12 +17,13 @@ public:
     void Initialize(); // 게임 준비
     void Release(); // 리소스 해제
     void Reset(); // 처음 상태
-    void Update(); // 상태 갱신
+    void Update(float deltaSeconds = 0.06f); // 상태 갱신
     void Render(HDC hDC); // 화면 출력
     void OnKeyDown(WPARAM wParam); // 키 입력
     void OnKeyUp(WPARAM wParam); // 키 해제
     bool IsFinished() const; // 종료 확인
     int GetScore() const; // 점수 반환
+    std::vector<std::wstring> GetResultDetails() const;
 
 private:
     struct Platform
@@ -208,6 +210,14 @@ private:
     static constexpr float PLAYER_ANIMATION_INTERVAL = 0.08f; // [조절값] 달리기 프레임 속도
 
 private:
+    void UpdateStep(float deltaSeconds);
+    float m_deltaSeconds = 0.06f;
+    float m_tickScale = 1.0f;
+    float m_warningScale = 1.0f;
+    float m_invincibleDuration = 2.0f;
+    float m_riderMoveRemainder = 0.0f;
+    int m_startLife = 5;
+    int m_damageCount = 0;
     PlayerState m_player; // 플레이어 상태
     GameState m_game; // 게임 상태
     PatternState m_pattern; // 패턴 상태

@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <atlimage.h>
 #include <vector>
+#include <string>
 
 
 // 윤서의 등교길 미니게임
@@ -16,12 +17,13 @@ public:
     void Initialize();              // 게임 준비
     void Release();                 // 리소스 해제
     void Reset();                   // 상태 초기화
-    void Update();                  // 상태 갱신
+    void Update(float deltaSeconds = 0.06f); // 상태 갱신
     void Render(HDC hDC);           // 화면 출력
     void OnKeyDown(WPARAM wParam);  // 키 입력
     void OnKeyUp(WPARAM wParam);    // 키 해제
     bool IsFinished() const;        // 종료 확인
     int GetScore() const;           // 점수 반환
+    std::vector<std::wstring> GetResultDetails() const;
 
 private:
     enum ObstacleType
@@ -80,6 +82,14 @@ private:
     };
 
 private:
+    void UpdateStep(float deltaSeconds);
+    float m_deltaSeconds = 0.06f;
+    float m_tickScale = 1.0f;
+    float m_distanceProgress = 0.0f;
+    float m_invincibleDuration = 1.0f;
+    int m_startLife = 3;
+    int m_damageCount = 0;
+    int m_groundVisibleTop = 0;
     RECT GetPlayerRect() const;     // 현재 플레이어 영역
     RECT GetHitBoxRect() const;     // 현재 충돌 박스
     RECT GetObstacleRect(const Obstacle& obstacle) const; // 장애물 영역

@@ -32,6 +32,7 @@ public:
     void SetBgmVolume(int volume);
     void SetSfxVolume(int volume);
     void SetSfxVolume(const std::wstring& key, int volume);
+    void ApplyUserVolumes();
 
     std::wstring GetCurrentBgmKey() const;
 

@@ -3,6 +3,7 @@
 #include <atlimage.h>
 #include <gdiplus.h>
 #include "FloweringChart.h"
+#include <string>
 #pragma comment(lib, "gdiplus.lib")
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
@@ -200,6 +201,11 @@ private:
     bool isFlowering = false;
     bool floweringAudioReady = false;
     bool floweringPaused = false;
+    DWORD legacyPauseStarted = 0, legacyPausedMs = 0;
+    int difficulty = 1, hitUnits = 0, missedUnits = 0;
+    int TimingWindow(int milliseconds) const;
+    int ApproachTime() const;
+    double WindowNoteScale() const;
     DWORD floweringTimeMs = 0;
     DWORD floweringDurationMs = FloweringChart::DurationMs;
     size_t floweringNextNote = 0;
@@ -506,7 +512,7 @@ private:
     void RenderComboAnimation(HDC hDC);
 
     void AddCombo();
-    void ResetCombo();
+    void ResetCombo(int missed = 1);
 
     void UpdateSliderFollowWindowGimmick(DWORD currentTime);
     void TriggerSliderFollowWindowGimmick(DWORD currentTime);
@@ -553,6 +559,8 @@ public:
 
     bool Init(HWND hWnd, bool flowering = false, int heroineIndex = 0);
     void SetPaused(bool paused);
+    void ApplyUserVolumes();
+    void RememberWindowBounds();
     void Update();
     void Render(HDC hDC);
     void Release();
@@ -565,4 +573,5 @@ public:
     void FinishImmediately();
     int GetResultScore100() const;
     int GetFinalScore() const;
+    std::vector<std::wstring> GetResultDetails() const;
 };

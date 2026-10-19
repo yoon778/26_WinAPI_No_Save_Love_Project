@@ -4,11 +4,12 @@
 #include <atlImage.h>
 #include "ramen.h"
 #include <atlimage.h>
+#include <vector>
 
 class PCroomgame {
 private:
 	std::wstring resultMessage; // 성공/실패 메시지
-	int resultTimer;            // 메시지를 보여줄 시간
+	float resultTimer;          // 기존 60ms 단위 남은 시간
 	bool lastDeliverySucceeded; // 마지막 배달 결과
 
 	int score;		// pc방 게임 점수
@@ -36,7 +37,7 @@ private:
 	int currentFrame;     // 현재 프레임 번호
 	int maxFrame;         // 한 행의 프레임 수
 
-	int animTick;         // 애니메이션 속도 조절용
+	float animTick;       // 애니메이션 속도 조절용
 	int animDelay;        // 몇 번 Update마다 프레임 바꿀지
 
 	int currentDir;       // 현재 방향
@@ -83,15 +84,15 @@ private:
 
 	CustomerState customerState[6];
 	int customerFrame[6];
-	int customerAnimTick[6];
-	int customerStateTimer[6];
+	float customerAnimTick[6];
+	float customerStateTimer[6];
 
 	int customerAnimDelay = 4;
 
 
 
 	int boilingWaterFrame;
-	int boilingWaterAnimTick;
+	float boilingWaterAnimTick;
 	int boilingWaterAnimDelay;
 
 	void UpdateBoilingWaterAnimation();
@@ -106,7 +107,7 @@ private:
 	void DrawIngredientImage(HDC hDC, RECT rc, int imageIndex, bool selected);
 
 	int waterFrame;
-	int waterAnimTick;
+	float waterAnimTick;
 	int waterAnimDelay;
 
 	void DrawWaterButton(HDC hDC, RECT rc);
@@ -150,7 +151,7 @@ private:
 	CenterPotState centerPotState;
 
 	int centerPotFrame;
-	int centerPotAnimTick;
+	float centerPotAnimTick;
 	int centerPotAnimDelay;
 
 	bool centerPotAnimating;
@@ -160,6 +161,12 @@ private:
 	void ResetCenterPotState();
 
 	void DrawThreeFrameImage(HDC hDC, CImage& img, RECT rc, int frame);
+	void UpdateStep(float deltaSeconds);
+	float tickScale = 1.0f;
+	float moveRemainder = 0.0f;
+	int successfulOrders = 0;
+	int failedOrders = 0;
+	int mistakePenalty = 50;
 public:
 	PCroomgame();
 
@@ -167,7 +174,8 @@ public:
 	void MOUSE(int x, int y);
 	void PAINT(HDC hDC);
 	void KEYDOWN(WPARAM wParam);
-	void Update();		// 게임이 진행되면 자동으로 바뀌는 것을 처리하는 함수(ex: timer)
+	void Update(float deltaSeconds = 0.06f);
+	std::vector<std::wstring> GetResultDetails() const;
 	int getscore();
 	bool isfinished();
 	void Release();		// 미니게임에서 사용한 리소스 자원 정리하는 함수(WM_DESTORY에 들어가는거)

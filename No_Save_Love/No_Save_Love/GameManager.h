@@ -20,6 +20,7 @@
 
 // 데이터
 #include "StoryData.h"
+#include "PlayerProfile.h"
 
 // 효과
 #include "SceneTransition.h"
@@ -49,13 +50,14 @@ public:
     void OnTimer(HWND hWnd);
     UINT GetUpdateInterval() const
     {
-        // 다른 게임과 장면 전환은 프레임 횟수에 의존하므로 기존 주기를 유지한다.
-        return now_game_mode==game_mode_info::MiniGame5 && !m_exitConfirmOpen && !sceneTransition.IsActive() ? 16 : 60;
+        return 16;
     }
     void OnMouseUp(int x, int y);
     void OnMouseMove(int x, int y);
     void OnMouseWheel(int delta);
     void OnCaptureLost();
+    void OnWindowModeChanged();
+    void OnFocusLost();
 
 private:
     HWND m_hWnd = nullptr;
@@ -197,7 +199,7 @@ private:
     void HandleCurrentMiniGameKey(wchar_t inputChar);
 
     // 현재 실행 중인 미니게임을 갱신한다.
-    void UpdateCurrentMiniGame();
+    void UpdateCurrentMiniGame(float deltaSeconds);
 
     // 현재 실행 중인 미니게임을 출력한다.
     void RenderCurrentMiniGame(HDC hDC);
@@ -258,5 +260,47 @@ private: // 종료 확인 팝업
     void RenderExitConfirmPopup(HDC hDC);
     void DrawExitConfirmButton(HDC hDC, const RECT& rect, const wchar_t* text);
     bool IsPointInsideRect(const RECT& rect, int x, int y) const;
+
+private:
+    enum class Panel { None, Settings, Notebook, Gallery, Practice };
+    Panel m_panel = Panel::None;
+    Panel m_panelAfterTransition = Panel::None;
+    bool m_panelKeepsPause = false;
+    bool m_notebookContinuesStory = false;
+    int m_notebookPage = 0;
+    CImage m_notebookPhoto;
+    int m_notebookPhotoPage = -1;
+    int m_notebookPhotoHeroine = -1;
+    int m_galleryTab = 0;
+    int m_practiceHeroine = 0;
+    bool m_practice = false;
+    bool m_replaying = false;
+    int m_replayEndingType = -1;
+    PlayerProfile m_profile;
+    std::array<int, 5> m_completedChoices = {{-1, -1, -1, -1, -1}};
+    std::array<std::wstring, 5> m_eventDates;
+    int m_activeEvent = -1;
+    int m_activeEventHeroine = -1;
+    Player_state m_resultBasePlayer{};
+    int m_lastResultGame = -1;
+    int m_attemptDifficulty = 1;
+    bool m_resultPending = false;
+    bool m_rhythmStartsAfterFade = false;
+    ULONGLONG m_lastUpdateTick = 0;
+
+    bool IsMiniGameRunning() const;
+    void OpenPanel(Panel panel);
+    void ClosePanel();
+    void RenderPanel(HDC dc);
+    void PrepareNotebookPhoto();
+    void HandlePanelClick(int x, int y);
+    void RenderTitleActions(HDC dc);
+    bool HandleTitleAction(int x, int y);
+    bool CompleteEventIfNeeded();
+    void StartPractice(int game);
+    void StartReplay(int item);
+    void RetryMiniGame();
+    void ReturnToCollection(Panel panel);
+    void ApplyOptions(bool windowChanged = false);
 
 };

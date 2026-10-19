@@ -1,8 +1,23 @@
 #include "RhythmMiniGame.h"
 #include "../ResultGrade.h"
+#include "../GameOptions.h"
+#include <algorithm>
 #include <cstdlib>
 #include <cmath>
 #include <string>
+
+namespace
+{
+    void FitRhythmWindow(int& x, int& y, int& width, int& height)
+    {
+        const int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
+        const int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
+        width = (std::min)(width, desktopWidth);
+        height = (std::min)(height, desktopHeight);
+        x = (std::clamp)(x, 0, desktopWidth - width);
+        y = (std::clamp)(y, 0, desktopHeight - height);
+    }
+}
 
 RhythmMiniGame::RhythmMiniGame()
 {
@@ -25,6 +40,9 @@ RhythmMiniGame::RhythmMiniGame()
 bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
 {
     isFlowering = flowering;
+    difficulty = (std::clamp)(GameOptions::difficulty, 0, 2);
+    hitUnits = missedUnits = 0;
+    legacyPauseStarted = legacyPausedMs = 0;
     floweringHeroine = heroineIndex >= 0 && heroineIndex < 3 ? heroineIndex : 0;
     floweringTimeMs = 0;
     floweringHitUnits = 0;
@@ -45,16 +63,9 @@ bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
     // 원래 창 위치와 크기 저장
     GetWindowRect(gameHwnd, &originalWindowRect);
 
-    // 원래 클라이언트 영역 크기 저장
-    RECT clientRect;
-    GetClientRect(gameHwnd, &clientRect);
-
-    originalClientWidth = clientRect.right - clientRect.left;
-    originalClientHeight = clientRect.bottom - clientRect.top;
-
-    // 이후 노트 생성 범위도 실제 창 내부 크기를 기준으로 사용
-    screenWidth = originalClientWidth;
-    screenHeight = originalClientHeight;
+    // 모든 입력과 그림은 main의 1920x1080 논리 캔버스를 공유한다.
+    originalClientWidth = screenWidth = 1920;
+    originalClientHeight = screenHeight = 1080;
 
     hitCircleImg.Load(L"resource\\minigame2\\hitcircle\\hitcircle.png");
     hitCircleOverlayImg.Load(L"resource\\minigame2\\hitcircle\\hitcircleoverlay.png");
@@ -328,6 +339,7 @@ bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
 
     PlayBGM();
     LoadEffectSounds();
+    ApplyUserVolumes();
 
     bgmStartTime = GetRhythmTime();
     currentBeatIndex = 0;
@@ -343,9 +355,10 @@ bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
 
 void RhythmMiniGame::Update()
 {
+    if (floweringPaused) return;
     if (isFlowering)
     {
-        if (floweringPaused || !floweringAudioReady) return;
+        if (!floweringAudioReady) return;
         UpdateFloweringClock();
         if (!floweringAudioReady) return;
     }
@@ -438,12 +451,8 @@ void RhythmMiniGame::Update()
         }
     }
 
-    cursorRotationAngle += 3.0f;
-
-    if (cursorRotationAngle >= 360.0f)
-    {
-        cursorRotationAngle -= 360.0f;
-    }
+    // 기존 초당 50도 회전 속도를 갱신 주기와 무관하게 유지한다.
+    cursorRotationAngle = std::fmod(elapsedBgmTime * .05f, 360.f);
 
     // =========================
     // 일정 시간마다 히트서클 생성
@@ -461,7 +470,7 @@ void RhythmMiniGame::Update()
         if (hitCircles[i].isActive == true)
         {
             // 눌러야 할 시간보다 250ms 이상 늦으면 Miss
-            if (currentTime > hitCircles[i].hitTime + 250)
+            if (currentTime > hitCircles[i].hitTime + TimingWindow(250))
             {
                 hitCircles[i].isActive = false;
                 hitCircles[i].isJudged = true;
@@ -485,7 +494,7 @@ void RhythmMiniGame::Update()
             sliders[i].isStarted == false &&
             sliders[i].isFinished == false)
         {
-            if (currentTime > sliders[i].hitTime + 250)
+            if (currentTime > sliders[i].hitTime + TimingWindow(250))
             {
                 sliders[i].isActive = false;
                 sliders[i].isFailed = true;
@@ -493,7 +502,7 @@ void RhythmMiniGame::Update()
                 sliderCount--;
 
                 lastJudge = JUDGE_MISS;
-                ResetCombo();
+                ResetCombo(2);
                 PlayMissSound();
 
                 judgeX = sliders[i].startX;
@@ -564,7 +573,7 @@ void RhythmMiniGame::Update()
             int dx = mouseX - ballX;
             int dy = mouseY - ballY;
 
-            double followScale = 0.75;
+            double followScale = (difficulty == 0 ? .9 : difficulty == 2 ? .675 : .75) * WindowNoteScale();
 
             int followRadius =
                 (int)(sliderFollowCircleImg.GetWidth() * followScale / 2);
@@ -706,7 +715,7 @@ void RhythmMiniGame::Render(HDC hDC)
             }
             else
             {
-                HPEN sliderOutlinePen = CreatePen(PS_SOLID, 90, RGB(255, 255, 255));
+                HPEN sliderOutlinePen = CreatePen(PS_SOLID, static_cast<int>(90 * WindowNoteScale()), RGB(255, 255, 255));
                 HPEN oldPen = (HPEN)SelectObject(hDC, sliderOutlinePen);
 
                 MoveToEx(hDC, startX, startY, NULL);
@@ -715,7 +724,7 @@ void RhythmMiniGame::Render(HDC hDC)
                 SelectObject(hDC, oldPen);
                 DeleteObject(sliderOutlinePen);
 
-                HPEN sliderInnerPen = CreatePen(PS_SOLID, 72, RGB(180, 180, 180));
+                HPEN sliderInnerPen = CreatePen(PS_SOLID, static_cast<int>(72 * WindowNoteScale()), RGB(180, 180, 180));
                 oldPen = (HPEN)SelectObject(hDC, sliderInnerPen);
 
                 MoveToEx(hDC, startX, startY, NULL);
@@ -761,8 +770,8 @@ void RhythmMiniGame::Render(HDC hDC)
                 int approachBaseWidth = approachCircleImg.GetWidth();
                 int approachBaseHeight = approachCircleImg.GetHeight();
 
-                int approachWidth = (int)(approachBaseWidth * currentScale);
-                int approachHeight = (int)(approachBaseHeight * currentScale);
+                int approachWidth = (int)(approachBaseWidth * currentScale * WindowNoteScale());
+                int approachHeight = (int)(approachBaseHeight * currentScale * WindowNoteScale());
 
                 int approachDrawX = startX - approachWidth / 2;
                 int approachDrawY = startY - approachHeight / 2;
@@ -778,8 +787,8 @@ void RhythmMiniGame::Render(HDC hDC)
             // -------------------------
             // 시작 원 이미지
             // -------------------------
-            int startCircleWidth = sliderStartCircleImg.GetWidth();
-            int startCircleHeight = sliderStartCircleImg.GetHeight();
+            int startCircleWidth = static_cast<int>(sliderStartCircleImg.GetWidth() * WindowNoteScale());
+            int startCircleHeight = static_cast<int>(sliderStartCircleImg.GetHeight() * WindowNoteScale());
 
             sliderStartCircleImg.Draw(
                 hDC,
@@ -843,7 +852,7 @@ void RhythmMiniGame::Render(HDC hDC)
             // -------------------------
             // 슬라이더 팔로우 원
             // -------------------------
-            double followScale = 0.75;
+            double followScale = (difficulty == 0 ? .9 : difficulty == 2 ? .675 : .75) * WindowNoteScale();
 
             int followWidth =
                 (int)(sliderFollowCircleImg.GetWidth() * followScale);
@@ -859,8 +868,8 @@ void RhythmMiniGame::Render(HDC hDC)
                 followHeight
             );
 
-            int ballWidth = sliderBallImg.GetWidth();
-            int ballHeight = sliderBallImg.GetHeight();
+            int ballWidth = static_cast<int>(sliderBallImg.GetWidth() * WindowNoteScale());
+            int ballHeight = static_cast<int>(sliderBallImg.GetHeight() * WindowNoteScale());
 
             sliderBallImg.Draw(
                 hDC,
@@ -947,10 +956,7 @@ void RhythmMiniGame::Render(HDC hDC)
             if (isFlowering && HideFloweringCircle(i, GetRhythmTime())) continue;
             // 앵콜은 전용 접근 원/반복 화살표를 오버레이에서 그린다.
             if (isFlowering && (hitCircles[i].floweringFlags & (FloweringChart::Encore | FloweringChart::Link))) continue;
-            double hitCircleScale =
-                isWindowGimmickActive
-                ? SMALL_WINDOW_HITCIRCLE_SCALE
-                : 1.0;
+            double hitCircleScale = WindowNoteScale() * (isWindowGimmickActive ? SMALL_WINDOW_HITCIRCLE_SCALE : 1.0);
 
             int imageWidth =
                 (int)(hitCircleImg.GetWidth() * hitCircleScale);
@@ -1292,9 +1298,10 @@ void RhythmMiniGame::Release()
 
 void RhythmMiniGame::OnMouseDown(int x, int y)
 {
+    if (floweringPaused || isResultScreenActive) return;
     if (isFlowering)
     {
-        if (floweringPaused || isResultScreenActive || !floweringAudioReady) return;
+        if (!floweringAudioReady) return;
         UpdateFloweringClock();
         if (!floweringAudioReady) return;
     }
@@ -1314,10 +1321,7 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
     {
         if (hitCircles[i].isActive == true)
         {
-            double hitCircleScale =
-                isWindowGimmickActive
-                ? SMALL_WINDOW_HITCIRCLE_SCALE
-                : 1.0;
+            double hitCircleScale = WindowNoteScale() * (isWindowGimmickActive ? SMALL_WINDOW_HITCIRCLE_SCALE : 1.0);
 
             int hitRadius =
                 (int)(hitCircleImg.GetWidth() * hitCircleScale / 2) + 15;
@@ -1355,19 +1359,19 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
         if (timeDiff < 0)
             timeDiff = -timeDiff;
 
-        if (timeDiff <= (isFlowering ? 110 : 80))
+        if (timeDiff <= TimingWindow(isFlowering ? 110 : 80))
         {
             lastJudge = JUDGE_PERFECT;
             score += 300;
         }
-        else if (timeDiff <= (isFlowering ? 190 : 160))
+        else if (timeDiff <= TimingWindow(isFlowering ? 190 : 160))
         {
             lastJudge = JUDGE_GOOD;
             score += 100;
         }
         else if (
-            (signedTimeDiff < 0 && timeDiff <= 350) ||
-            (signedTimeDiff > 0 && timeDiff <= 250)
+            (signedTimeDiff < 0 && timeDiff <= TimingWindow(350)) ||
+            (signedTimeDiff > 0 && timeDiff <= TimingWindow(250))
             )
         {
             lastJudge = JUDGE_BAD;
@@ -1405,7 +1409,7 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
             int dx = x - sliders[i].startX;
             int dy = y - sliders[i].startY;
 
-            int hitRadius = sliderStartCircleImg.GetWidth() / 2 + 15;
+            int hitRadius = static_cast<int>(sliderStartCircleImg.GetWidth() * WindowNoteScale() / 2) + 15;
 
             if (dx * dx + dy * dy <= hitRadius * hitRadius)
             {
@@ -1417,22 +1421,22 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
                 if (timeDiff < 0)
                     timeDiff = -timeDiff;
 
-                if (timeDiff <= (isFlowering ? 110 : 80))
+                if (timeDiff <= TimingWindow(isFlowering ? 110 : 80))
                 {
                     lastJudge = JUDGE_PERFECT;
                     score += 300;
                 }
-                else if (timeDiff <= (isFlowering ? 190 : 160))
+                else if (timeDiff <= TimingWindow(isFlowering ? 190 : 160))
                 {
                     lastJudge = JUDGE_GOOD;
                     score += 100;
                 }
                 else if (
                     // 조금 빠른 클릭은 350ms까지 허용
-                    (signedTimeDiff < 0 && timeDiff <= 350) ||
+                    (signedTimeDiff < 0 && timeDiff <= TimingWindow(350)) ||
 
                     // 늦은 클릭은 250ms까지 허용
-                    (signedTimeDiff > 0 && timeDiff <= 250)
+                    (signedTimeDiff > 0 && timeDiff <= TimingWindow(250))
                     )
                 {
                     lastJudge = JUDGE_BAD;
@@ -1625,7 +1629,7 @@ void RhythmMiniGame::CreateSlider(
 
             // 슬라이더 볼 속도
             // 값이 작을수록 느리고, 클수록 빠름
-            double sliderSpeed = 350.0;   // 초당 350픽셀 이동
+            double sliderSpeed = 350.0 * (isWindowFollowTarget ? WindowNoteScale() : 1.0);
 
             sliders[i].duration =
                 (DWORD)((distance / sliderSpeed) * 1000.0);
@@ -1783,6 +1787,7 @@ void RhythmMiniGame::TriggerWindowGimmick(DWORD currentTime, bool isSecondRun)
     if (targetY < 0)
         targetY = 0;
 
+    FitRhythmWindow(targetX, targetY, targetWindowWidth, targetWindowHeight);
     SetWindowPos(
         gameHwnd,
         NULL,
@@ -1794,15 +1799,14 @@ void RhythmMiniGame::TriggerWindowGimmick(DWORD currentTime, bool isSecondRun)
     );
 
     // 바뀐 실제 클라이언트 영역 크기 반영
-    RECT clientRect;
-    GetClientRect(gameHwnd, &clientRect);
-
-    screenWidth = clientRect.right - clientRect.left;
-    screenHeight = clientRect.bottom - clientRect.top;
+    screenWidth = 1920;
+    screenHeight = 1080;
 
     // 기존 노트는 모두 제거
     ClearAllNotes();
 
+    // 축소 창에서도 음표의 실제 표시 크기를 유지한다.
+    isWindowGimmickActive = true;
     // 바뀐 창 크기 안에서 즉시 새 히트서클 생성
     CreateImmediateHitCircle();
 
@@ -1842,11 +1846,8 @@ void RhythmMiniGame::RestoreOriginalWindow(DWORD currentTime)
         SWP_NOZORDER | SWP_NOACTIVATE
     );
 
-    RECT clientRect;
-    GetClientRect(gameHwnd, &clientRect);
-
-    screenWidth = clientRect.right - clientRect.left;
-    screenHeight = clientRect.bottom - clientRect.top;
+    screenWidth = 1920;
+    screenHeight = 1080;
 
     // 작은 창 기믹 종료
     isWindowGimmickActive = false;
@@ -1895,8 +1896,8 @@ void RhythmMiniGame::CreateImmediateHitCircle()
 
     if (isWindowGimmickActive == true)
     {
-        marginX = 80;
-        marginY = 70;
+        marginX = static_cast<int>(80 * WindowNoteScale());
+        marginY = static_cast<int>(70 * WindowNoteScale());
     }
     else
     {
@@ -2037,6 +2038,7 @@ void RhythmMiniGame::MoveWindowJumpStep(int step, DWORD currentTime)
         adjustedRect.bottom - adjustedRect.top;
 
     // 실제 창 위치 적용
+    FitRhythmWindow(targetX, targetY, targetWindowWidth, targetWindowHeight);
     SetWindowPos(
         gameHwnd,
         NULL,
@@ -2048,11 +2050,8 @@ void RhythmMiniGame::MoveWindowJumpStep(int step, DWORD currentTime)
     );
 
     // 바뀐 클라이언트 크기 반영
-    RECT clientRect;
-    GetClientRect(gameHwnd, &clientRect);
-
-    screenWidth = clientRect.right - clientRect.left;
-    screenHeight = clientRect.bottom - clientRect.top;
+    screenWidth = 1920;
+    screenHeight = 1080;
 
     ClearAllNotes();
 
@@ -2127,12 +2126,13 @@ void RhythmMiniGame::TriggerSliderFollowWindowGimmick(DWORD currentTime)
     int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
     int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
 
-    int maxX = desktopWidth - targetWindowWidth;
-    int maxY = desktopHeight - targetWindowHeight;
+    int maxX = (std::max)(0, desktopWidth - targetWindowWidth);
+    int maxY = (std::max)(0, desktopHeight - targetWindowHeight);
 
     int targetX = rand() % (maxX + 1);
     int targetY = rand() % (maxY + 1);
 
+    FitRhythmWindow(targetX, targetY, targetWindowWidth, targetWindowHeight);
     SetWindowPos(
         gameHwnd,
         NULL,
@@ -2146,11 +2146,8 @@ void RhythmMiniGame::TriggerSliderFollowWindowGimmick(DWORD currentTime)
     PlayWindowSound();
 
     // 바뀐 창 크기 반영
-    RECT clientRect;
-    GetClientRect(gameHwnd, &clientRect);
-
-    screenWidth = clientRect.right - clientRect.left;
-    screenHeight = clientRect.bottom - clientRect.top;
+    screenWidth = 1920;
+    screenHeight = 1080;
 
     // 이 위치를 창 이동 기준점으로 저장
     GetWindowRect(gameHwnd, &sliderFollowBaseWindowRect);
@@ -2201,11 +2198,11 @@ void RhythmMiniGame::MoveWindowWithSliderBall(DWORD currentTime)
 
             int moveX =
                 (int)((ballX - sliders[i].startX) *
-                    WINDOW_SLIDER_FOLLOW_POWER);
+                    WINDOW_SLIDER_FOLLOW_POWER / WindowNoteScale());
 
             int moveY =
                 (int)((ballY - sliders[i].startY) *
-                    WINDOW_SLIDER_FOLLOW_POWER);
+                    WINDOW_SLIDER_FOLLOW_POWER / WindowNoteScale());
 
             int windowWidth =
                 sliderFollowBaseWindowRect.right -
@@ -2260,8 +2257,8 @@ void RhythmMiniGame::CreateSliderFollowPattern(int patternIndex, DWORD currentTi
     int endY = 0;
 
     // 너무 가장자리에 붙지 않게 하는 여백
-    int marginX = 110;
-    int marginY = 90;
+    int marginX = static_cast<int>(110 * WindowNoteScale());
+    int marginY = static_cast<int>(90 * WindowNoteScale());
 
     // 랜덤 보정 범위
     int randomXRange = 120;
@@ -2377,8 +2374,8 @@ void RhythmMiniGame::MoveSliderFollowWindowToPatternPosition(int patternIndex)
     int desktopWidth = GetSystemMetrics(SM_CXSCREEN);
     int desktopHeight = GetSystemMetrics(SM_CYSCREEN);
 
-    int maxX = desktopWidth - windowWidth;
-    int maxY = desktopHeight - windowHeight;
+    int maxX = (std::max)(0, desktopWidth - windowWidth);
+    int maxY = (std::max)(0, desktopHeight - windowHeight);
 
     if (maxX < 0)
         maxX = 0;
@@ -2476,6 +2473,7 @@ void RhythmMiniGame::AddCursorTrailPoint(int x, int y, DWORD createTime)
 
 void RhythmMiniGame::AddCombo()
 {
+    ++hitUnits;
     combo++;
     if (isFlowering) ++floweringHitUnits;
 
@@ -2490,8 +2488,9 @@ void RhythmMiniGame::AddCombo()
     }
 }
 
-void RhythmMiniGame::ResetCombo()
+void RhythmMiniGame::ResetCombo(int missed)
 {
+    missedUnits += missed;
     combo = 0;
     TriggerMissReaction();
 }
@@ -2605,7 +2604,7 @@ void RhythmMiniGame::PlayBGM()
     mciSendString(L"status rhythmBGM length", length, 64, NULL);
     floweringDurationMs = static_cast<DWORD>((std::max)(0, _wtoi(length)));
     floweringAudioReady = error == 0 && floweringDurationMs >= static_cast<DWORD>(FloweringChart::BeatTime(580));
-    mciSendString(L"setaudio rhythmBGM volume to 250", NULL, 0, NULL);
+    ApplyUserVolumes();
     const auto playError = mciSendString(L"play rhythmBGM", NULL, 0, NULL);
     if (playError != 0) floweringAudioReady = false;
 }
@@ -2677,8 +2676,8 @@ void RhythmMiniGame::UpdateBeatSpawn(DWORD currentTime)
     // =========================
     if (isWindowGimmickActive == true)
     {
-        int marginX = 80;
-        int marginY = 70;
+        int marginX = static_cast<int>(80 * WindowNoteScale());
+        int marginY = static_cast<int>(70 * WindowNoteScale());
 
         int randomX =
             marginX + rand() % (screenWidth - marginX * 2);
@@ -2980,7 +2979,7 @@ void RhythmMiniGame::StartWindowShake(
     int power
 )
 {
-    if (gameHwnd == NULL)
+    if (gameHwnd == NULL || !GameOptions::screenShake)
         return;
 
     GetWindowRect(gameHwnd, &windowShakeBaseRect);
@@ -2999,7 +2998,7 @@ void RhythmMiniGame::UpdateWindowShake(DWORD currentTime)
     DWORD elapsedTime =
         currentTime - windowShakeStartTime;
 
-    if (elapsedTime >= windowShakeDuration)
+    if (!GameOptions::screenShake || elapsedTime >= windowShakeDuration)
     {
         SetWindowPos(
             gameHwnd,
@@ -3534,6 +3533,19 @@ int RhythmMiniGame::GetFinalScore() const
     return finalScore;
 }
 
+std::vector<std::wstring> RhythmMiniGame::GetResultDetails() const
+{
+    const int total = hitUnits + missedUnits;
+    const int accuracy = total > 0 ? (std::clamp)(score * 100 / (total * 300), 0, 100) : 0;
+    return {
+        L"성공 판정 " + std::to_wstring(hitUnits) + L"회 · 놓친 판정 " + std::to_wstring(missedUnits) + L"회",
+        L"정확도 " + std::to_wstring(accuracy) + L"% · 최대 콤보 " + std::to_wstring(maxCombo)
+            + L"  (슬라이더 시작과 완주를 각각 집계)",
+        missedUnits > 0 ? L"접근 원이 겹칠 때 누르고, 슬라이더는 끝까지 누른 채 따라가 보세요."
+            : L"끝까지 잘 이어갔어요. 접근 원이 안쪽 원과 겹치는 순간을 맞추면 정확도가 올라가요."
+    };
+}
+
 void RhythmMiniGame::InitFinalSparkles()
 {
     lastFinalSparkleSpawnTime = 0;
@@ -3777,6 +3789,34 @@ void RhythmMiniGame::LoadEffectSounds()
         0,
         NULL
     );
+}
+
+void RhythmMiniGame::ApplyUserVolumes()
+{
+    const int music = 250 * (std::clamp)(GameOptions::musicVolume, 0, 100) / 100;
+    const int effects = 1000 * (std::clamp)(GameOptions::effectsVolume, 0, 100) / 100;
+    const auto musicCommand = L"setaudio rhythmBGM volume to " + std::to_wstring(music);
+    mciSendString(musicCommand.c_str(), nullptr, 0, nullptr);
+    for (const auto* alias : {L"hitSound", L"missSound", L"windowSound", L"impactSound"})
+    {
+        const auto command = L"setaudio " + std::wstring(alias) + L" volume to " + std::to_wstring(effects);
+        mciSendString(command.c_str(), nullptr, 0, nullptr);
+    }
+}
+
+double RhythmMiniGame::WindowNoteScale() const
+{
+    if (isFlowering || !(isWindowGimmickActive || isWindowJumpGimmickActive || isSliderFollowWindowGimmickActive)) return 1.0;
+    RECT client{};
+    if (!gameHwnd || !GetClientRect(gameHwnd, &client) || client.right <= 0 || client.bottom <= 0) return 1.0;
+    const double scale = (std::min)(client.right / 1920.0, client.bottom / 1080.0);
+    return (std::clamp)(1.0 / scale, 1.0, 3.0);
+}
+
+void RhythmMiniGame::RememberWindowBounds()
+{
+    if (gameHwnd) GetWindowRect(gameHwnd, &originalWindowRect);
+    isWindowShakeActive = false;
 }
 
 void RhythmMiniGame::CloseEffectSounds()

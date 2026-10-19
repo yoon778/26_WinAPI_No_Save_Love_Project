@@ -33,7 +33,18 @@ namespace
 
 DWORD RhythmMiniGame::GetRhythmTime() const
 {
-    return isFlowering ? floweringTimeMs : GetTickCount();
+    return isFlowering ? floweringTimeMs
+        : (floweringPaused ? legacyPauseStarted : GetTickCount()) - legacyPausedMs;
+}
+
+int RhythmMiniGame::TimingWindow(int milliseconds) const
+{
+    return milliseconds * (difficulty == 0 ? 135 : difficulty == 2 ? 80 : 100) / 100;
+}
+
+int RhythmMiniGame::ApproachTime() const
+{
+    return difficulty == 0 ? 1560 : difficulty == 2 ? 1000 : FloweringChart::ApproachMs;
 }
 
 void RhythmMiniGame::UpdateFloweringClock()
@@ -57,8 +68,13 @@ void RhythmMiniGame::UpdateFloweringClock()
 
 void RhythmMiniGame::SetPaused(bool paused)
 {
-    if (!isFlowering || !floweringAudioReady || isResultScreenActive || floweringPaused == paused) return;
-    if (paused) UpdateFloweringClock();
+    if ((isFlowering && !floweringAudioReady) || isResultScreenActive || floweringPaused == paused) return;
+    if (paused)
+    {
+        if (isFlowering) UpdateFloweringClock();
+        else legacyPauseStarted = GetTickCount();
+    }
+    else if (!isFlowering) legacyPausedMs += GetTickCount() - legacyPauseStarted;
     if (mciSendString(paused ? L"pause rhythmBGM" : L"resume rhythmBGM", nullptr, 0, nullptr) != 0)
         floweringAudioReady = false;
     floweringPaused = paused;
@@ -69,7 +85,7 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
     while (floweringNextNote < floweringNotes.size())
     {
         const auto& note = floweringNotes[floweringNextNote];
-        if (currentTime + FloweringChart::ApproachMs < static_cast<DWORD>(note.timeMs)) break;
+        if (currentTime + ApproachTime() < static_cast<DWORD>(note.timeMs)) break;
         ++floweringNextNote;
         // 지연된 프레임도 원래 음악 타임스탬프를 유지한다. 놓친 노트는 공통 판정에서 MISS 처리한다.
         if (note.durationMs == 0)
@@ -79,7 +95,7 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
                 if (circle.isActive) continue;
                 circle = {true, false, static_cast<int>(note.x * screenWidth),
                     static_cast<int>(note.y * screenHeight),
-                    static_cast<DWORD>(note.timeMs - FloweringChart::ApproachMs),
+                    static_cast<DWORD>(note.timeMs - ApproachTime()),
                     static_cast<DWORD>(note.timeMs), note.flags,
                     static_cast<int>(note.endX * screenWidth), static_cast<int>(note.endY * screenHeight)};
                 ++hitCircleCount;
@@ -97,7 +113,7 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
                 slider.startY = static_cast<int>(note.y * screenHeight);
                 slider.endX = static_cast<int>(note.endX * screenWidth);
                 slider.endY = static_cast<int>(note.endY * screenHeight);
-                slider.spawnTime = note.timeMs - FloweringChart::ApproachMs;
+                slider.spawnTime = note.timeMs - ApproachTime();
                 slider.hitTime = note.timeMs;
                 slider.duration = note.durationMs;
                 slider.floweringCurved = (note.flags & FloweringChart::Curve) != 0;

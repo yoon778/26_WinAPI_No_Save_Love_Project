@@ -1,5 +1,6 @@
 ﻿#include "PromiseScene.h"
 #include "../AudioManager.h"
+#include "../GameOptions.h"
 #include "ArcadeBackdrop.h"
 extern AudioManager audioManager;
 #include <algorithm>
@@ -62,11 +63,13 @@ void PromiseScene::Initialize(int who, bool showTutorial)
 {
     Shutdown();
     heroine = (std::clamp)(who, 0, 2); tutorial = showTutorial;
+    difficulty = (std::clamp)(GameOptions::difficulty, 0, 2);
     finished = victory = choosing = bossSpawned = false; practice = true;
     practicedPlace = practicedRecall = practicedSupport = false;
     selected = selectedSlot = -1; upgradeRound = kills = combo = spawnIndex = 0;
     time = practiceTime = reaction = visualTime = comboTime = shotSoundCooldown = 0;
-    energy = 110; baseHp = support = 100; spawnTimer = 2;
+    energy = difficulty == 0 ? 140.f : difficulty == 2 ? 90.f : 110.f;
+    baseHp = support = 100; spawnTimer = 2;
     units.fill(Unit{}); upgrades.fill(false); barrier.fill(0); slow.fill(0);
     enemies.clear(); sparks.clear();
     feedback = L"연습은 점수에 포함되지 않아요. 유닛을 골라 빛나는 칸에 놓아 보세요.";
@@ -214,9 +217,11 @@ void PromiseScene::BeginBattle()
 {
     practice = false; time = 0; spawnIndex = kills = combo = 0; spawnTimer = 2;
     units.fill(Unit{}); enemies.clear(); sparks.clear();
-    barrier.fill(0); slow.fill(0); energy = 110; support = baseHp = 100;
+    barrier.fill(0); slow.fill(0);
+    energy = difficulty == 0 ? 140.f : difficulty == 2 ? 90.f : 110.f;
+    support = baseHp = 100;
     selected = selectedSlot = -1;
-    feedback = L"실전 시작! 연습 상태를 초기화했어요. 에너지 110으로 첫 방어선을 만들어요.";
+    feedback = L"실전 시작! 에너지 " + std::to_wstring(static_cast<int>(energy)) + L"으로 첫 방어선을 만들어요.";
 }
 int PromiseScene::NextLane() const { return (spawnIndex * 2 + spawnIndex / 4) % 3; }
 int PromiseScene::NextType() const
@@ -238,7 +243,8 @@ void PromiseScene::SpawnWave()
     if (!practice && time >= 60 && spawnIndex % 2 == 0 && (type == Medic || type == Mortar || type == Jammer))
         enemies.push_back({lane, Soldier, 1345, hp[Soldier], hp[Soldier]});
     ++spawnIndex;
-    spawnTimer += practice ? 6.f : time < 20 ? 4.2f : time < 40 ? 4.f : time < 80 ? 3.8f : 3.1f;
+    const float interval = time < 20 ? 4.2f : time < 40 ? 4.f : time < 80 ? 3.8f : 3.1f;
+    spawnTimer += practice ? 6.f : interval * (difficulty == 0 ? 1.3f : difficulty == 2 ? .85f : 1.f);
 }
 void PromiseScene::Damage(Enemy& enemy, float damage, int source)
 {
@@ -303,6 +309,16 @@ int PromiseScene::GetScore() const
             : 80 + static_cast<int>((std::max)(0.f, baseHp) * 9 / 75);
     }
     return practice ? 0 : (std::min)(79, static_cast<int>(time / Duration * 79));
+}
+std::vector<std::wstring> PromiseScene::GetResultDetails() const
+{
+    return {
+        L"거점 체력 " + std::to_wstring(static_cast<int>((std::max)(0.f, baseHp))) + L"% · 생존 "
+            + std::to_wstring(static_cast<int>((std::min)(time, Duration))) + L" / 160초",
+        L"처치 " + std::to_wstring(kills) + L"명 · 진입한 적 무리 " + std::to_wstring(spawnIndex) + L"회",
+        baseHp < 75 ? L"빈 진입로에 방패병을 먼저 놓고, 위험한 줄에 동행 지원을 사용해 보세요."
+            : L"방어선이 안정적이었어요. 저격수로 치유병과 포격병을 먼저 막으면 더 안전해요."
+    };
 }
 void PromiseScene::Step(float dt)
 {

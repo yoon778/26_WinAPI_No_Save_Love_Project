@@ -12,7 +12,7 @@ $testExe = Join-Path $testOutput 'flowering_check.exe'
 $sources = @('"' + (Join-Path $PSScriptRoot 'flowering_check.cpp') + '"')
 foreach ($item in $project.Project.ItemGroup.ClCompile) {
     $source = $item.Include
-    if (-not $source -or $source -in @('main.cpp','GameManager.cpp','Scenes\PromiseScene.cpp','minigame2\RhythmMiniGame.cpp','minigame2\RhythmMiniGameFlowering.cpp')) { continue }
+    if (-not $source -or $source -in @('main.cpp','GameManager.cpp','GameManagerMenus.cpp','Scenes\PromiseScene.cpp','minigame2\RhythmMiniGame.cpp','minigame2\RhythmMiniGameFlowering.cpp')) { continue }
     $sources += '"' + (Join-Path $projectRoot ('No_Save_Love\' + $source)) + '"'
 }
 $sourceArguments = $sources -join ' '
@@ -28,7 +28,10 @@ Set-Content -LiteralPath $compileFile -Value $compile -Encoding Default
 & $env:ComSpec /d /c $compileFile
 if ($LASTEXITCODE -ne 0) { throw 'C++ flowering check compilation failed.' }
 Push-Location (Join-Path $projectRoot 'No_Save_Love')
+$previousProfile = $env:NO_SAVE_LOVE_PROFILE
+$env:NO_SAVE_LOVE_PROFILE = Join-Path $testOutput 'test_profile.ini'
+Set-Content -LiteralPath $env:NO_SAVE_LOVE_PROFILE -Value "[settings]`r`ndifficulty=1`r`ntext=1`r`n" -Encoding Unicode
 try {
     & $testExe (Join-Path $testOutput 'frames')
     if ($LASTEXITCODE -ne 0) { throw "Flowering checks failed: $LASTEXITCODE" }
-} finally { Pop-Location }
+} finally { Pop-Location; $env:NO_SAVE_LOVE_PROFILE = $previousProfile }

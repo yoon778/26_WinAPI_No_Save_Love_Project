@@ -37,10 +37,12 @@ MCIERROR TestMci(LPCWSTR command, LPWSTR result, UINT size, HWND callback)
 #include "../No_Save_Love/minigame2/RhythmMiniGame.cpp"
 #include "../No_Save_Love/minigame2/RhythmMiniGameFlowering.cpp"
 #include "../No_Save_Love/GameManager.cpp"
+#include "../No_Save_Love/GameManagerMenus.cpp"
 #undef mciSendStringW
 #include "../No_Save_Love/Scenes/PromiseScene.cpp"
 #include "promise_check.h"
 #include "audio_check.h"
+#include "combat_modes_check.h"
 
 void SaveFrame(RhythmMiniGame& game, const std::filesystem::path& path)
 {
@@ -59,6 +61,8 @@ void CompleteTransition(GameManager& manager)
     manager.sceneTransition.alpha = 0;
 }
 
+#include "quality_check.h"
+
 int wmain(int argc, wchar_t** argv)
 {
     std::cout << std::unitbuf;
@@ -70,6 +74,7 @@ int wmain(int argc, wchar_t** argv)
     assert(window);
     CheckEffectSounds(window);
     CheckPromises(output);
+    CheckCombatModes(window);
     const auto chart = FloweringChart::Build();
     int flags = 0;
     for (size_t i = 0; i < chart.size(); ++i)
@@ -282,7 +287,7 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.promiseScene.selected == 0);
         manager.OnKeyDown(VK_ESCAPE);
         assert(manager.m_exitConfirmOpen && manager.promiseScene.selected == -1 && cursorVisible());
-        assert(manager.GetUpdateInterval()==60);
+        assert(manager.GetUpdateInterval()==16);
         const float pausedTime=manager.promiseScene.practiceTime;
         manager.OnMouseClick(860,295); manager.OnTimer(window);
         assert(manager.promiseScene.practiceTime == pausedTime);
@@ -302,11 +307,14 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.currentMiniGameIndex == 5 && manager.player.money == 50 + puzzleGain.money);
         CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Result && !manager.promiseScene.portrait);
-        assert(manager.GetUpdateInterval()==60);
+        assert(manager.GetUpdateInterval()==16);
         manager.OnMouseClick(960, 980); CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::Story && !manager.m_performanceIntroShown);
         assert(manager.storyScene.dialogues.size() == manager.storyData.GetPromiseStory(partner, true).size() + 1);
         manager.storyScene.finished = true; manager.OnMouseClick(0, 0);
+        assert(manager.m_panel == GameManager::Panel::Notebook);
+        assert(manager.m_completedChoices[4] == partner);
+        manager.OnMouseClick(1600, 145);
         assert(manager.m_performanceIntroShown && manager.finalHeroineIndex == heroine);
         assert(!manager.storyData.GetPerformanceStory(heroine, false).empty());
         manager.storyScene.finished = true;
@@ -426,6 +434,7 @@ int wmain(int argc, wchar_t** argv)
         assert(manager.now_game_mode == GameManager::Ending);
         manager.Shutdown();
     }
+    CheckQualityFeatures(window, output);
     DestroyWindow(window);
     {
         GameManager manager;

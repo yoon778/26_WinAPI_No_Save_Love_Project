@@ -1,6 +1,9 @@
 ﻿#include <windows.h>
 #include <tchar.h>
 #include <random>
+#include <windowsx.h>
+#include "GameOptions.h"
+#include "DisplayGeometry.h"
 
 // 기본 창 설정
 int location_x = 0; // 창 위치
@@ -13,8 +16,14 @@ LPCTSTR lpszClass = L"My Window Class";
 LPCTSTR lpszWindowName = L"NO_SAVE_LOVE";
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM Wparam, LPARAM IPARAM);
+void ApplyWindowMode(HWND hWnd);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdParam, int nCmdShow) {
+    // Request native pixels before creating any HWND; older Windows keeps the fallback.
+    auto setDpiAwareness = reinterpret_cast<BOOL(WINAPI*)(DPI_AWARENESS_CONTEXT)>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "SetProcessDpiAwarenessContext"));
+    if (setDpiAwareness) setDpiAwareness(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    else SetProcessDPIAware();
     HWND hWnd;
     MSG Message;
     WNDCLASSEX WndClass;
@@ -38,6 +47,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevinstance, LPSTR lpszCmdPa
         location_x, location_y, size_w, size_h,
         NULL, (HMENU)NULL, hInstance, NULL);
 
+    if (!hWnd) return 1;
+    ApplyWindowMode(hWnd);
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
@@ -59,7 +70,16 @@ namespace
     HBITMAP g_backBufferOldBitmap = nullptr;
     int g_backBufferWidth = 0;
     int g_backBufferHeight = 0;
-    UINT g_updateInterval = 60;
+    UINT g_updateInterval = 16;
+
+    POINT LogicalMouse(HWND hWnd, LPARAM lParam, bool screenCoordinates = false)
+    {
+        POINT point = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        if (screenCoordinates) ScreenToClient(hWnd, &point);
+        RECT client = {};
+        GetClientRect(hWnd, &client);
+        return DisplayGeometry::ToLogical(point, DisplayGeometry::Fit(client.right, client.bottom));
+    }
 
     void ReleaseBackBuffer()
     {
@@ -128,6 +148,34 @@ namespace
     }
 }
 
+void ApplyWindowMode(HWND hWnd)
+{
+    MONITORINFO monitor = { sizeof(monitor) };
+    GetMonitorInfoW(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &monitor);
+    const DWORD state = static_cast<DWORD>(GetWindowLongPtrW(hWnd, GWL_STYLE)) &
+        (WS_VISIBLE | WS_DISABLED | WS_MINIMIZE);
+    const DWORD style = (GameOptions::fullscreen ? WS_POPUP : WS_OVERLAPPEDWINDOW) | state;
+    SetWindowLongPtrW(hWnd, GWL_STYLE, style);
+    RECT window = monitor.rcMonitor;
+    if (!GameOptions::fullscreen)
+    {
+        const int availableWidth = monitor.rcWork.right - monitor.rcWork.left;
+        const int availableHeight = monitor.rcWork.bottom - monitor.rcWork.top;
+        const RECT fit = DisplayGeometry::Fit(availableWidth * 4 / 5, availableHeight * 4 / 5);
+        window = { 0, 0, fit.right - fit.left, fit.bottom - fit.top };
+        AdjustWindowRectExForDpi(&window, style, FALSE, 0, GetDpiForWindow(hWnd));
+        const int width = window.right - window.left;
+        const int height = window.bottom - window.top;
+        window = { monitor.rcWork.left + (availableWidth - width) / 2,
+            monitor.rcWork.top + (availableHeight - height) / 2, 0, 0 };
+        window.right = window.left + width;
+        window.bottom = window.top + height;
+    }
+    SetWindowPos(hWnd, nullptr, window.left, window.top, window.right - window.left,
+        window.bottom - window.top, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE);
+    InvalidateRect(hWnd, nullptr, FALSE);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) { 
     HDC hDC;
     RECT rt;
@@ -155,6 +203,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         {
             return 0;
         }
+        if (wParam == VK_F11)
+        {
+            GameOptions::fullscreen = !GameOptions::fullscreen;
+            ApplyWindowMode(hWnd);
+            g_gameManager.OnWindowModeChanged();
+            return 0;
+        }
 
         // F1~F4 같은 특수 키 입력을 GameManager로 넘긴다.
         g_gameManager.OnKeyDown(wParam);
@@ -175,19 +230,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         return 0;
     }
     case WM_MOUSEWHEEL:
-        g_gameManager.OnMouseWheel(static_cast<short>(HIWORD(wParam)));
+    {
+        const POINT mouse = LogicalMouse(hWnd, lParam, true);
+        if (mouse.x >= 0)
+        {
+            g_gameManager.OnMouseMove(mouse.x, mouse.y);
+            g_gameManager.OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam));
+        }
         InvalidateRect(hWnd, nullptr, FALSE);
         return 0;
+    }
     case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
     {
-        int mouseX = LOWORD(lParam);
-        int mouseY = HIWORD(lParam);
-        
-        g_gameManager.OnMouseClick(mouseX, mouseY);
+        const POINT mouse = LogicalMouse(hWnd, lParam);
+        if (mouse.x >= 0) g_gameManager.OnMouseClick(mouse.x, mouse.y);
         return 0;
     }
     case WM_TIMER: {
-
         g_gameManager.OnTimer(hWnd);
         const UINT interval=g_gameManager.GetUpdateInterval();
         if (interval!=g_updateInterval)
@@ -207,20 +267,36 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
         int bufferWidth = rt.right - rt.left;
         int bufferHeight = rt.bottom - rt.top;
-        if (!EnsureBackBuffer(hDC, bufferWidth, bufferHeight))
+        if (!EnsureBackBuffer(hDC, DisplayGeometry::Width, DisplayGeometry::Height))
         {
             EndPaint(hWnd, &ps);
             return 0;
         }
 
         // 배경 흰색으로 지우기
-        FillRect(g_backBufferDC, &rt, (HBRUSH)GetStockObject(WHITE_BRUSH));
+        RECT logicalRect = { 0, 0, DisplayGeometry::Width, DisplayGeometry::Height };
+        FillRect(g_backBufferDC, &logicalRect, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
         // 백버퍼로 그리기 하기!!!
         g_gameManager.Render(g_backBufferDC);
 
 
-        BitBlt(hDC, 0, 0, bufferWidth, bufferHeight, g_backBufferDC, 0, 0, SRCCOPY);
+        const RECT viewport = DisplayGeometry::Fit(bufferWidth, bufferHeight);
+        FillRect(hDC, &rt, (HBRUSH)GetStockObject(BLACK_BRUSH));
+        if (viewport.right > viewport.left && viewport.bottom > viewport.top)
+        {
+            const int width = viewport.right - viewport.left;
+            const int height = viewport.bottom - viewport.top;
+            if (width == DisplayGeometry::Width && height == DisplayGeometry::Height)
+                BitBlt(hDC, viewport.left, viewport.top, width, height, g_backBufferDC, 0, 0, SRCCOPY);
+            else
+            {
+                SetStretchBltMode(hDC, HALFTONE);
+                SetBrushOrgEx(hDC, 0, 0, nullptr);
+                StretchBlt(hDC, viewport.left, viewport.top, width, height,
+                    g_backBufferDC, 0, 0, DisplayGeometry::Width, DisplayGeometry::Height, SRCCOPY);
+            }
+        }
         EndPaint(hWnd, &ps);
         return 0;
     }
@@ -229,18 +305,53 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case WM_LBUTTONUP:
     {
-        int mouseX = static_cast<short>(LOWORD(lParam));
-        int mouseY = static_cast<short>(HIWORD(lParam));
-        g_gameManager.OnMouseUp(mouseX, mouseY);
+        const POINT mouse = LogicalMouse(hWnd, lParam);
+        g_gameManager.OnMouseUp(mouse.x, mouse.y);
         return 0;
     }
     case WM_MOUSEMOVE:
     {
-        int mouseX = static_cast<short>(LOWORD(lParam));
-        int mouseY = static_cast<short>(HIWORD(lParam));
-        g_gameManager.OnMouseMove(mouseX, mouseY);
+        const POINT mouse = LogicalMouse(hWnd, lParam);
+        g_gameManager.OnMouseMove(mouse.x, mouse.y);
         return 0;
     }
+    case WM_APP + 10:
+        ApplyWindowMode(hWnd);
+        g_gameManager.OnWindowModeChanged();
+        return 0;
+    case WM_DPICHANGED:
+    {
+        if (GameOptions::fullscreen) ApplyWindowMode(hWnd);
+        else
+        {
+            const RECT& suggested = *reinterpret_cast<const RECT*>(lParam);
+            SetWindowPos(hWnd, nullptr, suggested.left, suggested.top,
+                suggested.right - suggested.left, suggested.bottom - suggested.top,
+                SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        g_gameManager.OnWindowModeChanged();
+        return 0;
+    }
+    case WM_SIZE:
+        InvalidateRect(hWnd, nullptr, FALSE);
+        return 0;
+    case WM_DISPLAYCHANGE:
+        if (GameOptions::fullscreen)
+        {
+            ApplyWindowMode(hWnd);
+            g_gameManager.OnWindowModeChanged();
+        }
+        return 0;
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_KILLFOCUS:
+        g_gameManager.OnKeyUp(VK_LEFT);
+        g_gameManager.OnKeyUp(VK_RIGHT);
+        g_gameManager.OnKeyUp(VK_DOWN);
+        g_gameManager.OnKeyUp(VK_UP);
+        g_gameManager.OnCaptureLost();
+        g_gameManager.OnFocusLost();
+        return 0;
     case WM_DESTROY:
     {
         KillTimer(hWnd, 1);

@@ -1,6 +1,8 @@
 ﻿#include "avoidgame.h"
 
 #include "../AudioManager.h"
+#include "../GameOptions.h"
+#include <algorithm>
 
 #include <cmath>
 #include <cstdlib>
@@ -541,13 +543,17 @@ void avoidgame::DrawRedTintedGdiImageFrame(HDC hDC, Gdiplus::Image* image, int d
 
 void avoidgame::Reset()
 {
+    m_startLife = GameOptions::difficulty == 0 ? 7 : GameOptions::difficulty == 2 ? 4 : 5;
+    m_invincibleDuration = GameOptions::difficulty == 0 ? 2.5f : GameOptions::difficulty == 2 ? 1.6f : 2.0f;
+    m_warningScale = GameOptions::difficulty == 0 ? 1.3f : GameOptions::difficulty == 2 ? 0.85f : 1.0f;
+    m_damageCount = 0;
     RestoreBgmVolume();
     CreatePlatforms();
     ResetPlayer();
     ResetPatterns();
 
     // 게임 상태 초기화
-    m_game.life = MAX_LIFE;
+    m_game.life = m_startLife;
     m_game.remainingTime = GAME_TIME_LIMIT;
     m_game.invincibleTimer = 0.0f;
     m_game.isFinished = false;
@@ -557,8 +563,20 @@ void avoidgame::Reset()
     m_isBgmDucked = false;
 }
 
-void avoidgame::Update()
+void avoidgame::Update(float deltaSeconds)
 {
+    for (float remaining = (std::max)(0.0f, deltaSeconds); remaining > 0.000001f;)
+    {
+        const float step = (std::min)(remaining, 0.02f);
+        UpdateStep(step);
+        remaining -= step;
+    }
+}
+
+void avoidgame::UpdateStep(float deltaSeconds)
+{
+    m_deltaSeconds = deltaSeconds;
+    m_tickScale = deltaSeconds / UPDATE_DELTA_SECONDS;
     UpdateBgmDuck();
 
     // 종료 상태
@@ -572,7 +590,7 @@ void avoidgame::Update()
     // 무적 시간
     if (m_game.invincibleTimer > 0.0f)
     {
-        m_game.invincibleTimer -= UPDATE_DELTA_SECONDS;
+        m_game.invincibleTimer -= m_deltaSeconds;
         if (m_game.invincibleTimer < 0.0f)
         {
             m_game.invincibleTimer = 0.0f;
@@ -730,12 +748,14 @@ void avoidgame::UpdatePlayer()
     }
 
     // 중력 적용
-    m_player.velocityY += m_player.gravity;
+    const float displacementY = m_player.velocityY * m_tickScale +
+        0.5f * m_player.gravity * m_tickScale * (m_tickScale + 1.0f);
+    m_player.velocityY += m_player.gravity * m_tickScale;
 
     // 발판 통과 시간
     if (m_player.dropThroughTimer > 0.0f)
     {
-        m_player.dropThroughTimer -= UPDATE_DELTA_SECONDS;
+        m_player.dropThroughTimer -= m_deltaSeconds;
         if (m_player.dropThroughTimer < 0.0f)
         {
             m_player.dropThroughTimer = 0.0f;
@@ -743,8 +763,8 @@ void avoidgame::UpdatePlayer()
     }
 
     // 위치 적용
-    m_player.x += m_player.velocityX;
-    m_player.y += m_player.velocityY;
+    m_player.x += m_player.velocityX * m_tickScale;
+    m_player.y += displacementY;
 
     ClampPlayerPosition();
 
@@ -755,10 +775,10 @@ void avoidgame::UpdatePlayer()
     // 걷기 애니메이션
     if (m_player.velocityX != 0.0f)
     {
-        m_player.animationTimer += UPDATE_DELTA_SECONDS;
-        if (m_player.animationTimer >= PLAYER_ANIMATION_INTERVAL)
+        m_player.animationTimer += m_deltaSeconds;
+        while (m_player.animationTimer >= PLAYER_ANIMATION_INTERVAL)
         {
-            m_player.animationTimer = 0.0f;
+            m_player.animationTimer -= PLAYER_ANIMATION_INTERVAL;
             m_player.animationFrame = (m_player.animationFrame + 1) % PLAYER_RUNNING_FRAME_COUNT;
         }
     }
@@ -1049,7 +1069,7 @@ void avoidgame::RenderHud(HDC hDC)
     SetBkMode(hDC, TRANSPARENT);
 
     // 목숨 표시
-    for (int i = 0; i < MAX_LIFE; i++)
+    for (int i = 0; i < m_startLife; i++)
     {
         const wchar_t* heartText = (i < m_game.life) ? L"♥" : L"♡";
         SetTextColor(hDC, (i < m_game.life) ? RGB(255, 80, 110) : RGB(120, 120, 120));
@@ -1098,7 +1118,7 @@ void avoidgame::UpdatePatternScheduler()
     // 패턴 대기
     if (m_pattern.currentPattern == PATTERN_NONE)
     {
-        m_pattern.waitTimer -= UPDATE_DELTA_SECONDS;
+        m_pattern.waitTimer -= m_deltaSeconds;
         if (m_pattern.waitTimer <= 0.0f)
         {
             int pattern = m_pattern.nextPattern;
@@ -1215,7 +1235,7 @@ void avoidgame::UpdateKakaoCombo()
         return;
     }
 
-    m_kakao.comboTimer -= UPDATE_DELTA_SECONDS;
+    m_kakao.comboTimer -= m_deltaSeconds;
     if (m_kakao.comboTimer <= 0.0f)
     {
         SpawnKakaoAttack();
@@ -1252,7 +1272,7 @@ void avoidgame::SpawnKakaoAttack()
 
     AttackWarning attack = {};
     attack.rect = RECT{ left, top, left + attackWidth, top + attackHeight };
-    attack.warningTime = WARNING_DURATION;
+    attack.warningTime = WARNING_DURATION * m_warningScale;
     attack.attackTime = ATTACK_DURATION;
     attack.isAttackActive = false;
     attack.messageIndex = KAKAO_COMBO_COUNT - m_kakao.comboCount;
@@ -1292,7 +1312,7 @@ void avoidgame::SpawnReelsAttack()
 
         AttackWarning attack = {};
         attack.rect = RECT{ reelLeft, reelTop, reelLeft + reelWidth, reelTop + reelHeight };
-        attack.warningTime = REELS_WARNING_DURATION;
+        attack.warningTime = REELS_WARNING_DURATION * m_warningScale;
         attack.attackTime = REELS_ATTACK_DURATION;
         attack.isAttackActive = false;
         attack.messageIndex = i;
@@ -1315,11 +1335,11 @@ void avoidgame::StartFoodPattern()
 void avoidgame::UpdateFoodPattern()
 {
     // 음식 생성 시간
-    m_foodPattern.patternTimer -= UPDATE_DELTA_SECONDS;
+    m_foodPattern.patternTimer -= m_deltaSeconds;
 
     if (m_foodPattern.patternTimer > 0.0f)
     {
-        m_foodPattern.spawnTimer -= UPDATE_DELTA_SECONDS;
+        m_foodPattern.spawnTimer -= m_deltaSeconds;
         if (m_foodPattern.spawnTimer <= 0.0f)
         {
             for (int i = 0; i < 4; i++)
@@ -1354,8 +1374,8 @@ void avoidgame::UpdateFoodDrops()
     {
         FoodDrop& food = m_foods[i];
 
-        food.y += food.speed;
-        food.wave += 0.18f;
+        food.y += food.speed * m_tickScale;
+        food.wave += 0.18f * m_tickScale;
         food.x = food.baseX + static_cast<float>(20.0 * std::sin(food.wave));
 
         if (IsRectOverlap(playerRect, GetFoodRect(food)))
@@ -1437,7 +1457,8 @@ void avoidgame::StartDeliverPattern()
     m_deliver.warningRect = RECT{ 0, top, SCREEN_WIDTH, bottom };
     m_deliver.riderRect = RECT{ SCREEN_WIDTH, riderY, SCREEN_WIDTH + riderSize, riderY + riderSize };
     m_deliver.riderBaseTop = riderY;
-    m_deliver.warningTimer = DELIVER_WARNING_DURATION;
+    m_deliver.warningTimer = DELIVER_WARNING_DURATION * m_warningScale;
+    m_riderMoveRemainder = 0.0f;
     m_deliver.activeTimer = DELIVER_ACTIVE_DURATION;
     m_deliver.jumpTimer = 0.0f;
     m_deliver.isWarning = true;
@@ -1451,7 +1472,7 @@ void avoidgame::UpdateDeliverPattern()
     // 경고 후 배달 이동
     if (m_deliver.isWarning)
     {
-        m_deliver.warningTimer -= UPDATE_DELTA_SECONDS;
+        m_deliver.warningTimer -= m_deltaSeconds;
         if (m_deliver.warningTimer <= 0.0f)
         {
             m_deliver.warningTimer = 0.0f;
@@ -1467,9 +1488,12 @@ void avoidgame::UpdateDeliverPattern()
         return;
     }
 
-    m_deliver.activeTimer -= UPDATE_DELTA_SECONDS;
-    m_deliver.riderRect.left -= static_cast<LONG>(DELIVER_SPEED);
-    m_deliver.riderRect.right -= static_cast<LONG>(DELIVER_SPEED);
+    m_deliver.activeTimer -= m_deltaSeconds;
+    m_riderMoveRemainder += DELIVER_SPEED * m_tickScale;
+    const LONG riderMovement = static_cast<LONG>(m_riderMoveRemainder);
+    m_riderMoveRemainder -= riderMovement;
+    m_deliver.riderRect.left -= riderMovement;
+    m_deliver.riderRect.right -= riderMovement;
 
     int riderHeight = m_deliver.riderRect.bottom - m_deliver.riderRect.top;
     int riderCenterX = (m_deliver.riderRect.left + m_deliver.riderRect.right) / 2;
@@ -1485,7 +1509,7 @@ void avoidgame::UpdateDeliverPattern()
     int riderTop = m_deliver.riderBaseTop;
     if (m_deliver.isJumping)
     {
-        m_deliver.jumpTimer += UPDATE_DELTA_SECONDS;
+        m_deliver.jumpTimer += m_deltaSeconds;
         float jumpProgress = m_deliver.jumpTimer / DELIVER_JUMP_DURATION;
         if (jumpProgress >= 1.0f)
         {
@@ -1598,7 +1622,7 @@ void avoidgame::UpdateMalphitePattern()
         return;
     }
 
-    m_malphite.phaseTimer += UPDATE_DELTA_SECONDS;
+    m_malphite.phaseTimer += m_deltaSeconds;
     if (!m_malphite.isTargetLocked &&
         (m_malphite.phase == MALPHITE_PHASE_ENTER || m_malphite.phase == MALPHITE_PHASE_WARN))
     {
@@ -1643,12 +1667,12 @@ void avoidgame::UpdateMalphitePattern()
         };
 
         if (!m_malphite.isTargetLocked &&
-            m_malphite.phaseTimer >= MALPHITE_WARN_DURATION - MALPHITE_TARGET_LOCK_BEFORE_DASH)
+            m_malphite.phaseTimer >= (MALPHITE_WARN_DURATION - MALPHITE_TARGET_LOCK_BEFORE_DASH) * m_warningScale)
         {
             m_malphite.isTargetLocked = true;
         }
 
-        if (m_malphite.phaseTimer >= MALPHITE_WARN_DURATION)
+        if (m_malphite.phaseTimer >= MALPHITE_WARN_DURATION * m_warningScale)
         {
             int targetCenterX = (m_malphite.warningRect.left + m_malphite.warningRect.right) / 2;
             int targetCenterY = (m_malphite.warningRect.top + m_malphite.warningRect.bottom) / 2;
@@ -1785,7 +1809,7 @@ void avoidgame::UpdateAttacks()
 
         if (!attack.isAttackActive)
         {
-            attack.warningTime -= UPDATE_DELTA_SECONDS;
+            attack.warningTime -= m_deltaSeconds;
             if (attack.warningTime <= 0.0f)
             {
                 attack.warningTime = 0.0f;
@@ -1798,10 +1822,10 @@ void avoidgame::UpdateAttacks()
         }
         else
         {
-            attack.attackTime -= UPDATE_DELTA_SECONDS;
+            attack.attackTime -= m_deltaSeconds;
             if (attack.attackType == ATTACK_TYPE_REELS)
             {
-                attack.scrollY -= REELS_SCROLL_SPEED * UPDATE_DELTA_SECONDS;
+                attack.scrollY -= REELS_SCROLL_SPEED * m_deltaSeconds;
             }
 
             bool isHit = false;
@@ -2006,7 +2030,7 @@ void avoidgame::UpdateBgmDuck()
         return;
     }
 
-    m_bgmDuckTimer -= UPDATE_DELTA_SECONDS;
+    m_bgmDuckTimer -= m_deltaSeconds;
     if (m_bgmDuckTimer <= 0.0f)
     {
         RestoreBgmVolume();
@@ -2083,18 +2107,19 @@ void avoidgame::DamagePlayer(int hitImageIndex)
     audioManager.PlaySfx(L"minigame3_hit");
 
     m_game.life--;
+    ++m_damageCount;
     if (m_game.life < 0)
     {
         m_game.life = 0;
     }
 
-    m_game.invincibleTimer = INVINCIBLE_DURATION;
+    m_game.invincibleTimer = m_invincibleDuration;
 }
 
 void avoidgame::UpdateGameTimer()
 {
     // 생존 시간 감소
-    m_game.remainingTime -= UPDATE_DELTA_SECONDS;
+    m_game.remainingTime -= m_deltaSeconds;
     if (m_game.remainingTime <= 0.0f)
     {
         m_game.remainingTime = 0.0f;
@@ -2116,5 +2141,14 @@ void avoidgame::UpdateGameTimer()
 int avoidgame::CalculateScore() const
 {
     // 남은 하트 점수
-    return m_game.life * 100 / MAX_LIFE;
+    return m_game.life * 100 / m_startLife;
+}
+
+std::vector<std::wstring> avoidgame::GetResultDetails() const
+{
+    return {
+        L"생존 " + std::to_wstring(static_cast<int>(GAME_TIME_LIMIT - m_game.remainingTime)) + L" / 50초 · 피격 " + std::to_wstring(m_damageCount) + L"회",
+        L"남은 하트 " + std::to_wstring(m_game.life) + L" / " + std::to_wstring(m_startLife) + L" · 남은 하트 비율이 점수에 반영돼요.",
+        L"팁: 경고 범위를 벗어나고, 2단 점프는 탈출에 쓰세요."
+    };
 }
