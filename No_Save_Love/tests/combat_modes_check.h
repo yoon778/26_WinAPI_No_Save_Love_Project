@@ -51,6 +51,10 @@ void CheckCombatModes(HWND window)
 
     assert(rhythm.Init(window, true));
     const auto noteTime = rhythm.floweringNotes.front().timeMs;
+    int lastJudgmentMs = 0;
+    for (const auto& note : rhythm.floweringNotes)
+        lastJudgmentMs = (std::max)(lastJudgmentMs,
+            (note.flags & FloweringChart::Relay) ? note.relayEndMs : note.timeMs + note.durationMs);
     int previousApproach = 2000;
     for (int mode = 0; mode < 3; ++mode)
     {
@@ -62,7 +66,7 @@ void CheckCombatModes(HWND window)
         rhythm.SpawnFloweringNotes(noteTime - rhythm.ApproachTime());
         assert(rhythm.sliderCount == 1);
         assert(rhythm.sliders[0].hitTime == noteTime);
-        assert(rhythm.floweringDurationMs > FloweringChart::BeatTime(580));
+        assert(rhythm.floweringDurationMs >= static_cast<DWORD>(lastJudgmentMs + 350));
     }
     rhythm.hitUnits = rhythm.missedUnits = rhythm.combo = rhythm.maxCombo = 0;
     rhythm.score = 300;

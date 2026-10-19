@@ -337,25 +337,27 @@ void MiniGame2TutorialScene::DrawPageScoreGuide(HDC hDC)
 
 void MiniGame2TutorialScene::DrawFloweringGuide(HDC hDC)
 {
-    const wchar_t* titles[] = {L"01  바람 슬라이더", L"02  기억 꽃", L"03  히로인 릴레이", L"04  앵콜 노트", L"05  이어치기"};
+    const wchar_t* titles[] = {L"01  바람 슬라이더", L"02  기억 꽃", L"03  히로인 릴레이",
+        L"04  앵콜 노트", L"05  왕복 슬라이더", L"06  스피너"};
     const wchar_t* descriptions[] = {
         L"누른 채 공을 따라가세요. 곡선 꽃길도 끝까지 따라가면 추가 +300점!",
-        L"보라색 원은 마지막 0.25초 동안 숨습니다. 위치와 박자는 바뀌지 않아요.",
-        L"꽃으로 보여주는 네 위치를 기억하고, 이어서 나오는 원을 같은 순서로 누르세요.",
+        L"보라색 꽃의 위치와 박자를 기억하세요. 꽃이 사라져도 원래 자리를 박자에 맞춰 누릅니다.",
+        L"빛나는 네 위치의 순서를 먼저 보세요. 네 원이 함께 켜지면 예고된 순서대로 누릅니다.",
         L"반복 화살표의 원을 한 박자 간격으로 두 번 클릭합니다. 이후 세 박자 동안 다음 위치로 이동합니다.",
-        L"화살표로 연결된 1번과 2번을 두 박자 간격으로 클릭합니다. 끌지 말고 두 번 눌러요."
+        L"버튼을 누른 채 공을 따라가세요. 끝의 반전 화살표에서 같은 길을 되돌아와야 완주합니다.",
+        L"버튼을 누른 채 중심 주위로 크게 원을 그리세요. 어느 방향이든 회전 게이지를 채우면 성공!"
     };
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 6; ++i)
     {
-        const int top = 180 + i * 125;
-        RECT card = {130, top, 1790, top + 110};
+        const int top = 180 + i * 105;
+        RECT card = {130, top, 1790, top + 94};
         DrawRoundCard(hDC, card, RGB(24, 49, 54), RGB(94, 157, 143));
-        DrawTextInRect(hDC, titles[i], {160, top + 12, 580, top + 95}, 31,
+        DrawTextInRect(hDC, titles[i], {160, top + 10, 580, top + 84}, 31,
             RGB(255, 207, 221), DT_LEFT | DT_VCENTER | DT_SINGLELINE, FW_BOLD);
-        DrawTextInRect(hDC, descriptions[i], {590, top + 15, 1760, top + 95}, 27,
-            RGB(235, 244, 239), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        DrawTextInRect(hDC, descriptions[i], {590, top + 20, 1760, top + 84}, 27,
+            RGB(235, 244, 239), DT_LEFT | DT_WORDBREAK);
     }
-    DrawTextInRect(hDC, L"원곡 전체 약 4분 32초 · 성공률 90% + 박자 정확도 10% · 모두 성공하면 S등급",
+    DrawTextInRect(hDC, L"공연 약 4분 12초 · 성공률 90% + 박자 정확도 10% · 모두 성공하면 S등급",
         {150, 825, 1770, 895}, 27, RGB(181, 228, 214), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 

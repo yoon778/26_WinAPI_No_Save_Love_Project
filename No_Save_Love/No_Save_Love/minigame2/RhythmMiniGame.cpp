@@ -47,6 +47,8 @@ bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
     floweringHeroine = heroineIndex >= 0 && heroineIndex < 3 ? heroineIndex : 0;
     floweringTimeMs = 0;
     floweringHitUnits = 0;
+    floweringSpinner = {};
+    relayErrorUntil = 0;
     floweringDurationMs = FloweringChart::DurationMs;
     floweringNextNote = 0;
     floweringPaused = false;
@@ -288,39 +290,8 @@ bool RhythmMiniGame::Init(HWND hWnd, bool flowering, int heroineIndex)
     InitFinalSparkles();
     lastFinalCountdownSecond = -1;
 
-    // 히트서클 초기화
-    for (int i = 0; i < MAX_HIT_CIRCLES; i++)
-    {
-        hitCircles[i].isActive = false;
-        hitCircles[i].isJudged = false;
-
-        hitCircles[i].x = 0;
-        hitCircles[i].y = 0;
-
-        hitCircles[i].spawnTime = 0;
-        hitCircles[i].hitTime = 0;
-    }
-
-    // 슬라이더 초기화
-    for (int i = 0; i < MAX_SLIDERS; i++)
-    {
-        sliders[i].isActive = false;
-        sliders[i].isStarted = false;
-        sliders[i].isFinished = false;
-        sliders[i].isFailed = false;
-
-        sliders[i].startX = 0;
-        sliders[i].startY = 0;
-        sliders[i].endX = 0;
-        sliders[i].endY = 0;
-
-        sliders[i].spawnTime = 0;
-        sliders[i].hitTime = 0;
-        sliders[i].duration = 0;
-        sliders[i].slideStartTime = 0;
-        sliders[i].isTrackingSuccess = false;
-        sliders[i].isWindowFollowTarget = false;
-    }
+    // 연습과 공연이 같은 객체를 사용하므로 기믹 플래그까지 모두 초기화한다.
+    ClearAllNotes();
 
     // =========================
     // 커서 초기화
@@ -406,6 +377,7 @@ void RhythmMiniGame::Update()
     if (isFlowering)
     {
         SpawnFloweringNotes(currentTime);
+        UpdateFloweringSpinner(currentTime);
     }
     else
     {
@@ -471,7 +443,9 @@ void RhythmMiniGame::Update()
         if (hitCircles[i].isActive == true)
         {
             // 눌러야 할 시간보다 250ms 이상 늦으면 Miss
-            if (currentTime > hitCircles[i].hitTime + TimingWindow(250))
+            const DWORD deadline = (isFlowering && (hitCircles[i].floweringFlags & FloweringChart::Relay))
+                ? hitCircles[i].relayEndTime : hitCircles[i].hitTime + TimingWindow(250);
+            if (currentTime > deadline)
             {
                 hitCircles[i].isActive = false;
                 hitCircles[i].isJudged = true;
@@ -608,8 +582,8 @@ void RhythmMiniGame::Update()
                     sliders[i].isTrackingSuccess == true &&
                     sliders[i].isFailed == false;
 
-                int endX = sliders[i].endX;
-                int endY = sliders[i].endY;
+                int endX, endY;
+                GetSliderPosition(sliders[i], 1.0, endX, endY);
 
                 sliders[i].isFinished = true;
                 sliders[i].isActive = false;
@@ -980,7 +954,8 @@ void RhythmMiniGame::Render(HDC hDC)
         {
             if (isFlowering && HideFloweringCircle(i, GetRhythmTime())) continue;
             // 앵콜은 전용 접근 원/반복 화살표를 오버레이에서 그린다.
-            if (isFlowering && (hitCircles[i].floweringFlags & (FloweringChart::Encore | FloweringChart::Link))) continue;
+            if (isFlowering && (hitCircles[i].floweringFlags
+                & (FloweringChart::Encore | FloweringChart::Memory | FloweringChart::Relay))) continue;
             double hitCircleScale = WindowNoteScale() * (isWindowGimmickActive ? SMALL_WINDOW_HITCIRCLE_SCALE : 1.0);
 
             int imageWidth =
@@ -1376,6 +1351,34 @@ void RhythmMiniGame::OnMouseDown(int x, int y)
     {
         int i = targetHitCircleIndex;
 
+        if (isFlowering && (hitCircles[i].floweringFlags & FloweringChart::Relay))
+        {
+            const auto& selected = hitCircles[i];
+            if (currentTime < selected.hitTime || currentTime > selected.relayEndTime) return;
+            for (const auto& earlier : hitCircles)
+            {
+                if (earlier.isActive && (earlier.floweringFlags & FloweringChart::Relay)
+                    && earlier.hitTime == selected.hitTime && earlier.relayOrder < selected.relayOrder)
+                {
+                    relayErrorUntil = currentTime + 550;
+                    ResetCombo(0);
+                    return;
+                }
+            }
+            hitCircles[i].isActive = false;
+            hitCircles[i].isJudged = true;
+            --hitCircleCount;
+            score += 300;
+            lastJudge = JUDGE_PERFECT;
+            AddCombo();
+            PlayHitSound();
+            judgeX = selected.x;
+            judgeY = selected.y;
+            judgeDisplayStartTime = currentTime;
+            relayErrorUntil = 0;
+            return;
+        }
+
         int signedTimeDiff =
             (int)currentTime - (int)hitCircles[i].hitTime;
 
@@ -1496,6 +1499,7 @@ void RhythmMiniGame::OnMouseUp(int x, int y)
     mouseX = x;
     mouseY = y;
     isMouseDown = false;
+    floweringSpinner.hasAngle = false;
 
     // 이후 여기에
     // - 슬라이더 중단 처리
@@ -1504,6 +1508,9 @@ void RhythmMiniGame::OnMouseUp(int x, int y)
 
 void RhythmMiniGame::OnMouseMove(int x, int y)
 {
+    if (floweringPaused || isResultScreenActive) return;
+    // 음악 시각은 프레임마다 갱신한다. 고주사율 마우스마다 MCI를 조회하지 않는다.
+    if (isFlowering && floweringAudioReady) ProcessFloweringSpin(x, y);
     DWORD currentTime = GetRhythmTime();
 
     // 이전 마우스 위치
@@ -1894,20 +1901,16 @@ void RhythmMiniGame::RestoreOriginalWindow(DWORD currentTime)
 }
 void RhythmMiniGame::ClearAllNotes()
 {
+    floweringSpinner = {};
+    relayErrorUntil = 0;
     for (int i = 0; i < MAX_HIT_CIRCLES; i++)
     {
-        hitCircles[i].isActive = false;
-        hitCircles[i].isJudged = false;
+        hitCircles[i] = {};
     }
 
     for (int i = 0; i < MAX_SLIDERS; i++)
     {
-        sliders[i].isActive = false;
-        sliders[i].isStarted = false;
-        sliders[i].isFinished = false;
-        sliders[i].isFailed = false;
-        sliders[i].isTrackingSuccess = false;
-        sliders[i].isWindowFollowTarget = false;
+        sliders[i] = {};
     }
 
     hitCircleCount = 0;
@@ -2628,7 +2631,12 @@ void RhythmMiniGame::PlayBGM()
     wchar_t length[64] = {};
     mciSendString(L"status rhythmBGM length", length, 64, NULL);
     floweringDurationMs = static_cast<DWORD>((std::max)(0, _wtoi(length)));
-    floweringAudioReady = error == 0 && floweringDurationMs >= static_cast<DWORD>(FloweringChart::BeatTime(580));
+    int lastJudgmentMs = 0;
+    for (const auto& note : floweringNotes)
+        lastJudgmentMs = (std::max)(lastJudgmentMs,
+            (note.flags & FloweringChart::Relay) ? note.relayEndMs : note.timeMs + note.durationMs);
+    floweringAudioReady = error == 0 && floweringDurationMs > 0
+        && (!isFlowering || floweringDurationMs >= static_cast<DWORD>(lastJudgmentMs + 350));
     ApplyUserVolumes();
     const auto playError = mciSendString(L"play rhythmBGM", NULL, 0, NULL);
     if (playError != 0) floweringAudioReady = false;

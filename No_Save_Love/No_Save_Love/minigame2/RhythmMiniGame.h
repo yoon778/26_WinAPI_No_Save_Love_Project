@@ -163,7 +163,8 @@ struct HitCircle
     DWORD spawnTime;    // 화면에 생성된 시간
     DWORD hitTime;      // 정확히 눌러야 하는 시간
     int floweringFlags = 0;
-    int linkX = 0, linkY = 0;
+    int relayOrder = 0;
+    DWORD relayEndTime = 0;
 };
 
 
@@ -189,6 +190,7 @@ struct Slider
     DWORD duration;     // 슬라이더 볼이 시작점에서 끝점까지 이동하는 시간
     DWORD slideStartTime;   // 슬라이더 공이 실제로 움직이기 시작한 시간
     bool floweringCurved = false;
+    bool floweringReturn = false;
 };
 
 
@@ -212,6 +214,13 @@ private:
     int floweringHeroine = 0;
     int floweringMaximumScore = 0;
     int floweringHitUnits = 0;
+    struct SpinnerState
+    {
+        bool active = false, hasAngle = false, cleared = false;
+        DWORD startTime = 0, endTime = 0;
+        double angle = 0, rotation = 0;
+    } floweringSpinner;
+    DWORD relayErrorUntil = 0;
     std::vector<FloweringChart::Note> floweringNotes;
     Gdiplus::Image* floweringHeroineNormal = nullptr;
     Gdiplus::Image* floweringHeroineSmile = nullptr;
@@ -223,6 +232,9 @@ private:
     void GetSliderPosition(const Slider& slider, double progress, int& x, int& y) const;
     bool HideFloweringCircle(int index, DWORD now) const;
     void RenderFloweringSliderPath(HDC hDC, const Slider& slider);
+    void ProcessFloweringSpin(int x, int y);
+    void UpdateFloweringSpinner(DWORD now);
+    int MemoryHideMs() const { return difficulty == 0 ? 450 : difficulty == 2 ? 650 : 550; }
     // =========================
     // 게임 기본 상태
     // =========================

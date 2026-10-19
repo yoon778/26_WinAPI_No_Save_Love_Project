@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <cassert>
 #include <iostream>
+#include <cmath>
 #define private public
 #include "../No_Save_Love/GameManager.h"
 #undef private
@@ -18,6 +19,12 @@
 // 실제 음원 재생 검증 후, 동일한 production 판정에 음악 시각만 공급해 전곡을 검사한다.
 bool simulated = false;
 int musicPosition = 0;
+SHORT simulatedLeftButton = 0;
+SHORT WINAPI TestAsyncKeyState(int key)
+{
+    if (simulated && key == VK_LBUTTON) return simulatedLeftButton;
+    return GetAsyncKeyState(key);
+}
 MCIERROR TestMci(LPCWSTR command, LPWSTR result, UINT size, HWND callback)
 {
     if (simulated && std::wstring(command) == L"status rhythmBGM position")
@@ -31,11 +38,14 @@ MCIERROR TestMci(LPCWSTR command, LPWSTR result, UINT size, HWND callback)
         return 0;
     }
     if (simulated && std::wstring(command).starts_with(L"play ")) return 0;
+    if (simulated && (std::wstring(command) == L"pause rhythmBGM" || std::wstring(command) == L"resume rhythmBGM")) return 0;
     return mciSendStringW(command, result, size, callback);
 }
 #define mciSendStringW TestMci
 #include "../No_Save_Love/minigame2/RhythmMiniGame.cpp"
+#define GetAsyncKeyState TestAsyncKeyState
 #include "../No_Save_Love/minigame2/RhythmMiniGameFlowering.cpp"
+#undef GetAsyncKeyState
 #include "../No_Save_Love/GameManager.cpp"
 #include "../No_Save_Love/GameManagerMenus.cpp"
 #undef mciSendStringW
@@ -43,6 +53,7 @@ MCIERROR TestMci(LPCWSTR command, LPWSTR result, UINT size, HWND callback)
 #include "promise_check.h"
 #include "audio_check.h"
 #include "combat_modes_check.h"
+#include "rhythm_practice_effects_check.h"
 
 void SaveFrame(RhythmMiniGame& game, const std::filesystem::path& path)
 {
@@ -63,6 +74,218 @@ void CompleteTransition(GameManager& manager)
 
 #include "quality_check.h"
 
+// Drive held objects through the same pointer route as a player. Ordinary clicks
+// still happen at their chart time below; spinners need actual circular motion.
+void FollowFloweringObjects(RhythmMiniGame& game, int now)
+{
+    for (const auto& slider : game.sliders)
+    {
+        if (!slider.isActive || !slider.isStarted) continue;
+        int x, y;
+        game.GetSliderPosition(slider, (now - slider.slideStartTime) / double(slider.duration), x, y);
+        game.OnMouseMove(x, y);
+    }
+    const auto& spinner = game.floweringSpinner;
+    if (spinner.active && now >= spinner.startTime && now < spinner.endTime)
+    {
+        const double angle = (now - spinner.startTime) * .009;
+        game.OnMouseMove(static_cast<int>(1920 * .40 + std::cos(angle) * 180),
+            static_cast<int>(1080 * .48 + std::sin(angle) * 180));
+    }
+}
+
+void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
+    const std::vector<FloweringChart::Note>& chart)
+{
+    RhythmMiniGame game;
+    const auto start = [&](std::vector<FloweringChart::Note> notes)
+    {
+        musicPosition = 0;
+        assert(game.Init(window, true, 0));
+        game.floweringNotes = std::move(notes);
+        game.floweringMaximumScore = FloweringChart::MaximumScore(game.floweringNotes);
+    };
+    start({});
+    game.hitCircles[0] = {true, false, 400, 400, 0, 2000, FloweringChart::Memory};
+    for (int difficulty = 0; difficulty < 3; ++difficulty)
+    {
+        game.difficulty = difficulty;
+        const DWORD hiddenAt = 2000 - (difficulty == 0 ? 450 : difficulty == 1 ? 550 : 650);
+        assert(!game.HideFloweringCircle(0, hiddenAt - 1));
+        assert(game.HideFloweringCircle(0, hiddenAt));
+        assert(game.HideFloweringCircle(0, 2000));
+        assert(game.HideFloweringCircle(0, 2119));
+        assert(!game.HideFloweringCircle(0, 2120));
+    }
+    game.difficulty = 1;
+    game.hitCircles[0].floweringFlags = FloweringChart::Encore;
+    game.hitCircles[1] = {true, false, 400, 400, 0, 2462, FloweringChart::Encore | FloweringChart::EncoreRepeat};
+    assert(game.HideFloweringCircle(1, 1800));
+    game.hitCircles[0].isActive = false;
+    assert(!game.HideFloweringCircle(1, 2000));
+    game.Release();
+
+    for (int cue : {128, 296, 432})
+    {
+        std::vector<FloweringChart::Note> relay;
+        for (const auto& note : chart)
+            if ((note.flags & FloweringChart::Relay) && note.timeMs == FloweringChart::BeatTime(cue + 8))
+                relay.push_back(note);
+        assert(relay.size() == 4);
+        start(relay);
+        musicPosition = relay[0].timeMs - 1;
+        game.Update();
+        if (cue == 128) SaveFrame(game, output / L"relay_preview.png");
+        game.OnMouseDown(static_cast<int>(relay[0].x * 1920), static_cast<int>(relay[0].y * 1080));
+        game.OnMouseUp(0, 0);
+        assert(game.hitCircleCount == 0 && game.score == 0);
+        musicPosition = relay[0].timeMs;
+        game.Update();
+        assert(game.hitCircleCount == 4);
+        if (cue == 128) SaveFrame(game, output / L"relay_four_active.png");
+        for (int order = 0; order < 4; ++order)
+            assert(std::count_if(std::begin(game.hitCircles), std::end(game.hitCircles),
+                [&](const HitCircle& circle) { return circle.isActive && circle.relayOrder == order; }) == 1);
+        game.combo = 5;
+        game.OnMouseDown(static_cast<int>(relay[1].x * 1920), static_cast<int>(relay[1].y * 1080));
+        game.OnMouseUp(0, 0);
+        assert(game.hitCircleCount == 4 && game.score == 0 && game.combo == 0);
+        assert(game.relayErrorUntil > game.floweringTimeMs);
+        if (cue == 128) SaveFrame(game, output / L"relay_wrong_order.png");
+        for (int order = 0; order < 4; ++order)
+        {
+            musicPosition = relay[0].timeMs + order * 600;
+            game.Update();
+            game.OnMouseDown(static_cast<int>(relay[order].x * 1920), static_cast<int>(relay[order].y * 1080));
+            game.OnMouseUp(0, 0);
+            assert(game.hitCircleCount == 3 - order && game.floweringHitUnits == order + 1);
+        }
+        assert(game.score == 1200);
+        game.Release();
+        start(relay);
+        musicPosition = relay[0].relayEndMs + 1;
+        game.Update();
+        assert(game.hitCircleCount == 0 && game.floweringHitUnits == 0 && game.missedUnits == 4);
+        game.Release();
+        if (cue == 432)
+        {
+            start(relay);
+            musicPosition = relay[0].timeMs;
+            game.Update();
+            assert(game.hitCircleCount == 4);
+            game.Release();
+            assert(game.Init(window, false));
+            game.CreateHitCircle(400, 400);
+            assert(game.hitCircles[0].isActive && game.hitCircles[0].floweringFlags == 0);
+            assert(game.hitCircles[0].relayEndTime == 0 && game.hitCircles[0].relayOrder == 0);
+            game.Update();
+            assert(game.hitCircles[0].isActive && game.missedUnits == 0);
+            game.Release();
+        }
+    }
+
+    const auto returning = *std::find_if(chart.begin(), chart.end(),
+        [](const auto& note) { return (note.flags & FloweringChart::Return) != 0; });
+    for (bool releaseEarly : {false, true})
+    {
+        start({returning});
+        musicPosition = returning.timeMs;
+        game.Update();
+        const auto& slider = game.sliders[0];
+        assert(slider.isActive && slider.floweringReturn);
+        POINT positions[5]{};
+        for (int i = 0; i < 5; ++i)
+        {
+            int x, y;
+            game.GetSliderPosition(slider, i * .25, x, y);
+            positions[i] = {x, y};
+        }
+        assert(positions[0].x == slider.startX && positions[0].y == slider.startY);
+        assert(positions[2].x == slider.endX && positions[2].y == slider.endY);
+        assert(positions[4].x == slider.startX && positions[4].y == slider.startY);
+        assert(positions[1].x == positions[3].x && positions[1].y == positions[3].y);
+        game.OnMouseDown(slider.startX, slider.startY);
+        if (releaseEarly) game.OnMouseUp(slider.startX, slider.startY);
+        for (musicPosition += 10; musicPosition <= returning.timeMs + returning.durationMs + 20; musicPosition += 10)
+        {
+            FollowFloweringObjects(game, musicPosition);
+            game.Update();
+        }
+        assert(game.score == (releaseEarly ? 300 : 600));
+        assert(game.floweringHitUnits == (releaseEarly ? 1 : 2));
+        assert(game.missedUnits == (releaseEarly ? 1 : 0));
+        game.Release();
+    }
+
+    const auto spinnerNote = *std::find_if(chart.begin(), chart.end(),
+        [](const auto& note) { return (note.flags & FloweringChart::Spinner) != 0; });
+    for (int direction : {-1, 1})
+    {
+        start({spinnerNote});
+        const int centerX = static_cast<int>(1920 * .40), centerY = static_cast<int>(1080 * .48);
+        const auto move = [&](double angle, int radius = 180)
+        {
+            game.OnMouseMove(centerX + static_cast<int>(std::cos(angle) * radius),
+                centerY + static_cast<int>(std::sin(angle) * radius));
+        };
+        musicPosition = spinnerNote.timeMs - 1;
+        game.Update();
+        game.OnMouseDown(centerX + 180, centerY);
+        for (int i = 0; i < 50; ++i) move(i * .2);
+        assert(game.floweringSpinner.rotation == 0 && game.score == 0);
+        musicPosition = spinnerNote.timeMs;
+        game.Update();
+        move(0); move(.2);
+        const double beforeRelease = game.floweringSpinner.rotation;
+        game.OnMouseUp(centerX + 180, centerY);
+        for (int i = 0; i < 50; ++i) move(i * .2);
+        assert(game.floweringSpinner.rotation == beforeRelease);
+        game.OnMouseDown(centerX + 180, centerY);
+        move(0);
+        assert(game.floweringSpinner.hasAngle);
+        game.SetPaused(true);
+        assert(!game.floweringSpinner.hasAngle);
+        for (int i = 0; i < 50; ++i) move(i * .2);
+        assert(game.floweringSpinner.rotation == beforeRelease);
+        // A release inside the ESC menu bypasses game.OnMouseUp. Resume must
+        // reconcile the physical button rather than preserve the stale hold.
+        simulatedLeftButton = 0;
+        game.SetPaused(false);
+        assert(!game.isMouseDown && !game.floweringSpinner.hasAngle);
+        for (int i = 0; i < 50; ++i) move(i * .2);
+        assert(game.floweringSpinner.rotation == beforeRelease);
+        game.SetPaused(true);
+        simulatedLeftButton = static_cast<SHORT>(0x8000);
+        game.SetPaused(false);
+        assert(game.isMouseDown && !game.floweringSpinner.hasAngle);
+        simulatedLeftButton = 0;
+        for (int i = 0; i < 20; ++i) move(i * .2, 10);
+        for (int i = 0; i < 20; ++i) move(i * .2, 500);
+        move(0); move(2.5);
+        assert(game.floweringSpinner.rotation == beforeRelease);
+        game.floweringSpinner.hasAngle = false;
+        for (int i = 0; i <= 240; ++i)
+        {
+            musicPosition = spinnerNote.timeMs + i * 10;
+            game.Update();
+            move(direction * i * .12);
+        }
+        game.Update();
+        assert(game.floweringSpinner.cleared && game.score == 300 && game.floweringHitUnits == 1);
+        if (direction == 1) SaveFrame(game, output / L"spinner_clear.png");
+        musicPosition = spinnerNote.timeMs + spinnerNote.durationMs + 1;
+        game.Update();
+        assert(!game.floweringSpinner.active && game.score == 300);
+        game.Release();
+    }
+    start({spinnerNote});
+    musicPosition = spinnerNote.timeMs + spinnerNote.durationMs + 1;
+    game.Update();
+    assert(!game.floweringSpinner.active && game.score == 0 && game.missedUnits == 1);
+    game.Release();
+    std::cout << "PASS: memory visibility, ordered relays and practice restart, return tracking/release, spinner directions/pause-resume/input guards/miss\n";
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     std::cout << std::unitbuf;
@@ -75,6 +298,7 @@ int wmain(int argc, wchar_t** argv)
     CheckEffectSounds(window);
     CheckPromises(output);
     CheckCombatModes(window);
+    CheckRhythmPracticeEffects(output / L"rhythm_practice_effects");
     const auto chart = FloweringChart::Build();
     int flags = 0;
     for (size_t i = 0; i < chart.size(); ++i)
@@ -87,14 +311,22 @@ int wmain(int argc, wchar_t** argv)
         assert(note.y >= .30f && note.y <= .70f && note.endY >= .30f && note.endY <= .70f);
         if (i + 1 < chart.size())
         {
-            // 클릭 하나로 동시에 다른 위치를 누르거나, 홀드 중 다음 노트를 누를 필요가 없어야 한다.
-            assert(note.timeMs + note.durationMs + 350 <= chart[i + 1].timeMs);
+            // 릴레이의 네 원만 동시에 활성화한다. 나머지 기믹은 이동 여유를 보장한다.
+            if ((note.flags & FloweringChart::Relay) && note.timeMs == chart[i + 1].timeMs)
+                assert((chart[i + 1].flags & FloweringChart::Relay) && chart[i + 1].relayOrder == note.relayOrder + 1);
+            else
+            {
+                const int endTime = note.flags & FloweringChart::Relay ? note.relayEndMs : note.timeMs + note.durationMs;
+                assert(endTime + 350 <= chart[i + 1].timeMs);
+            }
             if (note.flags & FloweringChart::EncoreRepeat)
                 assert(chart[i + 1].timeMs - note.timeMs >= 1384);
         }
     }
-    assert(flags == (FloweringChart::Memory | FloweringChart::Encore | FloweringChart::Link
-        | FloweringChart::Curve | FloweringChart::EncoreRepeat | FloweringChart::LinkFollow));
+    assert(flags == (FloweringChart::Memory | FloweringChart::Encore | FloweringChart::Return
+        | FloweringChart::Curve | FloweringChart::EncoreRepeat | FloweringChart::Relay | FloweringChart::Spinner));
+    assert(std::count_if(chart.begin(), chart.end(), [](const auto& note) { return (note.flags & FloweringChart::Relay) != 0; }) == 12);
+    assert(std::count_if(chart.begin(), chart.end(), [](const auto& note) { return (note.flags & FloweringChart::Spinner) != 0; }) == 3);
 
     RhythmMiniGame game;
     assert(game.Init(window, true, 0));
@@ -111,10 +343,10 @@ int wmain(int argc, wchar_t** argv)
     Sleep(100);
     game.Update();
     assert(game.floweringTimeMs > pauseTime);
-    // 실제 MP3 원곡 끝의 마지막 디코딩 프레임에서도 자연 종료한다.
+    // 끝의 디지털 무음을 제거한 MP3도 마지막 디코딩 프레임에서 자연 종료한다.
     wchar_t playEnd[100];
     swprintf_s(playEnd, L"play rhythmBGM from %lu", game.floweringDurationMs - 1000);
-    assert(game.floweringDurationMs >= 272000 && game.floweringDurationMs <= 273000);
+    assert(game.floweringDurationMs >= 251900 && game.floweringDurationMs <= 252200);
     assert(mciSendStringW(playEnd, nullptr, 0, nullptr) == 0);
     Sleep(1300);
     game.Update();
@@ -125,33 +357,33 @@ int wmain(int argc, wchar_t** argv)
     int lateNotes = 0, lateFlags = 0;
     for (const auto& note : chart) if (note.timeMs >= 120000)
     { ++lateNotes; lateFlags |= note.flags; }
-    assert(lateNotes >= 100 && (lateFlags & flags) == flags);
+    assert(lateNotes >= 70 && (lateFlags & flags) == flags);
     assert(FloweringChart::RelayCueBeat(FloweringChart::BeatTime(296)) == 296);
     assert(FloweringChart::RelayCueBeat(FloweringChart::BeatTime(432)) == 432);
     simulated = true;
+    CheckFloweringMechanics(window, output, chart);
     musicPosition = 0;
     assert(game.Init(window, true, 1));
     assert(game.floweringMaximumScore == FloweringChart::MaximumScore(chart));
-    game.hitCircles[0] = {true, false, 400, 400, 0, 2000, FloweringChart::Memory};
-    assert(!game.HideFloweringCircle(0, 1749));
-    assert(game.HideFloweringCircle(0, 1750));
-    assert(!game.HideFloweringCircle(0, 2000));
-    game.hitCircles[0].floweringFlags = FloweringChart::Encore;
-    game.hitCircles[1] = {true, false, 400, 400, 0, 2462, FloweringChart::Encore | FloweringChart::EncoreRepeat};
-    assert(game.HideFloweringCircle(1, 1800));
-    game.hitCircles[0].isActive = false;
-    assert(!game.HideFloweringCircle(1, 2000));
-    game.ClearAllNotes();
-    const int snapshots[] = {10000, 35000, 45000, 59900, 66300, 66800, 68000, 70000, 83500, 104000, 139000, 175000, 202000, 240000, 271000};
+    const int snapshots[] = {10000, 35000, 45000, 59900, 63000, 66300, 66800, 68000, 70000, 83500, 97000, 104000, 139000, 175000, 202000, 238000, 251000};
+    const auto firstWith = [&](int flag) -> const FloweringChart::Note& {
+        return *std::find_if(chart.begin(), chart.end(), [&](const auto& note) { return (note.flags & flag) != 0; });
+    };
+    const auto& memory = firstWith(FloweringChart::Memory);
+    const auto& returning = firstWith(FloweringChart::Return);
+    const auto& spinner = firstWith(FloweringChart::Spinner);
+    const std::vector<std::pair<int, const wchar_t*>> mechanicFrames = {
+        {memory.timeMs - game.MemoryHideMs() - 80, L"memory_before_hide.png"},
+        {memory.timeMs - game.MemoryHideMs() + 120, L"memory_scatter.png"},
+        {memory.timeMs - 100, L"memory_hidden.png"},
+        {returning.timeMs + returning.durationMs / 2, L"return_turnaround.png"},
+        {returning.timeMs + returning.durationMs * 3 / 4, L"return_backtrack.png"},
+        {spinner.timeMs + 1050, L"spinner_half.png"}
+    };
     size_t nextNote = 0;
     for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs + 1000; musicPosition += 10)
     {
-        for (const auto& slider : game.sliders)
-        {
-            if (!slider.isActive || !slider.isStarted) continue;
-            const double progress = (musicPosition - slider.slideStartTime) / double(slider.duration);
-            game.GetSliderPosition(slider, progress, game.mouseX, game.mouseY);
-        }
+        FollowFloweringObjects(game, musicPosition);
         game.Update();
         while (nextNote < chart.size() && chart[nextNote].timeMs <= musicPosition)
         {
@@ -161,6 +393,8 @@ int wmain(int argc, wchar_t** argv)
         }
         for (int snapshot : snapshots)
             if (musicPosition == snapshot) SaveFrame(game, output / (std::to_wstring(snapshot) + L".png"));
+        for (const auto& [time, name] : mechanicFrames)
+            if (musicPosition == (time + 9) / 10 * 10) SaveFrame(game, output / name);
     }
     assert(game.score == game.floweringMaximumScore);
     assert(game.GetResultScore100() == 100);
@@ -170,7 +404,7 @@ int wmain(int argc, wchar_t** argv)
     game.Update();
     assert(game.IsGameOver());
     game.Release();
-    std::cout << "PASS: " << chart.size() << " chart objects, perfect " << FloweringChart::MaximumScore(chart) << ", five mechanics, natural finish\n";
+    std::cout << "PASS: " << chart.size() << " chart objects, perfect " << FloweringChart::MaximumScore(chart) << ", six mechanics, natural finish\n";
 
     // 실제 입력 경로로 전체 GOOD/BAD 성공을 재현한다. 단순 만점만으로 등급을 검증하지 않는다.
     for (int delay : {140, 220})
@@ -180,10 +414,7 @@ int wmain(int argc, wchar_t** argv)
         size_t next = 0;
         for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs + 1000; musicPosition += 10)
         {
-            for (const auto& slider : game.sliders)
-                if (slider.isActive && slider.isStarted)
-                    game.GetSliderPosition(slider, (musicPosition - slider.slideStartTime) / double(slider.duration),
-                        game.mouseX, game.mouseY);
+            FollowFloweringObjects(game, musicPosition);
             game.Update();
             while (next < chart.size() && chart[next].timeMs + delay <= musicPosition)
             {
@@ -202,6 +433,7 @@ int wmain(int argc, wchar_t** argv)
     assert(game.Init(window, true, 2));
     for (musicPosition = 0; musicPosition <= FloweringChart::DurationMs + 1000; musicPosition += 100) game.Update();
     assert(game.GetResultScore100() == 0);
+    assert(game.missedUnits == game.floweringMaximumScore / 300);
     game.Release();
     // 실패 후 재시작에서도 이전 채보/점수/시간이 남지 않는다.
     musicPosition = 0;

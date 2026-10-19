@@ -78,6 +78,9 @@ void RhythmMiniGame::SetPaused(bool paused)
     if (mciSendString(paused ? L"pause rhythmBGM" : L"resume rhythmBGM", nullptr, 0, nullptr) != 0)
         floweringAudioReady = false;
     floweringPaused = paused;
+    floweringSpinner.hasAngle = false;
+    // 메뉴나 창 밖에서 버튼을 뗐어도 복귀 후 가짜 홀드가 남지 않는다.
+    if (!paused) isMouseDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
 }
 
 void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
@@ -85,10 +88,19 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
     while (floweringNextNote < floweringNotes.size())
     {
         const auto& note = floweringNotes[floweringNextNote];
+        // 릴레이 응답은 예고가 끝나는 순간 네 원을 함께 활성화한다.
+        if ((note.flags & FloweringChart::Relay) && currentTime < static_cast<DWORD>(note.timeMs)) break;
         if (currentTime + ApproachTime() < static_cast<DWORD>(note.timeMs)) break;
         ++floweringNextNote;
         // 지연된 프레임도 원래 음악 타임스탬프를 유지한다. 놓친 노트는 공통 판정에서 MISS 처리한다.
-        if (note.durationMs == 0)
+        if (note.flags & FloweringChart::Spinner)
+        {
+            floweringSpinner = {};
+            floweringSpinner.active = true;
+            floweringSpinner.startTime = note.timeMs;
+            floweringSpinner.endTime = note.timeMs + note.durationMs;
+        }
+        else if (note.durationMs == 0)
         {
             for (auto& circle : hitCircles)
             {
@@ -97,7 +109,7 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
                     static_cast<int>(note.y * screenHeight),
                     static_cast<DWORD>(note.timeMs - ApproachTime()),
                     static_cast<DWORD>(note.timeMs), note.flags,
-                    static_cast<int>(note.endX * screenWidth), static_cast<int>(note.endY * screenHeight)};
+                    note.relayOrder, static_cast<DWORD>(note.relayEndMs)};
                 ++hitCircleCount;
                 break;
             }
@@ -117,6 +129,7 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
                 slider.hitTime = note.timeMs;
                 slider.duration = note.durationMs;
                 slider.floweringCurved = (note.flags & FloweringChart::Curve) != 0;
+                slider.floweringReturn = (note.flags & FloweringChart::Return) != 0;
                 ++sliderCount;
                 break;
             }
@@ -127,6 +140,8 @@ void RhythmMiniGame::SpawnFloweringNotes(DWORD currentTime)
 void RhythmMiniGame::GetSliderPosition(const Slider& slider, double progress, int& x, int& y) const
 {
     progress = (std::clamp)(progress, 0.0, 1.0);
+    if (isFlowering && slider.floweringReturn)
+        progress = progress < .5 ? progress * 2 : (1 - progress) * 2;
     x = static_cast<int>(slider.startX + (slider.endX - slider.startX) * progress);
     y = static_cast<int>(slider.startY + (slider.endY - slider.startY) * progress);
     if (isFlowering && slider.floweringCurved)
@@ -137,8 +152,9 @@ void RhythmMiniGame::GetSliderPosition(const Slider& slider, double progress, in
 bool RhythmMiniGame::HideFloweringCircle(int index, DWORD now) const
 {
     const auto& circle = hitCircles[index];
-    // 기억 꽃은 마지막 250ms만 숨긴다. 판정 시간과 위치는 바꾸지 않는다.
-    if ((circle.floweringFlags & FloweringChart::Memory) && now < circle.hitTime && now + 250 >= circle.hitTime)
+    // 위치를 기억할 시간이 지난 뒤 꽃이 흩어지고, 박자 직후까지 확실히 숨는다.
+    if ((circle.floweringFlags & FloweringChart::Memory)
+        && now + MemoryHideMs() >= circle.hitTime && now < circle.hitTime + 120)
         return true;
     // 앵콜의 두 번째 접근 원이 첫 번째 접근 원을 덮지 않도록 한다.
     if (circle.floweringFlags & FloweringChart::Encore)
@@ -153,13 +169,74 @@ void RhythmMiniGame::RenderFloweringSliderPath(HDC hDC, const Slider& slider)
     Gdiplus::Graphics g(hDC);
     g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
     Gdiplus::Point points[25];
-    for (int i = 0; i <= 24; ++i) GetSliderPosition(slider, i / 24.0, points[i].X, points[i].Y);
+    for (int i = 0; i <= 24; ++i)
+        GetSliderPosition(slider, i / (slider.floweringReturn ? 48.0 : 24.0), points[i].X, points[i].Y);
     Gdiplus::Pen outer(Gdiplus::Color(245, 237, 251, 241), 90.f);
     Gdiplus::Pen inner(Gdiplus::Color(255, 67, 125, 121), 72.f);
     outer.SetLineJoin(Gdiplus::LineJoinRound);
     inner.SetLineJoin(Gdiplus::LineJoinRound);
+    outer.SetStartCap(Gdiplus::LineCapRound); outer.SetEndCap(Gdiplus::LineCapRound);
+    inner.SetStartCap(Gdiplus::LineCapRound); inner.SetEndCap(Gdiplus::LineCapRound);
     g.DrawLines(&outer, points, 25);
     g.DrawLines(&inner, points, 25);
+}
+
+void RhythmMiniGame::ProcessFloweringSpin(int x, int y)
+{
+    auto& spin = floweringSpinner;
+    if (!isFlowering || !spin.active || spin.cleared || floweringPaused || !isMouseDown
+        || floweringTimeMs < spin.startTime || floweringTimeMs >= spin.endTime)
+    {
+        spin.hasAngle = false;
+        return;
+    }
+    const double dx = x - screenWidth * .40, dy = y - screenHeight * .48;
+    const double radius = std::hypot(dx, dy);
+    if (radius < 30 || radius > screenHeight * .36)
+    {
+        spin.hasAngle = false;
+        return;
+    }
+    const double angle = std::atan2(dy, dx);
+    if (spin.hasAngle)
+    {
+        const double delta = std::remainder(angle - spin.angle, 6.28318530718);
+        // 순간 이동/중앙 왕복으로 회전량을 채우지 못하게 한다.
+        if (std::abs(delta) <= 1.0) spin.rotation += delta;
+    }
+    spin.angle = angle;
+    spin.hasAngle = true;
+}
+
+void RhythmMiniGame::UpdateFloweringSpinner(DWORD now)
+{
+    auto& spin = floweringSpinner;
+    if (!spin.active || now < spin.startTime) return;
+    if (!spin.cleared && std::abs(spin.rotation) >= (difficulty + 2) * 6.28318530718)
+    {
+        spin.cleared = true;
+        score += 300;
+        AddCombo();
+        PlayHitSound();
+        lastJudge = JUDGE_PERFECT;
+        judgeX = static_cast<int>(screenWidth * .40);
+        judgeY = static_cast<int>(screenHeight * .48);
+        judgeDisplayStartTime = now;
+    }
+    if (now >= spin.endTime)
+    {
+        if (!spin.cleared)
+        {
+            lastJudge = JUDGE_MISS;
+            ResetCombo();
+            PlayMissSound();
+            judgeX = static_cast<int>(screenWidth * .40);
+            judgeY = static_cast<int>(screenHeight * .48);
+            judgeDisplayStartTime = now;
+        }
+        spin.active = false;
+        spin.hasAngle = false;
+    }
 }
 
 void RhythmMiniGame::RenderFloweringStage(HDC hDC)
@@ -267,58 +344,118 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
     if (time >= FloweringChart::BeatTime(60) && time < FloweringChart::BeatTime(92))
         mechanic = L"바람 슬라이더 · 곧은 길도 곡선 꽃길도, 공을 끝까지 따라가요";
     else if (time >= FloweringChart::BeatTime(92) && time < FloweringChart::BeatTime(128))
-        mechanic = L"기억 꽃 · 보라색 원은 마지막 순간 숨어요. 위치와 박자를 기억!";
+        mechanic = L"기억 꽃 · 보라색 꽃잎이 흩어지면 원이 숨어요. 기억한 자리에서 박자에 맞춰 클릭!";
     else if (time >= FloweringChart::BeatTime(144) && time < FloweringChart::BeatTime(172))
         mechanic = L"앵콜 노트 · 돌아오는 화살표에 맞춰 같은 자리에서 두 번! 그다음은 세 박자 쉬어요";
     else if (time >= FloweringChart::BeatTime(172) && time < FloweringChart::BeatTime(208))
-        mechanic = L"이어치기 · 화살표의 1번, 두 박자 뒤 2번! 누른 채 끌지 않아요";
-    else if (time >= FloweringChart::BeatTime(208))
-        mechanic = L"혼합 무대 · 꽃길 · 기억 꽃 · 앵콜 · 이어치기 / 응원 신호도 돌아옵니다";
-    if (!mechanic.empty())
+        mechanic = L"왕복 슬라이더 · 누른 채 공을 따라가고, 끝의 화살표에서 돌아와요";
+    else if (time >= FloweringChart::BeatTime(208) && time < FloweringChart::BeatTime(224))
+        mechanic = L"꽃바람 스피너 · 버튼을 누른 채 중심 둘레를 빙글빙글! 어느 방향도 좋아요";
+    else if (time >= FloweringChart::BeatTime(224))
+        mechanic = L"혼합 무대 · 기억 꽃 · 앵콜 · 왕복 꽃길 · 스피너 / 히로인 릴레이도 돌아옵니다";
+    if (!mechanic.empty() && relay < 0 && !floweringSpinner.active)
         Label(g, mechanic, w * .07f, h * .80f, h * .021f, Color(255, 224, 229, 244), w * .64f);
+
+    for (const auto& slider : sliders)
+    {
+        if (!slider.isActive || !slider.floweringReturn) continue;
+        const float progress = slider.isStarted
+            ? (std::clamp)((time - static_cast<int>(slider.slideStartTime)) / float(slider.duration), 0.f, 1.f) : 0.f;
+        const float x = static_cast<float>(slider.endX), y = static_cast<float>(slider.endY);
+        SolidBrush marker(Color(245, 25, 76, 89));
+        Pen rim(Color(255, 159, 250, 220), 3.f);
+        g.FillEllipse(&marker, x - 31, y - 31, 62.f, 62.f);
+        g.DrawEllipse(&rim, x - 31, y - 31, 62.f, 62.f);
+        Pen arrow(Color(255, 235, 255, 230), 4.f);
+        arrow.SetEndCap(LineCapArrowAnchor);
+        g.DrawArc(&arrow, x - 17, y - 17, 34.f, 34.f, 45.f, 270.f);
+        const wchar_t* step = progress >= .5f ? L"돌아오는 길 · 끝까지 누르고 따라와요" : L"왕복 꽃길 · 화살표에서 되돌아와요";
+        Label(g, step, w * .17f, h * .745f, h * .023f, Color(255, 173, 246, 224), w * .53f);
+        SolidBrush track(Color(255, 42, 70, 80)), fill(Color(255, 144, 231, 206));
+        g.FillRectangle(&track, w * .19f, h * .785f, w * .40f, 5.f);
+        g.FillRectangle(&fill, w * .19f, h * .785f, w * .40f * progress, 5.f);
+    }
+
+    if (floweringSpinner.active)
+    {
+        const auto& spin = floweringSpinner;
+        const float x = w * .40f, y = h * .48f, radius = h * .175f;
+        const bool ready = time >= static_cast<int>(spin.startTime);
+        const float fill = static_cast<float>((std::min)(1.0, std::abs(spin.rotation) / ((difficulty + 2) * 6.28318530718)));
+        const float left = (std::clamp)((static_cast<int>(spin.endTime) - time)
+            / float(spin.endTime - spin.startTime), 0.f, 1.f);
+        SolidBrush backdrop(Color(240, 17, 37, 58));
+        g.FillEllipse(&backdrop, x - radius, y - radius, radius * 2, radius * 2);
+        Pen base(Color(255, 62, 89, 115), 12.f), progress(Color(255, 165, 238, 219), 12.f);
+        g.DrawEllipse(&base, x - radius, y - radius, radius * 2, radius * 2);
+        if (fill > 0) g.DrawArc(&progress, x - radius, y - radius, radius * 2, radius * 2, -90.f, 360 * fill);
+        Pen timer(Color(200, 255, 212, 176), 3.f);
+        g.DrawArc(&timer, x - radius - 17, y - radius - 17, (radius + 17) * 2, (radius + 17) * 2, -90.f, 360 * left);
+        const float angle = static_cast<float>(spin.rotation);
+        for (int petal = 0; petal < 10; ++petal)
+        {
+            const float a = angle + petal * .6283185f;
+            Flower(g, x + std::cos(a) * radius * .70f, y + std::sin(a) * radius * .70f,
+                h * .014f, ready ? 210 : 90, a * 57.2958f);
+        }
+        Flower(g, x, y - h * .026f, h * .044f, 240, angle * 57.2958f);
+        const std::wstring status = spin.cleared ? L"BLOOM!" : ready
+            ? std::to_wstring(static_cast<int>(fill * 100)) + L"%" : L"준비";
+        Label(g, status, x - h * .045f, y + h * .032f, h * .028f, Color(255, 235, 245, 240), h * .15f);
+        Label(g, spin.cleared ? L"꽃바람 완성! 다음 박자를 기다려요"
+            : L"누른 채 중심 둘레를 돌려요 · 어느 방향도 OK", w * .14f, h * .745f,
+            h * .025f, Color(255, 183, 240, 224), w * .6f);
+        Label(g, L"꽃바람 스피너 · " + std::to_wstring(difficulty + 2) + L"바퀴", w * .29f, h * .235f,
+            h * .025f, Color(255, 255, 220, 192), w * .4f);
+    }
 
     for (int i = 0; i < MAX_HIT_CIRCLES; ++i)
     {
         const auto& note = hitCircles[i];
-        if (!note.isActive || HideFloweringCircle(i, time)) continue;
+        if (!note.isActive) continue;
         if (note.floweringFlags & FloweringChart::Memory)
         {
-            Pen ring(Color(255, 207, 161, 255), 5.f);
-            g.DrawEllipse(&ring, note.x - 58, note.y - 58, 116, 116);
-        }
-        if (note.floweringFlags & FloweringChart::Link)
-        {
-            const bool follow = (note.floweringFlags & FloweringChart::LinkFollow) != 0;
             const float x = static_cast<float>(note.x), y = static_cast<float>(note.y);
             const float radius = hitCircleImg.GetWidth() * .5f;
-            if (!follow)
+            const int vanish = static_cast<int>(note.hitTime) - MemoryHideMs();
+            const int scatter = time - vanish;
+            if (scatter >= 0 && scatter < 260)
             {
-                const float dx = note.linkX - x, dy = note.linkY - y;
-                const float distance = std::sqrt(dx * dx + dy * dy);
-                if (distance > radius * 2)
+                const float p = scatter / 260.f;
+                for (int petal = 0; petal < 8; ++petal)
                 {
-                    Pen connection(Color(210, 139, 237, 224), 4.f);
-                    connection.SetEndCap(LineCapArrowAnchor);
-                    g.DrawLine(&connection, x + dx * radius / distance, y + dy * radius / distance,
-                        note.linkX - dx * (radius + 12) / distance, note.linkY - dy * (radius + 12) / distance);
-                    Pen destination(Color(120, 139, 237, 224), 2.f);
-                    destination.SetDashStyle(DashStyleDash);
-                    g.DrawEllipse(&destination, note.linkX - radius, note.linkY - radius, radius * 2, radius * 2);
+                    const float angle = petal * .785398f + p * .5f;
+                    const float travel = radius * (.55f + p * 1.8f);
+                    SolidBrush petalBrush(Color(static_cast<BYTE>(210 * (1 - p)), 213, 168, 255));
+                    g.FillEllipse(&petalBrush, x + std::cos(angle) * travel - 7,
+                        y + std::sin(angle) * travel - 7, 14.f, 14.f);
                 }
             }
+            if (HideFloweringCircle(i, time)) continue;
+            SolidBrush halo(Color(55, 186, 121, 255));
+            g.FillEllipse(&halo, x - radius - 13, y - radius - 13, (radius + 13) * 2, (radius + 13) * 2);
             LinearGradientBrush face(PointF(x, y - radius), PointF(x, y + radius),
-                Color(255, 52, 128, 140), Color(255, 21, 64, 94));
+                Color(255, 121, 67, 161), Color(255, 55, 31, 92));
             g.FillEllipse(&face, x - radius, y - radius, radius * 2, radius * 2);
-            Pen outline(Color(255, 163, 251, 228), 3.f);
+            Pen outline(Color(255, 225, 190, 255), 4.f);
             g.DrawEllipse(&outline, x - radius, y - radius, radius * 2, radius * 2);
             const float remaining = (std::clamp)((static_cast<int>(note.hitTime) - time)
-                / float(FloweringChart::ApproachMs), 0.f, 1.f);
+                / float(ApproachTime()), 0.f, 1.f);
             const float approach = radius * (1 + .8f * remaining);
             g.DrawEllipse(&outline, x - approach, y - approach, approach * 2, approach * 2);
-            Label(g, follow ? L"2" : L"1", x - 10, y - 22, 30.f, Color(255, 238, 255, 248), 45.f);
-            Label(g, follow ? L"이어치기 · 도착" : L"이어치기 · 출발", x - 80, y + radius + 16,
-                20.f, Color(255, 195, 246, 233), 200.f);
+            Flower(g, x, y, radius * .55f, 245, time * .025f);
+            Label(g, L"기억 꽃", x - 42, y + radius * 1.8f + 12, 20.f, Color(255, 229, 199, 255), 150.f);
         }
+        if (note.floweringFlags & FloweringChart::Relay)
+        {
+            const float radius = hitCircleImg.GetWidth() * .5f;
+            SolidBrush face(Color(255, 42, 87, 107));
+            Pen outline(Color(255, 150, 240, 220), 4.f);
+            g.FillEllipse(&face, note.x - radius, note.y - radius, radius * 2, radius * 2);
+            g.DrawEllipse(&outline, note.x - radius, note.y - radius, radius * 2, radius * 2);
+            Flower(g, static_cast<float>(note.x), static_cast<float>(note.y), radius * .48f, 240, 0);
+        }
+        if (HideFloweringCircle(i, time)) continue;
         if (note.floweringFlags & FloweringChart::Encore)
         {
             const bool repeat = (note.floweringFlags & FloweringChart::EncoreRepeat) != 0;
@@ -353,15 +490,30 @@ void RhythmMiniGame::RenderFloweringOverlay(HDC hDC)
     if (time >= cueStart && time < response)
     {
         const int cue = (std::min)(3, static_cast<int>((time - cueStart) * 130 / 120000));
+        const int position = FloweringChart::RelayPosition(relay, cue);
         const float xs[] = {.18f, .37f, .61f, .47f}, ys[] = {.43f, .65f, .45f, .33f};
-        Flower(g, w * xs[cue], h * ys[cue], h * .05f, 220, 0);
-        Label(g, std::to_wstring(cue + 1), w * xs[cue] - h * .012f, h * ys[cue] - h * .024f,
+        Flower(g, w * xs[position], h * ys[position], h * .05f, 220, 0);
+        Label(g, std::to_wstring(cue + 1), w * xs[position] - h * .012f, h * ys[position] - h * .024f,
             h * .032f, Color(255, 35, 41, 62), h * .08f);
-        Label(g, L"응원 보기 · 꽃은 누르지 않아요. 이어지는 원을 같은 순서로!",
+        Label(g, L"히로인 릴레이 · 순서를 기억해요. 잠시 뒤 네 원이 함께 켜집니다",
             w * .12f, h * .80f, h * .023f, Color(255, 255, 214, 186), w * .58f);
     }
     else if (time >= response && relay >= 0 && time < FloweringChart::BeatTime(relay + 16))
-        Label(g, L"이제 네 차례!  1 · 2 · 3 · 4", w * .17f, h * .80f, h * .03f, Color(255, 255, 214, 186), w * .5f);
+    {
+        int remaining = 0;
+        for (const auto& note : hitCircles)
+            if (note.isActive && (note.floweringFlags & FloweringChart::Relay)) ++remaining;
+        const std::wstring hint = time < static_cast<int>(relayErrorUntil)
+            ? L"순서가 달라요. 방금 본 순서를 떠올려요!"
+            : remaining ? L"기억한 순서대로 클릭!  " + std::to_wstring(4 - remaining) + L" / 4"
+            : L"릴레이 성공! 네 박자가 하나로 이어졌어요";
+        Label(g, hint, w * .12f, h * .80f, h * .026f,
+            time < static_cast<int>(relayErrorUntil) ? Color(255, 255, 156, 169) : Color(255, 255, 214, 186), w * .6f);
+        const float progress = (std::clamp)((FloweringChart::BeatTime(relay + 16) - time)
+            / float(FloweringChart::BeatTime(8) - FloweringChart::BeatTime(0)), 0.f, 1.f);
+        SolidBrush timer(Color(255, 151, 231, 210));
+        g.FillRectangle(&timer, w * .17f, h * .85f, w * .44f * progress, 4.f);
+    }
 
     const int remaining = (static_cast<int>(floweringDurationMs) - time + 999) / 1000;
     SolidBrush timerPanel(Color(235, 13, 26, 39));
