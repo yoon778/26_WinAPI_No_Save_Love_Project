@@ -16,6 +16,7 @@ public:
 
     bool IsFinished() const;
     int GetCurrentPage() const;
+    int GetPageCount() const;
 
 private:
     bool IsInsideRect(const RECT& rect, int x, int y) const;
@@ -52,7 +53,7 @@ private:
     const int screenWidth = 1920;
     const int screenHeight = 1080;
 
-    // 0: 조작법 설명, 1: 판정 점수 설명
+    // 일반 모드 2장: 조작/판정. 개화 4장: 조작/기믹 두 개씩 세 장.
     int currentPage = 0;
     bool finished = false;
     bool floweringMode = false;
@@ -70,6 +71,7 @@ private:
     CImage hit50Image;
     CImage hit0Image;
     CImage missReactionImage;
+    CImage floweringExampleImages[6];
 
     RECT prevButtonRect = { 1180, 960, 1390, 1025 };
     RECT nextButtonRect = { 1430, 960, 1700, 1025 };

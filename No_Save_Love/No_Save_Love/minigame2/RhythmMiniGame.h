@@ -230,11 +230,12 @@ private:
     void RenderFloweringStage(HDC hDC);
     void RenderFloweringOverlay(HDC hDC);
     void GetSliderPosition(const Slider& slider, double progress, int& x, int& y) const;
+    double SliderFollowScale(const Slider& slider) const;
     bool HideFloweringCircle(int index, DWORD now) const;
     void RenderFloweringSliderPath(HDC hDC, const Slider& slider);
     void ProcessFloweringSpin(int x, int y);
     void UpdateFloweringSpinner(DWORD now);
-    int MemoryHideMs() const { return difficulty == 0 ? 450 : difficulty == 2 ? 650 : 550; }
+    int MemoryHideMs() const { return 450; }
     // =========================
     // 게임 기본 상태
     // =========================

@@ -548,7 +548,7 @@ void RhythmMiniGame::Update()
             int dx = mouseX - ballX;
             int dy = mouseY - ballY;
 
-            double followScale = (difficulty == 0 ? .9 : difficulty == 2 ? .675 : .75) * WindowNoteScale();
+            double followScale = SliderFollowScale(sliders[i]);
 
             int followRadius =
                 (int)(sliderFollowCircleImg.GetWidth() * followScale / 2);
@@ -851,7 +851,7 @@ void RhythmMiniGame::Render(HDC hDC)
             // -------------------------
             // 슬라이더 팔로우 원
             // -------------------------
-            double followScale = (difficulty == 0 ? .9 : difficulty == 2 ? .675 : .75) * WindowNoteScale();
+            double followScale = SliderFollowScale(sliders[i]);
 
             int followWidth =
                 (int)(sliderFollowCircleImg.GetWidth() * followScale);

@@ -87,7 +87,7 @@ namespace FloweringChart
             const bool returning = beat >= 176 && beat % 16 == 4;
             const bool slider = returning || beat % 16 == 8;
             const int index = static_cast<int>(notes.size()) % 4;
-            const int hold = returning ? 4 : slider ? 2 : 0;
+            const int hold = returning ? 6 : slider ? 2 : 0;
             float endY = ys[index];
             if (beat >= 64 && beat < 144) endY += index % 2 ? -0.17f : 0.17f;
             if (endY < 0.30f) endY = 0.30f;
@@ -99,8 +99,8 @@ namespace FloweringChart
             if (returning)
             {
                 note.flags |= Return;
-                note.endX = xs[(index + 1) % 4];
-                note.endY = ys[(index + 1) % 4];
+                note.endX = note.x + (xs[(index + 1) % 4] - note.x) * .8f;
+                note.endY = note.y + (ys[(index + 1) % 4] - note.y) * .8f;
             }
             const bool encore = !slider && beat >= 144 && beat % 16 == 0;
             if (encore) note.flags |= Encore;
@@ -112,7 +112,7 @@ namespace FloweringChart
                 notes.push_back(note);
             }
             // 반복 입력 뒤에는 세 박자(약 1.385초)를 남겨 다음 위치로 이동한다.
-            beat += returning ? 6 : slider || encore ? 4 : step;
+            beat += returning ? 8 : slider || encore ? 4 : step;
         }
         return notes;
     }

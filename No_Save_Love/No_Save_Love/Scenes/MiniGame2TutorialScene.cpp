@@ -22,6 +22,17 @@ void MiniGame2TutorialScene::Initialize(bool flowering)
     hit0Image.Load(L"resource\\minigame2\\judge\\hit0.png");
     missReactionImage.Load(L"resource\\minigame2\\miss\\frame1.png");
 
+    if (floweringMode)
+    {
+        const wchar_t* names[] = {L"wind", L"memory", L"relay", L"encore", L"return", L"spinner"};
+        for (int i = 0; i < 6; ++i)
+        {
+            const std::wstring path = std::wstring(L"resource\\minigame5\\tutorial\\") + names[i] + L".png";
+            floweringExampleImages[i].Load(path.c_str());
+            PremultiplyAlpha(floweringExampleImages[i]);
+        }
+    }
+
     PremultiplyAlpha(hitCircleImage);
     PremultiplyAlpha(hitCircleOverlayImage);
     PremultiplyAlpha(approachCircleImage);
@@ -51,6 +62,7 @@ void MiniGame2TutorialScene::Shutdown()
     DestroyImage(hit50Image);
     DestroyImage(hit0Image);
     DestroyImage(missReactionImage);
+    for (CImage& image : floweringExampleImages) DestroyImage(image);
 }
 
 void MiniGame2TutorialScene::Reset()
@@ -112,6 +124,11 @@ int MiniGame2TutorialScene::GetCurrentPage() const
     return currentPage;
 }
 
+int MiniGame2TutorialScene::GetPageCount() const
+{
+    return floweringMode ? 4 : 2;
+}
+
 bool MiniGame2TutorialScene::IsInsideRect(const RECT& rect, int x, int y) const
 {
     return x >= rect.left &&
@@ -158,10 +175,12 @@ void MiniGame2TutorialScene::DrawHeader(HDC hDC)
         FW_BOLD
     );
 
-    RECT subTitleRect = { 100, 92, 1650, 135 };
+    RECT subTitleRect = floweringMode ? RECT{100, 91, 1650, 122} : RECT{100, 92, 1650, 135};
     DrawTextInRect(
         hDC,
-        L"줄어드는 접근 원에 맞춰 노트를 클릭하고, 슬라이더를 끝까지 따라가세요.",
+        floweringMode && currentPage > 0
+            ? L"사진 속 신호를 확인하고, 각 카드 아래의 조작을 따라 해 보세요."
+            : L"줄어드는 접근 원에 맞춰 노트를 클릭하고, 슬라이더를 끝까지 따라가세요.",
         subTitleRect,
         26,
         RGB(230, 230, 235),
@@ -172,7 +191,7 @@ void MiniGame2TutorialScene::DrawHeader(HDC hDC)
     DrawButton(
         hDC,
         skipButtonRect,
-        L"SKIP",
+        floweringMode ? L"바로 시작" : L"SKIP",
         RGB(65, 60, 75),
         RGB(245, 245, 250)
     );
@@ -339,26 +358,50 @@ void MiniGame2TutorialScene::DrawFloweringGuide(HDC hDC)
 {
     const wchar_t* titles[] = {L"01  바람 슬라이더", L"02  기억 꽃", L"03  히로인 릴레이",
         L"04  앵콜 노트", L"05  왕복 슬라이더", L"06  스피너"};
+    const wchar_t* actions[] = {L"누른 채 꽃길 따라가기", L"사라진 꽃의 위치 기억하기", L"본 순서대로 누르기",
+        L"같은 자리 다시 누르기", L"돌아오는 길까지 따라가기", L"중심 주위로 원 그리기"};
     const wchar_t* descriptions[] = {
-        L"누른 채 공을 따라가세요. 곡선 꽃길도 끝까지 따라가면 추가 +300점!",
-        L"보라색 꽃의 위치와 박자를 기억하세요. 꽃이 사라져도 원래 자리를 박자에 맞춰 누릅니다.",
-        L"빛나는 네 위치의 순서를 먼저 보세요. 네 원이 함께 켜지면 예고된 순서대로 누릅니다.",
-        L"반복 화살표의 원을 한 박자 간격으로 두 번 클릭합니다. 이후 세 박자 동안 다음 위치로 이동합니다.",
-        L"버튼을 누른 채 공을 따라가세요. 끝의 반전 화살표에서 같은 길을 되돌아와야 완주합니다.",
-        L"버튼을 누른 채 중심 주위로 크게 원을 그리세요. 어느 방향이든 회전 게이지를 채우면 성공!"
+        L"시작 원을 누른 채 움직이는 공을 따라가세요.\n휘어진 길에서도 끝까지 버튼을 놓지 않으면 성공!",
+        L"보라색 꽃의 위치와 박자를 기억하세요.\n잠깐 숨었던 꽃이 클릭할 순간 다시 나타나요.\n그때 원래 자리를 눌러 주세요.",
+        L"빛나는 위치의 순서를 먼저 보세요.\n모든 원이 켜지면 예고된 순서대로 하나씩 눌러요.",
+        L"반복 화살표의 원을 같은 자리에서 두 번 눌러요.\n다음 접근 원이 겹치는 순간 다시 클릭하세요.",
+        L"공을 누른 채 반전 화살표까지 따라가세요.\n끝에서 잠깐 멈춘 뒤 천천히 돌아옵니다.\n버튼을 놓지 말고 돌아오는 공도 계속 따라가요.",
+        L"버튼을 누른 채 중심 주위로 원을 그리세요.\n편한 방향으로 회전하며 게이지를 끝까지 채우면 성공!"
     };
-    for (int i = 0; i < 6; ++i)
+    const wchar_t* pageTitles[] = {L"사진으로 익히기  ·  꽃길과 기억", L"사진으로 익히기  ·  순서와 반복", L"사진으로 익히기  ·  왕복과 회전"};
+    const int group = currentPage - 1;
+    if (group < 0 || group >= 3) return;
+    DrawTextInRect(hDC, pageTitles[group], {130, 162, 1790, 205}, 31,
+        RGB(181, 228, 214), DT_LEFT | DT_VCENTER | DT_SINGLELINE, FW_BOLD);
+
+    for (int column = 0; column < 2; ++column)
     {
-        const int top = 180 + i * 105;
-        RECT card = {130, top, 1790, top + 94};
+        const int i = group * 2 + column;
+        const int left = 130 + column * 855;
+        RECT card = {left, 220, left + 805, 900};
         DrawRoundCard(hDC, card, RGB(24, 49, 54), RGB(94, 157, 143));
-        DrawTextInRect(hDC, titles[i], {160, top + 10, 580, top + 84}, 31,
+        DrawTextInRect(hDC, titles[i], {left + 28, 236, left + 777, 288}, 36,
             RGB(255, 207, 221), DT_LEFT | DT_VCENTER | DT_SINGLELINE, FW_BOLD);
-        DrawTextInRect(hDC, descriptions[i], {590, top + 20, 1760, top + 84}, 27,
+
+        // 실제 게임에서 캡처한 900x500 예시의 비율을 유지한다.
+        const RECT imageRect = {left + 24, 304, left + 780, 724};
+        DrawRoundCard(hDC, imageRect, RGB(16, 28, 34), RGB(74, 109, 112));
+        if (IsValidImage(floweringExampleImages[i]))
+        {
+            const int oldStretchMode = SetStretchBltMode(hDC, HALFTONE);
+            POINT oldOrigin{}; SetBrushOrgEx(hDC, 0, 0, &oldOrigin);
+            DrawImageFit(hDC, floweringExampleImages[i], imageRect);
+            SetBrushOrgEx(hDC, oldOrigin.x, oldOrigin.y, nullptr);
+            SetStretchBltMode(hDC, oldStretchMode);
+        }
+        else
+        {
+            DrawTextInRect(hDC, actions[i], {left + 64, 420, left + 740, 610}, 42,
+                RGB(181, 228, 214), DT_CENTER | DT_VCENTER | DT_WORDBREAK, FW_BOLD);
+        }
+        DrawTextInRect(hDC, descriptions[i], {left + 28, 752, left + 777, 867}, 29,
             RGB(235, 244, 239), DT_LEFT | DT_WORDBREAK);
     }
-    DrawTextInRect(hDC, L"공연 약 4분 12초 · 성공률 90% + 박자 정확도 10% · 모두 성공하면 S등급",
-        {150, 825, 1770, 895}, 27, RGB(181, 228, 214), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 
 void MiniGame2TutorialScene::DrawBottomButtons(HDC hDC)
@@ -374,7 +417,7 @@ void MiniGame2TutorialScene::DrawBottomButtons(HDC hDC)
         );
     }
 
-    std::wstring nextText = (currentPage == 0) ? L"다음 >" : L"시작하기";
+    std::wstring nextText = currentPage + 1 < GetPageCount() ? L"다음 >" : L"시작하기";
 
     DrawButton(
         hDC,
@@ -385,7 +428,12 @@ void MiniGame2TutorialScene::DrawBottomButtons(HDC hDC)
     );
 
     RECT dotRect = pageDotArea;
-    std::wstring pageText = (currentPage == 0) ? L"●  ○" : L"○  ●";
+    std::wstring pageText;
+    for (int page = 0; page < GetPageCount(); ++page)
+    {
+        if (page > 0) pageText += L"  ";
+        pageText += page == currentPage ? L"●" : L"○";
+    }
 
     DrawTextInRect(
         hDC,
@@ -812,9 +860,9 @@ void MiniGame2TutorialScene::DestroyImage(CImage& image)
 
 void MiniGame2TutorialScene::GoNext()
 {
-    if (currentPage == 0)
+    if (currentPage + 1 < GetPageCount())
     {
-        currentPage = 1;
+        ++currentPage;
         return;
     }
 

@@ -89,9 +89,26 @@ void FollowFloweringObjects(RhythmMiniGame& game, int now)
     if (spinner.active && now >= spinner.startTime && now < spinner.endTime)
     {
         const double angle = (now - spinner.startTime) * .009;
-        game.OnMouseMove(static_cast<int>(1920 * .40 + std::cos(angle) * 180),
-            static_cast<int>(1080 * .48 + std::sin(angle) * 180));
+        game.OnMouseMove(static_cast<int>(1920 * .40 + std::cos(angle) * 270),
+            static_cast<int>(1080 * .48 + std::sin(angle) * 270));
     }
+}
+
+void CheckFloweringMemory(RhythmMiniGame& game)
+{
+    game.hitCircles[0] = {true, false, 400, 400, 0, 2000, FloweringChart::Memory};
+    for (int difficulty = 0; difficulty < 3; ++difficulty)
+    {
+        game.difficulty = difficulty;
+        assert(game.MemoryHideMs() == 450);
+        const DWORD hiddenAt = 1550;
+        assert(!game.HideFloweringCircle(0, hiddenAt - 1));
+        assert(game.HideFloweringCircle(0, hiddenAt));
+        assert(game.HideFloweringCircle(0, 1999));
+        assert(!game.HideFloweringCircle(0, 2000));
+        assert(!game.HideFloweringCircle(0, 2001));
+    }
+    game.difficulty = 1;
 }
 
 void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
@@ -106,18 +123,7 @@ void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
         game.floweringMaximumScore = FloweringChart::MaximumScore(game.floweringNotes);
     };
     start({});
-    game.hitCircles[0] = {true, false, 400, 400, 0, 2000, FloweringChart::Memory};
-    for (int difficulty = 0; difficulty < 3; ++difficulty)
-    {
-        game.difficulty = difficulty;
-        const DWORD hiddenAt = 2000 - (difficulty == 0 ? 450 : difficulty == 1 ? 550 : 650);
-        assert(!game.HideFloweringCircle(0, hiddenAt - 1));
-        assert(game.HideFloweringCircle(0, hiddenAt));
-        assert(game.HideFloweringCircle(0, 2000));
-        assert(game.HideFloweringCircle(0, 2119));
-        assert(!game.HideFloweringCircle(0, 2120));
-    }
-    game.difficulty = 1;
+    CheckFloweringMemory(game);
     game.hitCircles[0].floweringFlags = FloweringChart::Encore;
     game.hitCircles[1] = {true, false, 400, 400, 0, 2462, FloweringChart::Encore | FloweringChart::EncoreRepeat};
     assert(game.HideFloweringCircle(1, 1800));
@@ -193,17 +199,21 @@ void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
         game.Update();
         const auto& slider = game.sliders[0];
         assert(slider.isActive && slider.floweringReturn);
-        POINT positions[5]{};
-        for (int i = 0; i < 5; ++i)
+        // Two beats outward, half a beat stopped, then 3.5 beats home.
+        const double times[] = {0, 1.0 / 6, 1.0 / 3, 3.0 / 8, 5.0 / 12, 17.0 / 24, 1};
+        POINT positions[7]{};
+        for (int i = 0; i < 7; ++i)
         {
             int x, y;
-            game.GetSliderPosition(slider, i * .25, x, y);
+            game.GetSliderPosition(slider, times[i], x, y);
             positions[i] = {x, y};
         }
+        assert(std::abs(slider.duration - 60000.0 * 6 / 130) < 1);
         assert(positions[0].x == slider.startX && positions[0].y == slider.startY);
-        assert(positions[2].x == slider.endX && positions[2].y == slider.endY);
-        assert(positions[4].x == slider.startX && positions[4].y == slider.startY);
-        assert(positions[1].x == positions[3].x && positions[1].y == positions[3].y);
+        for (int i : {2, 3, 4})
+            assert(positions[i].x == slider.endX && positions[i].y == slider.endY);
+        assert(positions[6].x == slider.startX && positions[6].y == slider.startY);
+        assert(positions[1].x == positions[5].x && positions[1].y == positions[5].y);
         game.OnMouseDown(slider.startX, slider.startY);
         if (releaseEarly) game.OnMouseUp(slider.startX, slider.startY);
         for (musicPosition += 10; musicPosition <= returning.timeMs + returning.durationMs + 20; musicPosition += 10)
@@ -217,11 +227,60 @@ void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
         game.Release();
     }
 
+    // Test a delayed, speed-limited hand on the longest return, rather than
+    // teleporting the pointer exactly onto the ball on every frame.
+    auto longestReturn = returning;
+    double longestPath = 0;
+    for (const auto& note : chart)
+    {
+        if (!(note.flags & FloweringChart::Return)) continue;
+        start({note});
+        musicPosition = note.timeMs;
+        game.Update();
+        int previousX = game.sliders[0].startX, previousY = game.sliders[0].startY;
+        double length = 0;
+        for (int step = 1; step <= 100; ++step)
+        {
+            int x, y;
+            game.GetSliderPosition(game.sliders[0], step / 300.0, x, y);
+            length += std::hypot(x - previousX, y - previousY);
+            previousX = x; previousY = y;
+        }
+        if (length > longestPath) { longestPath = length; longestReturn = note; }
+        game.Release();
+    }
+    start({longestReturn});
+    musicPosition = longestReturn.timeMs;
+    game.Update();
+    const Slider slowSlider = game.sliders[0];
+    game.OnMouseDown(slowSlider.startX, slowSlider.startY);
+    double pointerX = slowSlider.startX, pointerY = slowSlider.startY, maximumLag = 0;
+    for (int elapsed = 16; elapsed <= slowSlider.duration + 32; elapsed += 16)
+    {
+        int targetX, targetY, ballX, ballY;
+        game.GetSliderPosition(slowSlider, (elapsed - 100) / double(slowSlider.duration), targetX, targetY);
+        game.GetSliderPosition(slowSlider, elapsed / double(slowSlider.duration), ballX, ballY);
+        const double dx = targetX - pointerX, dy = targetY - pointerY, distance = std::hypot(dx, dy);
+        const double movement = (std::min)(1.0, 650.0 * .016 / (std::max)(distance, .001));
+        pointerX += dx * movement; pointerY += dy * movement;
+        maximumLag = (std::max)(maximumLag, std::hypot(ballX - pointerX, ballY - pointerY));
+        game.OnMouseMove(static_cast<int>(pointerX), static_cast<int>(pointerY));
+        musicPosition = longestReturn.timeMs + elapsed;
+        game.Update();
+        if (elapsed == 1040) SaveFrame(game, output / L"return_slow_tracking.png");
+    }
+    std::cout << "Return tracking: longest outward path " << longestPath
+        << "px, 650px/s, 100ms lag, max error " << maximumLag << "px\n";
+    assert(game.score == 600 && game.floweringHitUnits == 2 && game.missedUnits == 0);
+    game.Release();
+
     const auto spinnerNote = *std::find_if(chart.begin(), chart.end(),
         [](const auto& note) { return (note.flags & FloweringChart::Spinner) != 0; });
+    for (int difficulty = 0; difficulty < 3; ++difficulty)
     for (int direction : {-1, 1})
     {
         start({spinnerNote});
+        game.difficulty = difficulty;
         const int centerX = static_cast<int>(1920 * .40), centerY = static_cast<int>(1080 * .48);
         const auto move = [&](double angle, int radius = 180)
         {
@@ -260,7 +319,7 @@ void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
         assert(game.isMouseDown && !game.floweringSpinner.hasAngle);
         simulatedLeftButton = 0;
         for (int i = 0; i < 20; ++i) move(i * .2, 10);
-        for (int i = 0; i < 20; ++i) move(i * .2, 500);
+        for (int i = 0; i < 20; ++i) move(i * .2, 520);
         move(0); move(2.5);
         assert(game.floweringSpinner.rotation == beforeRelease);
         game.floweringSpinner.hasAngle = false;
@@ -268,11 +327,12 @@ void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
         {
             musicPosition = spinnerNote.timeMs + i * 10;
             game.Update();
-            move(direction * i * .12);
+            // A 450px orbit was outside the old 389px input range.
+            move(direction * i * .12, 450);
         }
         game.Update();
         assert(game.floweringSpinner.cleared && game.score == 300 && game.floweringHitUnits == 1);
-        if (direction == 1) SaveFrame(game, output / L"spinner_clear.png");
+        if (difficulty == 1 && direction == 1) SaveFrame(game, output / L"spinner_clear.png");
         musicPosition = spinnerNote.timeMs + spinnerNote.durationMs + 1;
         game.Update();
         assert(!game.floweringSpinner.active && game.score == 300);
@@ -286,19 +346,10 @@ void CheckFloweringMechanics(HWND window, const std::filesystem::path& output,
     std::cout << "PASS: memory visibility, ordered relays and practice restart, return tracking/release, spinner directions/pause-resume/input guards/miss\n";
 }
 
-int wmain(int argc, wchar_t** argv)
+void CheckFloweringCore(HWND window, const std::filesystem::path& output)
 {
-    std::cout << std::unitbuf;
-    assert(argc == 2);
-    const std::filesystem::path output(argv[1]);
-    std::filesystem::create_directories(output);
-    HWND window = CreateWindowW(L"STATIC", L"Flowering check", WS_POPUP,
-        0, 0, 1920, 1080, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
-    assert(window);
-    CheckEffectSounds(window);
-    CheckPromises(output);
-    CheckCombatModes(window);
-    CheckRhythmPracticeEffects(output / L"rhythm_practice_effects");
+    simulated = false;
+    musicPosition = 0;
     const auto chart = FloweringChart::Build();
     int flags = 0;
     for (size_t i = 0; i < chart.size(); ++i)
@@ -321,6 +372,8 @@ int wmain(int argc, wchar_t** argv)
             }
             if (note.flags & FloweringChart::EncoreRepeat)
                 assert(chart[i + 1].timeMs - note.timeMs >= 1384);
+            if (note.flags & FloweringChart::Return)
+                assert(chart[i + 1].timeMs - note.timeMs - note.durationMs >= 923);
         }
     }
     assert(flags == (FloweringChart::Memory | FloweringChart::Encore | FloweringChart::Return
@@ -376,7 +429,7 @@ int wmain(int argc, wchar_t** argv)
         {memory.timeMs - game.MemoryHideMs() - 80, L"memory_before_hide.png"},
         {memory.timeMs - game.MemoryHideMs() + 120, L"memory_scatter.png"},
         {memory.timeMs - 100, L"memory_hidden.png"},
-        {returning.timeMs + returning.durationMs / 2, L"return_turnaround.png"},
+        {returning.timeMs + returning.durationMs * 3 / 8, L"return_turnaround.png"},
         {returning.timeMs + returning.durationMs * 3 / 4, L"return_backtrack.png"},
         {spinner.timeMs + 1050, L"spinner_half.png"}
     };
@@ -458,6 +511,90 @@ int wmain(int argc, wchar_t** argv)
     GetClientRect(window, &restored);
     assert(restored.right == 1920 && restored.bottom == 1080);
     std::cout << "PASS: miss/restart, legacy rhythm score and window restoration\n";
+}
+
+// Exercise the production manager click route; changing a page directly would
+// miss the old two-page completion assumption.
+void WalkFloweringTutorial(GameManager& manager, const std::filesystem::path& output, bool saveFrames)
+{
+    auto& tutorial = manager.minigame2TutorialScene;
+    assert(manager.now_game_mode == GameManager::MiniGameTutor6);
+    assert(tutorial.GetPageCount() == 4 && tutorial.GetCurrentPage() == 0 && !tutorial.IsFinished());
+    for (const auto& image : tutorial.floweringExampleImages) assert(!image.IsNull());
+    manager.OnMouseClick(1285, 992); // Previous on the first page is inert.
+    assert(tutorial.GetCurrentPage() == 0);
+    for (int page = 0; page < tutorial.GetPageCount(); ++page)
+    {
+        assert(manager.now_game_mode == GameManager::MiniGameTutor6);
+        assert(tutorial.GetCurrentPage() == page && !tutorial.IsFinished());
+        if (saveFrames)
+        {
+            const std::wstring name = L"tutorial_page_" + std::to_wstring(page + 1);
+            SaveQualityFrame(manager, output / (name + L".png"));
+            SaveQualityFrame(manager, output / (name + L"_1366.png"), true);
+        }
+        if (page > 0)
+        {
+            manager.OnMouseClick(1285, 992);
+            assert(tutorial.GetCurrentPage() == page - 1 && !tutorial.IsFinished());
+            manager.OnMouseClick(1565, 992);
+            assert(tutorial.GetCurrentPage() == page && !tutorial.IsFinished());
+        }
+        musicPosition = 0;
+        manager.OnMouseClick(1565, 992);
+        CompleteTransition(manager);
+    }
+    assert(manager.now_game_mode == GameManager::MiniGame6);
+}
+
+void CheckFloweringTutorial(HWND window, const std::filesystem::path& output)
+{
+    GameManager manager;
+    manager.Initialize(window); CompleteTransition(manager);
+    manager.StartPractice(5); CompleteTransition(manager);
+    WalkFloweringTutorial(manager, output, true);
+    manager.Shutdown();
+
+    MiniGame2TutorialScene tutorial;
+    tutorial.Initialize(true);
+    assert(tutorial.GetPageCount() == 4);
+    for (const auto& image : tutorial.floweringExampleImages) assert(!image.IsNull());
+    for (int page = 0; page < 4; ++page)
+    {
+        tutorial.Reset();
+        for (int next = 0; next < page; ++next) tutorial.OnMouseClick(1565, 992);
+        tutorial.OnMouseClick(1795, 72);
+        assert(tutorial.IsFinished());
+    }
+    tutorial.Initialize(false);
+    assert(tutorial.GetPageCount() == 2 && tutorial.GetCurrentPage() == 0 && !tutorial.IsFinished());
+    for (const auto& image : tutorial.floweringExampleImages) assert(image.IsNull());
+    tutorial.OnMouseClick(1565, 992);
+    assert(tutorial.GetCurrentPage() == 1 && !tutorial.IsFinished());
+    tutorial.OnMouseClick(1565, 992);
+    assert(tutorial.IsFinished());
+    tutorial.Initialize(true);
+    for (const auto& image : tutorial.floweringExampleImages) assert(!image.IsNull());
+    tutorial.Shutdown();
+    for (const auto& image : tutorial.floweringExampleImages) assert(image.IsNull());
+    std::cout << "PASS: four-page tutorial manager clicks, previous/skip, six images, ordinary two-page mode and image release\n";
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    std::cout << std::unitbuf;
+    assert(argc == 2);
+    const std::filesystem::path output(argv[1]);
+    std::filesystem::create_directories(output);
+    HWND window = CreateWindowW(L"STATIC", L"Flowering check", WS_POPUP,
+        0, 0, 1920, 1080, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
+    assert(window);
+    CheckEffectSounds(window);
+    CheckPromises(output);
+    CheckCombatModes(window);
+    CheckRhythmPracticeEffects(output / L"rhythm_practice_effects");
+    CheckFloweringCore(window, output);
+    CheckFloweringTutorial(window, output);
 
     // ESC 메뉴는 시스템 커서를 보이고 게임으로 돌아가면 원래 커서를 사용한다.
     // ShowCursor 카운터를 관찰한 직후 복구하여 반복 개폐의 누적 오류도 확인한다.
@@ -554,17 +691,7 @@ int wmain(int argc, wchar_t** argv)
         CompleteTransition(manager);
         assert(manager.now_game_mode == GameManager::MiniGameTutor6);
         assert(manager.minigame2TutorialScene.floweringMode);
-        CImage tutorial;
-        tutorial.Create(1920, 1080, 24);
-        manager.minigame2TutorialScene.currentPage = 1;
-        auto dc = tutorial.GetDC();
-        manager.Render(dc);
-        tutorial.ReleaseDC();
-        if (heroine == 0) assert(SUCCEEDED(tutorial.Save((output / L"tutorial.png").c_str())));
-        musicPosition = 0;
-        manager.OnMouseClick(1800, 60); // 튜토리얼 SKIP
-        CompleteTransition(manager);
-        assert(manager.now_game_mode == GameManager::MiniGame6);
+        WalkFloweringTutorial(manager, output, false);
         assert(manager.minigame2.floweringHeroine == heroine);
         musicPosition = 70000;
         manager.minigame2.Update();
