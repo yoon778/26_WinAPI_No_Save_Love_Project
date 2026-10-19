@@ -169,6 +169,7 @@
     <ClInclude Include="minigame1\ramen.h" />
     <ClInclude Include="minigame2\RhythmMiniGame.h" />
     <ClInclude Include="minigame2\FloweringChart.h" />
+    <ClInclude Include="minigame2\RhythmPracticeEffects.h" />
     <ClInclude Include="minigame3\schoolrun.h" />
     <ClInclude Include="minigame4\avoidgame.h" />
     <ClInclude Include="Scenes\ChoiceScene.h" />

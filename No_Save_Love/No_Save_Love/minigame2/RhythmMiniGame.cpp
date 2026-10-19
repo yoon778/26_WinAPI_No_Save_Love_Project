@@ -1,4 +1,5 @@
 #include "RhythmMiniGame.h"
+#include "RhythmPracticeEffects.h"
 #include "../ResultGrade.h"
 #include "../GameOptions.h"
 #include <algorithm>
@@ -668,7 +669,31 @@ void RhythmMiniGame::Render(HDC hDC)
 {
 
     if (isFlowering) RenderFloweringStage(hDC);
-    else RenderBackground(hDC);
+    else
+    {
+        RenderBackground(hDC);
+        if (!isClearEffectActive && !isResultScreenActive)
+        {
+            const DWORD now = GetRhythmTime();
+            RhythmPracticeEffects::State effects;
+            effects.songTime = now - bgmStartTime;
+            effects.combo = combo;
+            effects.windowStage = isSliderFollowWindowGimmickActive ? 3 : isWindowJumpGimmickActive ? 2 : isWindowGimmickActive ? 1 : 0;
+            if (lastJudge == JUDGE_PERFECT || lastJudge == JUDGE_GOOD || lastJudge == JUDGE_BAD)
+                effects.successAge = now - judgeDisplayStartTime;
+            if (isMissReactionActive) effects.missAge = now - missReactionStartTime;
+            if (isComboAnimationActive && combo > 0 && !isFinalEffectActive) effects.comboAge = now - comboAnimationStartTime;
+            for (const Slider& slider : sliders)
+            {
+                if (slider.isActive && slider.isStarted && !slider.isFinished && !slider.isFailed && slider.isTrackingSuccess && slider.duration > 0)
+                {
+                    effects.sliderProgress = static_cast<double>(now - slider.slideStartTime) / slider.duration;
+                    break;
+                }
+            }
+            RhythmPracticeEffects::Render(hDC, effects, BEAT_INTERVAL);
+        }
+    }
  
     // =========================
     // 점수 / 콤보 출력
