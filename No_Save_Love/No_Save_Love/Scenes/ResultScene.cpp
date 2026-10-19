@@ -1,6 +1,40 @@
 #include "ResultScene.h"
 #include "../MenuUI.h"
 
+// 결과 화면은 사용자가 선호한 이전 색상, 테두리, 글자 크기를 유지한다.
+// 공통 메뉴 스타일을 바꾸지 않도록 이 화면 안에서만 적용한다.
+namespace
+{
+    namespace ResultUI
+    {
+        constexpr COLORREF Paper = RGB(255, 250, 242);
+        constexpr COLORREF Ink = RGB(65, 48, 65);
+        constexpr COLORREF Muted = RGB(117, 99, 115);
+        constexpr COLORREF Rose = RGB(184, 74, 111);
+        void Box(HDC dc, RECT r, COLORREF fill = Paper)
+        {
+            HBRUSH brush = CreateSolidBrush(fill);
+            HPEN pen = CreatePen(PS_SOLID, 2, RGB(224, 203, 208));
+            auto oldBrush = SelectObject(dc, brush); auto oldPen = SelectObject(dc, pen);
+            RoundRect(dc, r.left, r.top, r.right, r.bottom, 22, 22);
+            SelectObject(dc, oldBrush); SelectObject(dc, oldPen);
+            DeleteObject(brush); DeleteObject(pen);
+        }
+        void Text(HDC dc, const std::wstring& value, RECT r, int size = 28,
+            COLORREF color = Ink, UINT format = DT_LEFT | DT_WORDBREAK | DT_NOPREFIX)
+        {
+            // MenuUI는 음수 글꼴 높이를 사용하므로 부호를 바꿔 이전 셀 높이를 복원한다.
+            MenuUI::Text(dc, value, r, -size, color, format, FW_MEDIUM);
+        }
+        void Button(HDC dc, RECT r, const std::wstring& label, bool selected = false)
+        {
+            Box(dc, r, selected ? Rose : Paper);
+            Text(dc, label, r, 26, selected ? RGB(255, 255, 255) : Ink,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        }
+    }
+}
+
 void ResultScene::Reset()
 {
     m_whichGame = m_score = 0;
@@ -32,72 +66,40 @@ std::wstring ResultScene::GetGameName(int game) const
 void ResultScene::RenderResult(HDC dc)
 {
     if (!m_hasResult) return;
-    using namespace MenuUI;
-    constexpr UINT single = DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX;
-    constexpr UINT wrapped = DT_LEFT | DT_WORDBREAK | DT_NOPREFIX;
-    Background(dc);
-
-    Text(dc, L"PLAY RECORD  /  " + std::to_wstring(m_whichGame + 1),
-        {128, 65, 1300, 102}, 22, Muted, single);
-    Text(dc, GetGameName(m_whichGame), {124, 114, 1450, 180}, 45, Ink, single, FW_SEMIBOLD);
-    Text(dc, m_practice ? L"부담 없이 쌓아 가는 연습의 기록" : L"이번 도전이 다음 만남의 한 페이지가 됩니다.",
-        {128, 179, 1440, 214}, 24, Muted, single);
+    using namespace ResultUI;
+    Box(dc, {0, 0, 1920, 1080}, RGB(236, 224, 228));
+    Box(dc, {100, 70, 1820, 910});
+    Text(dc, GetGameName(m_whichGame), {155, 110, 1460, 180}, 44);
     const wchar_t* levels[] = {L"스토리", L"보통", L"도전"};
-    Badge(dc, {1530, 120, 1792, 167}, std::wstring(m_practice ? L"연습 · " : L"난이도 · ") + levels[m_difficulty], SoftRose, Rose);
-    Line(dc, 128, 228, 1792, 228, Border);
-
-    // 등급과 점수를 한눈에 읽고, 등급 기준은 같은 카드 안에서 확인한다.
-    Box(dc, {128, 258, 600, 892}, RGB(255, 255, 255), Border);
-    Fill(dc, {128, 280, 134, 870}, Plum);
-    Text(dc, m_practice ? L"이번 연습의 기록" : L"이번 판의 기록", {170, 290, 555, 334}, 25, Muted, single);
-    Text(dc, GetResultGradeText(m_score), {165, 346, 335, 525}, 154, Plum, single, FW_SEMIBOLD);
-    Line(dc, 338, 387, 338, 495, Border);
-    Text(dc, std::to_wstring(m_score), {365, 386, 555, 451}, 51, Ink, single, FW_SEMIBOLD);
-    Text(dc, L"/ 100", {370, 455, 555, 495}, 27, Muted, single);
-    const wchar_t* caption = m_score >= 90 ? L"기분 좋은 마무리" : m_score >= 60 ? L"차곡차곡 쌓은 기록" : L"다음 도전을 위한 기록";
-    Text(dc, caption, {170, 551, 560, 598}, 29, Ink, single, FW_SEMIBOLD);
-    Meter(dc, {170, 621, 558, 631}, m_score, 100, Rose);
-    Text(dc, L"S 90   A 80   B 60\nC 40   D 20   F 0", {170, 650, 570, 718}, 23, Muted, wrapped);
-    Box(dc, {158, 736, 570, 872}, SoftRose, SoftRose);
-    Text(dc, m_practice ? L"이야기와 별개로 남기는 기록" : L"다시 도전해도 괜찮아요", {182, 752, 548, 793}, 25, Rose, single, FW_SEMIBOLD);
-    Text(dc, m_practice ? L"연습 최고 점수는 저장되며\n능력치는 증가하지 않아요." : L"재도전하면 이번 결과를\n새 기록으로 바꿉니다.",
-        {182, 797, 548, 869}, 24, Muted, wrapped);
-
-    Box(dc, {644, 258, 1792, 668}, RGB(255, 255, 255), Border);
-    Text(dc, L"플레이 기록", {678, 282, 1738, 329}, 31, Ink, single, FW_SEMIBOLD);
-    const size_t recordCount = m_details.empty() ? 0 : (std::min)(m_details.size() - 1, size_t(3));
-    for (size_t i = 0; i < recordCount; ++i)
-    {
-        const int top = 350 + static_cast<int>(i) * 59;
-        Text(dc, L"0" + std::to_wstring(i + 1), {682, top, 740, top + 43}, 22, Rose, single);
-        Text(dc, m_details[i], {746, top + 3, 1748, top + 57}, 26, Ink, wrapped);
-        if (i + 1 < recordCount) Line(dc, 746, top + 54, 1748, top + 54, Border);
-    }
-    if (!m_details.empty())
-    {
-        Fill(dc, {645, 538, 1791, 667}, SoftRose);
-        Text(dc, L"다음 판을 위한 힌트", {680, 552, 1748, 583}, 22, Rose, single, FW_SEMIBOLD);
-        const auto& detail = m_details.back();
-        const std::wstring hint = detail.rfind(L"팁: ", 0) == 0 ? detail.substr(3) : detail;
-        Text(dc, hint, {680, 591, 1748, 664}, 25, Ink, wrapped);
-    }
-
-    Text(dc, m_practice ? L"현재 능력치" : L"이번에 성장한 능력치", {646, 679, 1420, 723}, 29, Ink, single, FW_SEMIBOLD);
-    Text(dc, m_practice ? L"연습에서는 변하지 않아요" : L"이 기록으로 다음 만남을 이어갑니다", {1260, 683, 1792, 719}, 23, Muted,
-        DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    Text(dc, std::wstring(m_practice ? L"연습 · " : L"이번 도전 · ") + levels[m_difficulty],
+        {1430, 125, 1760, 175}, 27, Muted, DT_RIGHT | DT_SINGLELINE);
+    Box(dc, {150, 220, 650, 815}, RGB(250, 236, 239));
+    Text(dc, GetResultGradeText(m_score), {190, 250, 610, 450}, 148, Rose,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    Text(dc, std::to_wstring(m_score) + L" / 100", {190, 470, 610, 540}, 48, Ink,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    Text(dc, L"S 90   A 80   B 60\nC 40   D 20   F 0", {205, 580, 610, 680}, 28, Muted);
+    Text(dc, m_practice ? L"연습 기록은 따로 보관합니다." : L"재도전하면 이번 결과를 교체합니다.",
+        {190, 725, 620, 795}, 25, Muted);
+    Text(dc, L"플레이 기록", {710, 220, 1740, 270}, 34, Rose);
+    for (size_t i = 0; i < m_details.size() && i < 4; ++i)
+        Text(dc, m_details[i], {715, 285 + int(i) * 65, 1735, 345 + int(i) * 65}, 27);
+    Text(dc, m_practice ? L"현재 능력치 · 연습에서는 증가하지 않습니다" : L"이번에 성장한 능력치",
+        {710, 565, 1750, 615}, 30, Rose);
     const wchar_t* names[] = {L"재력", L"대화", L"매력", L"외모"};
     const int values[] = {m_currentState.money, m_currentState.speech, m_currentState.charm, m_currentState.appearance};
     const int gains[] = {m_plusState.money, m_plusState.speech, m_plusState.charm, m_plusState.appearance};
     for (int i = 0; i < 4; ++i)
     {
-        const int left = 644 + i * 292;
-        Box(dc, {left, 742, left + 272, 892}, RGB(255, 255, 255), Border);
-        Text(dc, names[i], {left + 22, 755, left + 250, 792}, 24, Muted, single);
-        Text(dc, std::to_wstring(values[i]), {left + 20, 798, left + 164, 853}, 43, Ink, single, FW_SEMIBOLD);
-        Badge(dc, {left + 178, 807, left + 250, 844}, L"+" + std::to_wstring(m_practice ? 0 : gains[i]), SoftRose, Rose);
-        Meter(dc, {left + 22, 867, left + 250, 874}, values[i], 100, Rose);
+        int left = 710 + i * 260;
+        Box(dc, {left, 635, left + 235, 815}, RGB(248, 241, 235));
+        Text(dc, names[i], {left + 20, 655, left + 215, 700}, 29);
+        Text(dc, std::to_wstring(values[i]), {left + 20, 705, left + 125, 775}, 44);
+        Text(dc, L"+" + std::to_wstring(m_practice ? 0 : gains[i]), {left + 135, 720, left + 220, 775}, 30, Rose);
     }
+    Text(dc, m_practice ? L"최고 점수는 난이도별로 저장됩니다." : L"이야기 계속을 누르면 이 결과로 다음 만남을 시작합니다.",
+        {710, 845, 1750, 890}, 25, Muted);
     Button(dc, m_retryButton, L"다시 도전");
     Button(dc, m_confirmButton, m_practice ? L"연습 메뉴" : L"이야기 계속", true);
-    Text(dc, L"난이도를 바꾸고 싶다면\nESC에서 설정을 열어 주세요.", {1280, 957, 1792, 1023}, 24, Muted, wrapped);
+    Text(dc, L"난이도 변경은 ESC의 설정에서", {1270, 965, 1780, 1020}, 26, Muted);
 }
