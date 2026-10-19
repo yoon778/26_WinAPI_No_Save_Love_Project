@@ -1,5 +1,6 @@
 #include "StoryScene.h"
 #include "ArcadeBackdrop.h"
+#include "../GameOptions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -134,6 +135,7 @@ void StoryScene::Initialize()
 
 void StoryScene::Shutdown()
 {
+    ReleaseBackgroundCache();
     delete heroineFrame;
     heroineFrame = nullptr;
     heroinePixels.clear();
@@ -222,10 +224,13 @@ void StoryScene::Shutdown()
 
 void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 {
+    ReleaseBackgroundCache();
     ResetHeroineAnimation();
     SetCutsceneEffect(L"");
     nextEffectKey.clear();
     fastForward = false;
+    readingPaused = false;
+    typingProgress = 0.0;
     fastForwardWait = 0.0;
     historyOpen = false;
     currentLineRecorded = false;
@@ -273,6 +278,7 @@ void StoryScene::SetDialogues(const std::vector<DialogueLineInfo>& newDialogues)
 
 void StoryScene::OnMouseClick(int x, int y)
 {
+    if (readingPaused) return;
     POINT point{x, y};
     if (historyOpen)
     {
@@ -290,6 +296,7 @@ void StoryScene::OnMouseClick(int x, int y)
 
 bool StoryScene::OnKeyDown(WPARAM key)
 {
+    if (readingPaused) return false;
     if (historyOpen)
     {
         if (key == VK_ESCAPE || key == 'L') ToggleHistory();
@@ -337,6 +344,7 @@ void StoryScene::AdvanceDialogue()
     {
         ++currentDialogueIndex;
         visibleTextCount = 0;
+        typingProgress = 0.0;
         isTypingFinished = false;
         currentLineRecorded = false;
         if (dialogues[currentDialogueIndex].presentation == StoryPresentation::Tutorial) fastForward = false;
@@ -714,7 +722,9 @@ void StoryScene::Render(HDC hDC)
 
     if (currentBackgroundKey == L"arcade")
     {
-        ArcadeArt::DrawArcadeBackdrop(hDC);
+        if (PrepareBackgroundCache(hDC, nullptr, 3))
+            BitBlt(hDC, 0, 0, 1920, 1080, backgroundCacheDC, 0, 0, SRCCOPY);
+        else ArcadeArt::DrawArcadeBackdrop(hDC);
     }
     else if (backgroundImage != nullptr && !backgroundImage->IsNull())
     {
@@ -722,7 +732,7 @@ void StoryScene::Render(HDC hDC)
     }
     else
     {
-        normal_back_ground.Draw(hDC, 0, 0, 1920, 1080);
+        DrawCutsceneBackground(hDC, normal_back_ground);
     }
 
     DrawAmbientEffects(hDC);
@@ -888,7 +898,8 @@ void StoryScene::DrawBookImage(HDC hDC)
     int drawY = 140;
 
     // PNG 알파 채널에 등장 투명도를 더해서 서서히 출력한다.
-    DrawImageWithAlpha(hDC, bookGdiImage, drawX, drawY, drawWidth, drawHeight, bookAlpha);
+    DrawImageWithAlpha(hDC, bookGdiImage, drawX, drawY, drawWidth, drawHeight,
+        static_cast<int>((std::clamp)(bookAlpha, 0.0f, 255.0f)));
 }
 
 void StoryScene::DrawBlurOverlay(HDC hDC)
@@ -1039,12 +1050,24 @@ bool StoryScene::ShouldFadeCharacterChange(const std::wstring& newCharacterKey) 
 }
 
 
-void StoryScene::Update()
+void StoryScene::ResetClock()
 {
-    const ULONGLONG now = GetTickCount64();
-    const double elapsed = lastCutsceneTick ? (std::min)(0.1, (now - lastCutsceneTick) / 1000.0) : 0.0;
-    lastCutsceneTick = now;
-    if (historyOpen) return;
+    lastCutsceneTick = GetTickCount64();
+}
+
+void StoryScene::SetPaused(bool paused)
+{
+    readingPaused = paused;
+    if (paused) fastForward = false;
+    fastForwardWait = 0.0;
+    ResetClock();
+}
+
+void StoryScene::Update(float deltaSeconds)
+{
+    const float elapsed = (std::clamp)(deltaSeconds, 0.0f, 0.1f);
+    ResetClock();
+    if (historyOpen || readingPaused) return;
     if (!finished && fadeState == FadeState::None)
     {
         cutsceneSeconds += elapsed;
@@ -1055,9 +1078,9 @@ void StoryScene::Update()
             reactionSeconds += elapsed;
         }
     }
-    for (int i = 0; i < (fastForward ? 4 : 1); ++i) UpdateFade();
-    UpdateObjectFades();
-    UpdateTyping();
+    UpdateFade(elapsed * (fastForward ? 4.0f : 1.0f));
+    UpdateObjectFades(elapsed);
+    UpdateTyping(elapsed);
     if (fastForward && isTypingFinished && !finished && fadeState == FadeState::None)
     {
         fastForwardWait += elapsed;
@@ -1065,17 +1088,21 @@ void StoryScene::Update()
     }
 }
 
-void StoryScene::UpdateTyping()
+void StoryScene::UpdateTyping(float deltaSeconds)
 {
-    if (dialogues.empty() || finished || historyOpen || fadeState != FadeState::None) return;
+    if (dialogues.empty() || finished || historyOpen || readingPaused || fadeState != FadeState::None) return;
     const int length = static_cast<int>(GetCurrentDisplayText().size());
-    visibleTextCount = (std::min)(length, visibleTextCount + (fastForward ? 16 : 1));
+    const double speeds[] = {0.65, 1.0, 2.0};
+    typingProgress += (deltaSeconds / 0.06f) * (fastForward ? 16.0 : speeds[(std::clamp)(GameOptions::textSpeed, 0, 2)]);
+    const int characters = static_cast<int>(typingProgress + 0.000001);
+    typingProgress -= characters;
+    visibleTextCount = (std::min)(length, visibleTextCount + characters);
     isTypingFinished = visibleTextCount == length;
     if (isTypingFinished) RecordCurrentLine();
 }
 
 
-void StoryScene::UpdateObjectFades()
+void StoryScene::UpdateObjectFades(float deltaSeconds)
 {
     if (fadeState != FadeState::None)
     {
@@ -1084,7 +1111,7 @@ void StoryScene::UpdateObjectFades()
 
     if (characterAlpha < 255)
     {
-        characterAlpha += characterFadeSpeed;
+        characterAlpha += characterFadeSpeed * (deltaSeconds / 0.06f);
 
         if (characterAlpha > 255)
         {
@@ -1094,7 +1121,7 @@ void StoryScene::UpdateObjectFades()
 
     if (isBookShowing && bookAlpha < 255)
     {
-        bookAlpha += bookFadeSpeed;
+        bookAlpha += bookFadeSpeed * (deltaSeconds / 0.06f);
 
         if (bookAlpha > 255)
         {
@@ -1176,7 +1203,7 @@ void StoryScene::StartFadeTransition(
         currentCharacterKey = newCharacterKey;
         SetCutsceneEffect(nextEffectKey);
         SyncHeroineAnimation();
-        characterAlpha = pendingCharacterFade ? 0 : 255;
+        characterAlpha = pendingCharacterFade ? 0.0f : 255.0f;
         pendingCharacterFade = false;
 
         // 완전 검은 상태에서 시작한다.
@@ -1271,7 +1298,7 @@ void StoryScene::ApplyCurrentLineVisualInfo(bool immediateApply)
     {
         bool shouldFadeCharacter = ShouldFadeCharacterChange(newCharacterKey);
         currentCharacterKey = newCharacterKey;
-        characterAlpha = shouldFadeCharacter ? 0 : 255;
+        characterAlpha = shouldFadeCharacter ? 0.0f : 255.0f;
         SyncHeroineAnimation();
         UpdateBookFadeState();
         return;
@@ -1398,20 +1425,53 @@ bool StoryScene::IsStoryAnimation() const
     return currentEffectKey.rfind(L"anim_", 0) == 0;
 }
 
-void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
+void StoryScene::ReleaseBackgroundCache()
 {
-    if (IsStoryAnimation())
+    if (backgroundCacheDC && backgroundCacheOldBitmap)
+        SelectObject(backgroundCacheDC, backgroundCacheOldBitmap);
+    if (backgroundCacheBitmap) DeleteObject(backgroundCacheBitmap);
+    if (backgroundCacheDC) DeleteDC(backgroundCacheDC);
+    backgroundCacheDC = nullptr;
+    backgroundCacheBitmap = nullptr;
+    backgroundCacheOldBitmap = nullptr;
+    cachedBackground = nullptr;
+    cachedBackgroundKind = -1;
+}
+
+bool StoryScene::PrepareBackgroundCache(HDC dc, CImage* image, int kind)
+{
+    if (backgroundCacheDC && cachedBackground == image && cachedBackgroundKind == kind) return true;
+    ReleaseBackgroundCache();
+    if (kind != 3 && (!image || image->IsNull())) return false;
+    const int width = kind == 2 ? image->GetWidth() : 1920;
+    const int height = kind == 2 ? image->GetHeight() : 1080;
+    backgroundCacheDC = CreateCompatibleDC(dc);
+    backgroundCacheBitmap = CreateCompatibleBitmap(dc, width, height);
+    if (!backgroundCacheDC || !backgroundCacheBitmap) { ReleaseBackgroundCache(); return false; }
+    backgroundCacheOldBitmap = SelectObject(backgroundCacheDC, backgroundCacheBitmap);
+    PatBlt(backgroundCacheDC, 0, 0, width, height, BLACKNESS);
+    if (kind == 3) ArcadeArt::DrawArcadeBackdrop(backgroundCacheDC);
+    else image->Draw(backgroundCacheDC, 0, 0, width, height);
+    if (kind == 1)
     {
-        image.Draw(hDC, 0, 0, 1920, 1080);
-        Gdiplus::Graphics graphics(hDC);
+        Gdiplus::Graphics graphics(backgroundCacheDC);
         Gdiplus::LinearGradientBrush shade(Gdiplus::Point(0, 0), Gdiplus::Point(1920, 0),
             Gdiplus::Color(190, 20, 25, 42), Gdiplus::Color(50, 20, 25, 42));
         graphics.FillRectangle(&shade, 0, 0, 1920, 820);
-        return;
     }
-    if (!IsCutscene() || (currentEffectKey == L"rain" && !currentBackgroundKey.starts_with(L"cut_")))
+    cachedBackground = image;
+    cachedBackgroundKind = kind;
+    return true;
+}
+
+void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
+{
+    if (image.IsNull()) return;
+    if (IsStoryAnimation() || !IsCutscene())
     {
-        image.Draw(hDC, 0, 0, 1920, 1080);
+        if (PrepareBackgroundCache(hDC, &image, IsStoryAnimation() ? 1 : 0))
+            BitBlt(hDC, 0, 0, 1920, 1080, backgroundCacheDC, 0, 0, SRCCOPY);
+        else image.Draw(hDC, 0, 0, 1920, 1080);
         return;
     }
 
@@ -1424,13 +1484,13 @@ void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
     const int height = static_cast<int>(std::ceil(image.GetHeight() * scale));
     int offsetX = 0;
     int offsetY = 0;
-    if (currentEffectKey == L"rewind" && cutsceneSeconds < 1.2)
+    if (GameOptions::screenShake && currentEffectKey == L"rewind" && cutsceneSeconds < 1.2)
     {
         const double strength = (1.0 - cutsceneSeconds / 1.2) * 10.0;
         offsetX = static_cast<int>(std::sin(cutsceneSeconds * 47.0) * strength);
         offsetY = static_cast<int>(std::cos(cutsceneSeconds * 39.0) * strength * 0.5);
     }
-    else if (currentEffectKey == L"glitch")
+    else if (GameOptions::screenShake && currentEffectKey == L"glitch")
     {
         offsetX = static_cast<int>(std::sin(cutsceneSeconds * 11.0) * 3.0);
     }
@@ -1444,7 +1504,10 @@ void StoryScene::DrawCutsceneBackground(HDC hDC, CImage& image)
     IntersectClipRect(hDC, 0, 0, 1920, 820);
     SetStretchBltMode(hDC, HALFTONE);
     SetBrushOrgEx(hDC, 0, 0, nullptr);
-    image.Draw(hDC, (1920 - width) / 2 + offsetX, (820 - height) / 2 + offsetY, width, height);
+    if (PrepareBackgroundCache(hDC, &image, 2))
+        StretchBlt(hDC, (1920 - width) / 2 + offsetX, (820 - height) / 2 + offsetY, width, height,
+            backgroundCacheDC, 0, 0, image.GetWidth(), image.GetHeight(), SRCCOPY);
+    else image.Draw(hDC, (1920 - width) / 2 + offsetX, (820 - height) / 2 + offsetY, width, height);
     RestoreDC(hDC, savedDC);
 }
 
@@ -2470,7 +2533,8 @@ void StoryScene::DrawAnimatedHeroine(HDC hDC, Gdiplus::Image* image, int x, int 
     heroineFrame->UnlockBits(&output);
     const float scale = static_cast<float>(height) / sourceHeight;
     DrawImageWithAlpha(hDC, heroineFrame, x - static_cast<int>(padding * scale), y - static_cast<int>(padding * scale),
-        static_cast<int>(frameBounds.Width * scale), static_cast<int>(frameBounds.Height * scale), characterAlpha);
+        static_cast<int>(frameBounds.Width * scale), static_cast<int>(frameBounds.Height * scale),
+        static_cast<int>((std::clamp)(characterAlpha, 0.0f, 255.0f)));
 }
 
 void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y)
@@ -2489,7 +2553,8 @@ void StoryScene::DrawCharacterImage(HDC hDC, Gdiplus::Image* image, int x, int y
 
     int drawWidth = static_cast<int>(image->GetWidth());
     int drawHeight = static_cast<int>(image->GetHeight());
-    DrawImageWithAlpha(hDC, image, x, y, drawWidth, drawHeight, characterAlpha);
+    DrawImageWithAlpha(hDC, image, x, y, drawWidth, drawHeight,
+        static_cast<int>((std::clamp)(characterAlpha, 0.0f, 255.0f)));
 }
 
 void StoryScene::DrawImageWithAlpha(HDC hDC, Gdiplus::Image* image, int x, int y, int width, int height, int alpha)
@@ -2520,12 +2585,13 @@ void StoryScene::DrawImageWithAlpha(HDC hDC, Gdiplus::Image* image, int x, int y
     // 픽셀 단위로 출력하도록 설정한다.
     graphics.SetPageUnit(Gdiplus::UnitPixel);
 
-    // PNG 알파 합성 품질을 높인다.
+    // PARGB 애니메이션 프레임은 이미 알파가 곱해져 있다. 매 프레임 감마 보정과 재샘플링을 피한다.
     graphics.SetCompositingMode(Gdiplus::CompositingModeSourceOver);
-    graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+    const bool animationFrame = image == heroineFrame;
+    graphics.SetCompositingQuality(animationFrame ? Gdiplus::CompositingQualityHighSpeed : Gdiplus::CompositingQualityHighQuality);
 
     // 확대/축소가 있을 때 품질을 높인다.
-    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetInterpolationMode(animationFrame ? Gdiplus::InterpolationModeBilinear : Gdiplus::InterpolationModeHighQualityBicubic);
 
     // 외곽선과 반투명 픽셀을 조금 더 부드럽게 처리한다.
     graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
@@ -2533,7 +2599,9 @@ void StoryScene::DrawImageWithAlpha(HDC hDC, Gdiplus::Image* image, int x, int y
 
     if (alpha >= 255)
     {
-        graphics.DrawImage(image, x, y, width, height);
+        if (animationFrame && width == static_cast<int>(image->GetWidth()) && height == static_cast<int>(image->GetHeight()))
+            graphics.DrawImage(image, x, y, 0, 0, width, height, Gdiplus::UnitPixel);
+        else graphics.DrawImage(image, x, y, width, height);
         return;
     }
 
@@ -2567,7 +2635,7 @@ void StoryScene::DrawImageWithAlpha(HDC hDC, Gdiplus::Image* image, int x, int y
     );
 }
 
-void StoryScene::UpdateFade()
+void StoryScene::UpdateFade(float deltaSeconds)
 {
     // 페이드 효과가 없으면 아무것도 하지 않는다.
     if (fadeState == FadeState::None)
@@ -2578,7 +2646,7 @@ void StoryScene::UpdateFade()
     // FadeOut 단계: 화면을 점점 검게 만든다.
     if (fadeState == FadeState::FadeOut)
     {
-        fadeAlpha += fadeSpeed;
+        fadeAlpha += fadeSpeed * (deltaSeconds / 0.06f);
 
         // 완전히 검게 되었으면 이미지를 교체한다.
         if (fadeAlpha >= 255)
@@ -2590,7 +2658,7 @@ void StoryScene::UpdateFade()
             currentCharacterKey = nextCharacterKey;
             SetCutsceneEffect(nextEffectKey);
             SyncHeroineAnimation();
-            characterAlpha = pendingCharacterFade ? 0 : 255;
+            characterAlpha = pendingCharacterFade ? 0.0f : 255.0f;
             pendingCharacterFade = false;
 
             // 이제 다시 밝아지는 단계로 넘어간다.
@@ -2600,7 +2668,7 @@ void StoryScene::UpdateFade()
     // FadeIn 단계: 검은 화면을 점점 투명하게 만든다.
     else if (fadeState == FadeState::FadeIn)
     {
-        fadeAlpha -= fadeSpeed;
+        fadeAlpha -= fadeSpeed * (deltaSeconds / 0.06f);
 
         // 완전히 밝아지면 페이드 종료
         if (fadeAlpha <= 0)
@@ -2629,7 +2697,7 @@ void StoryScene::DrawFadeOverlay(HDC hDC)
 
     // fadeAlpha 값을 가진 검은색 브러시를 만든다.
     Gdiplus::SolidBrush blackBrush(
-        Gdiplus::Color(fadeAlpha, 0, 0, 0)
+        Gdiplus::Color(static_cast<BYTE>((std::clamp)(fadeAlpha, 0.0f, 255.0f)), 0, 0, 0)
     );
 
     // 현재 프로젝트 해상도 기준으로 전체 화면에 검은 레이어를 덮는다.

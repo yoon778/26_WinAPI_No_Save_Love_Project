@@ -41,7 +41,9 @@ class StoryScene
 public:
     // 타이핑 효과와 페이드 효과를 한 번에 갱신한다.
     // GameManager는 이 함수만 호출하면 된다.
-    void Update();
+    void Update(float deltaSeconds = 0.06f);
+    void ResetClock();
+    void SetPaused(bool paused);
 
     // StoryScene 기본 초기화
     void Initialize();
@@ -68,7 +70,7 @@ public:
     void Render(HDC hDC);
 
     // 타이핑 효과 대사 단어 하나씩 늘리기
-    void UpdateTyping();
+    void UpdateTyping(float deltaSeconds = 0.06f);
 
     // 현재 대사의 backgroundKey, characterKey를 보고 출력 상태를 갱신한다.
     // immediateApply가 true면 페이드 없이 바로 적용한다.
@@ -93,7 +95,7 @@ public:
 
     void StartFadeTransition(const std::wstring& newBackgroundKey, const std::wstring& newCharacterKey);
 
-    void UpdateFade();
+    void UpdateFade(float deltaSeconds = 0.06f);
 
 private:
     void AdvanceDialogue();
@@ -111,6 +113,8 @@ private:
     bool historyOpen = false;
     int historyEnd = 0;
     bool fastForward = false;
+    bool readingPaused = false;
+    double typingProgress = 0.0;
     double fastForwardWait = 0.0;
     double ambientSeconds = 0.0;
     RECT historyButtonRect = { 1570, 24, 1698, 64 };
@@ -122,6 +126,13 @@ private:
     // 기존 대사 흐름 안에서 컷씬을 재생한다. 시간은 실제 경과 시간 기준이다.
     void SetCutsceneEffect(const std::wstring& effectKey);
     void DrawCutsceneBackground(HDC hDC, CImage& image);
+    bool PrepareBackgroundCache(HDC dc, CImage* image, int kind);
+    void ReleaseBackgroundCache();
+    HDC backgroundCacheDC = nullptr;
+    HBITMAP backgroundCacheBitmap = nullptr;
+    HGDIOBJ backgroundCacheOldBitmap = nullptr;
+    CImage* cachedBackground = nullptr;
+    int cachedBackgroundKind = -1;
     void DrawCutsceneEffects(HDC hDC);
     bool IsCutscene() const;
     bool IsStoryAnimation() const;
@@ -159,7 +170,7 @@ private:
     void DrawImageWithAlpha(HDC hDC, Gdiplus::Image* image, int x, int y, int width, int height, int alpha);
 
     // 책/캐릭터 등장 투명도를 갱신한다.
-    void UpdateObjectFades();
+    void UpdateObjectFades(float deltaSeconds = 0.06f);
 
     // 현재 줄이 노트인지 보고 책 등장 fade 상태를 맞춘다.
     void UpdateBookFadeState();
@@ -236,11 +247,11 @@ private:
     // 다음에 바꿀 캐릭터 key
     std::wstring nextCharacterKey;
 
-    int characterAlpha = 255;
+    float characterAlpha = 255;
     int characterFadeSpeed = 25;
     bool pendingCharacterFade = false;
 
-    int bookAlpha = 0;
+    float bookAlpha = 0;
     int bookFadeSpeed = 18;
     bool isBookShowing = false;
 
@@ -249,7 +260,7 @@ private:
 
     // 검은 화면의 투명도
     // 0이면 안 보임, 255면 완전 검정
-    int fadeAlpha = 255;
+    float fadeAlpha = 255;
 
     // 페이드 속도
     int fadeSpeed = 25;

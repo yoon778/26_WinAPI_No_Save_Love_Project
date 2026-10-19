@@ -1,4 +1,5 @@
 #include "EndingScene.h"
+#include <algorithm>
 
 void EndingScene::Initialize(const std::vector<std::wstring>& credits)
 {
@@ -8,6 +9,7 @@ void EndingScene::Initialize(const std::vector<std::wstring>& credits)
 
 void EndingScene::Shutdown()
 {
+    if (!backgroundFrame.IsNull()) backgroundFrame.Destroy();
     if (!endingImage.IsNull())
     {
         endingImage.Destroy();
@@ -17,6 +19,7 @@ void EndingScene::Shutdown()
 void EndingScene::Reset()
 {
     scrollOffset = 0;
+    scrollRemainder = 0.0;
     isFastScroll = false;
     exitRequested = false;
     returnRequested = false;
@@ -27,6 +30,7 @@ void EndingScene::Reset()
 
 void EndingScene::SetEndingImage(int endingType, int heroineIndex)
 {
+    if (!backgroundFrame.IsNull()) backgroundFrame.Destroy();
     if (!endingImage.IsNull())
     {
         endingImage.Destroy();
@@ -72,12 +76,15 @@ bool EndingScene::IsExitRequested() const
     return exitRequested;
 }
 
-void EndingScene::Update()
+void EndingScene::Update(float deltaSeconds)
 {
     if (scrollOffset < stopOffset)
     {
         int currentScrollSpeed = isFastScroll ? fastScrollSpeed : scrollSpeed;
-        scrollOffset += currentScrollSpeed;
+        scrollRemainder += currentScrollSpeed * ((std::clamp)(deltaSeconds, 0.0f, 0.1f) / 0.06f);
+        const int distance = static_cast<int>(scrollRemainder + 0.000001);
+        scrollRemainder -= distance;
+        scrollOffset += distance;
 
         if (scrollOffset > stopOffset)
         {
@@ -204,6 +211,15 @@ HFONT EndingScene::CreateCreditFont(int fontSize, int fontWeight) const
 
 void EndingScene::DrawBackground(HDC hDC)
 {
+    if (!backgroundFrame.IsNull())
+    {
+        backgroundFrame.BitBlt(hDC, 0, 0);
+        return;
+    }
+    // 배경과 검은 막은 고정되어 있다. 스크롤되는 글자만 매 프레임 다시 그린다.
+    HDC outputDC = hDC;
+    const bool caching = backgroundFrame.Create(1920, 1080, 32) != FALSE;
+    if (caching) hDC = backgroundFrame.GetDC();
     RECT backgroundRect = { 0, 0, 1920, 1080 };
 
     if (!endingImage.IsNull())
@@ -233,6 +249,11 @@ void EndingScene::DrawBackground(HDC hDC)
     DeleteObject(overlayBitmap);
     DeleteDC(memoryDC);
     DeleteObject(overlayBrush);
+    if (caching)
+    {
+        backgroundFrame.ReleaseDC();
+        backgroundFrame.BitBlt(outputDC, 0, 0);
+    }
 }
 
 bool EndingScene::IsCreditFinished() const

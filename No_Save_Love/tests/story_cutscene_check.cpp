@@ -37,6 +37,7 @@ std::uint64_t Digest(CImage& frame, int top, int bottom, int left = 0, int right
 }
 
 #include "reading_check.h"
+#include "story_continuity_check.h"
 
 void CheckHeroineAnimation(StoryScene& scene, CImage& frame, HDC dc,
     const std::filesystem::path& output, bool preview)
@@ -145,8 +146,10 @@ int wmain(int argc, wchar_t** argv)
     std::filesystem::create_directories(output);
     StoryData data;
     data.Initialize();
+    CheckStoryContinuity(data);
     StoryScene scene;
     scene.Initialize();
+    CheckStoryElapsedTiming(scene);
     CImage frame;
     frame.Create(1920, 1080, 24);
     HDC dc = frame.GetDC();
@@ -308,10 +311,12 @@ int wmain(int argc, wchar_t** argv)
                 && photographed.insert(line.backgroundKey).second)
             {
                 scene.cutsceneSeconds = 2.5;
+                if (line.backgroundKey == L"arcade") scene.heroineSeconds = 2.5;
                 scene.Render(dc);
                 const auto first = Digest(frame, 40, 790);
                 const auto textPixels = Digest(frame, 850, 1010, 125, 1795);
                 scene.cutsceneSeconds = 6.0;
+                if (line.backgroundKey == L"arcade") scene.heroineSeconds = 6.0;
                 scene.Render(dc);
                 assert(first != Digest(frame, 40, 790)); // 이미지/효과가 시간에 따라 변화.
                 assert(textPixels == Digest(frame, 850, 1010, 125, 1795)); // 대사창은 효과에 흔들리지 않음.

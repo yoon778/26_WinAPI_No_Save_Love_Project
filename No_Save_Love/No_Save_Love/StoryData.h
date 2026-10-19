@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <vector>
+#include <array>
 #include "Scenes/StoryScene.h"
 
 class StoryData
@@ -14,6 +15,16 @@ public:
 
     // 선택 회차와 히로인 번호에 맞는 분기 스토리를 반환한다.
     const std::vector<DialogueLineInfo>& GetBranchStory(int roundIndex, int heroineIndex) const;
+    // 선택하지 않은 사건의 기억을 공유한 것처럼 말하지 않도록 현재 대사를 보정한다.
+    std::vector<DialogueLineInfo> GetContextualBranchStory(int roundIndex, int heroineIndex,
+        const std::array<int, 5>& completedChoices) const;
+    std::vector<DialogueLineInfo> GetContextualEndingStory(int endingType, int heroineIndex,
+        const std::array<int, 5>& completedChoices) const;
+    std::vector<DialogueLineInfo> GetContextualPerformanceStory(int heroineIndex, bool after,
+        const std::array<int, 5>& completedChoices) const;
+    std::wstring GetEventTitle(int roundIndex, int heroineIndex) const;
+    std::wstring GetEventSummary(int roundIndex, int heroineIndex) const;
+    std::wstring GetEventBackgroundKey(int roundIndex, int heroineIndex) const;
 
     //엔딩 스토리 반환
     const std::vector<DialogueLineInfo>& GetEndingStory(int endingType, int heroineIndex) const;

@@ -17,7 +17,7 @@ public:
     void OnKeyDown(WPARAM key);
     bool IsExitRequested() const;
     bool IsReturnRequested() const { return returnRequested; }
-    void Update();
+    void Update(float deltaSeconds = 0.06f);
     void Render(HDC hDC);
 
 private:
@@ -35,8 +35,10 @@ private:
     std::vector<std::wstring> creditLines;
     std::wstring m_playerName = L"윤서";
     CImage endingImage;
+    CImage backgroundFrame;
 
     int scrollOffset = 0;
+    double scrollRemainder = 0.0;
     int scrollSpeed = 2;
     int fastScrollSpeed = 32;
     int lineSpacing = 68;

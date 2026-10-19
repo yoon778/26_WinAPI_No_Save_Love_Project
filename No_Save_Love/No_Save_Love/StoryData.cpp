@@ -1,5 +1,15 @@
 ﻿#include "StoryData.h"
 
+namespace
+{
+    // 문장만 바꿔 원래 줄의 표정, 소품, BGM, 휴대폰 연출을 그대로 유지한다.
+    void ReplaceStoryText(std::vector<DialogueLineInfo>& lines, const wchar_t* original, const wchar_t* replacement)
+    {
+        for (auto& line : lines)
+            if (line.text == original) line.text = replacement;
+    }
+}
+
 void StoryData::Initialize()
 {
     // 프롤로그 — 내일 할 말
@@ -127,9 +137,9 @@ void StoryData::Initialize()
         { L"내일을 남기는 노트", L"노트가 되돌리는 것은 혼자 있는 시간이 아니라, 내일 건넬 말까지 포기한 하루입니다. 하린과 약속을 만든 뒤 시간이 흐른 것처럼, 작은 행동과 만남으로 새로운 내일을 만드세요.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"다섯 장에 남길 다섯 번의 만남", L"첫 네 미니게임 뒤에 함께할 사람을 고릅니다. 네 번째 사건 뒤에는 오락실에 갈 동행을 한 번 더 선택합니다. 총 다섯 번의 선택이 노트의 다섯 장을 채웁니다. 그날 고른 인물의 이야기가 이어집니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"같은 금요일, 서로 다른 고민", L"세아는 혼자 떠맡은 책임을, 하린은 전학 앞의 불안을, 이린은 자기 이야기를 꺼낼 용기를 마주합니다. 선택한 사람에 따라 사건과 연출이 달라집니다. 모두를 번갈아 만나도 괜찮습니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
-        { L"약속을 지킬 힘을 기르기", L"미니게임 결과는 재력·대화·매력·외모를 올립니다. 주문을 듣고, 몸을 움직이고, 사람 앞에 서는 연습이 마지막 말을 전할 준비가 됩니다. 실패해도 이야기는 계속되고, 얻은 성장은 결과 화면에서 확인합니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
+        { L"약속을 지킬 힘을 기르기", L"미니게임 결과는 재력·대화·매력·외모를 올립니다. 작은 연습들이 마지막 말을 전할 준비가 됩니다. 결과 화면에서 이유를 확인하고 다시 도전하거나 이야기를 계속하세요. 재도전하면 이번 결과를 새 결과로 바꾸며, 같은 게임의 보상은 중복되지 않습니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"노트가 닫히는 금요일", L"다섯 번째 동행과 전술 게임을 즐긴 뒤, 다섯 번 중 가장 많이 만난 사람의 응원을 받으며 개화 공연으로 향합니다. 횟수가 같으면 세아, 하린, 이린 순입니다. 여섯 미니게임에서 쌓은 능력치가 결말에 반영되며, 마지막에 상대를 다시 고르는 선택창은 없습니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
-        { L"읽어도, 잠시 멈춰도 괜찮아", L"대화 기록에서 지나간 말을 다시 읽고, 빨리 감기로 본 이야기를 빠르게 넘길 수 있습니다. ESC를 누르면 조작 안내가 열립니다. 기록은 이번 플레이 동안 유지되며, 게임 종료나 처음으로 돌아가면 지워집니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
+        { L"읽어도, 잠시 멈춰도 괜찮아", L"대화 기록으로 지난 말을 읽고, 노트에서 완성한 사건을 돌아봅니다. ESC 메뉴에는 조작 안내와 난이도·음량·글자 속도 설정이 있습니다. 빨리 감기와 스킵도 따로 쓸 수 있고, 클리어 후에는 회상과 미니게임 연습이 열립니다.", L"school_day", L"none", L"", L"", HeroineMotion::Idle, StoryPresentation::Tutorial },
         { L"{PLAYER}", L"일단 첫 주문부터. 라면도 진로 조사서처럼 빈칸으로 내면 안 되겠지.", L"school_day", L"none", L"", L"stop" },
     };
 
@@ -2246,6 +2256,170 @@ const std::vector<DialogueLineInfo>& StoryData::GetBranchStory(int roundIndex, i
 
     // 정상 범위라면 해당 회차, 해당 히로인의 스토리를 반환한다.
     return storyScripts[roundIndex][heroineIndex];
+}
+
+std::vector<DialogueLineInfo> StoryData::GetContextualBranchStory(int roundIndex, int heroineIndex,
+    const std::array<int, 5>& completedChoices) const
+{
+    auto lines = GetBranchStory(roundIndex, heroineIndex);
+    if (lines.empty()) return lines;
+    auto saw = [&](int round) { return round < roundIndex && completedChoices[round] == heroineIndex; };
+    auto replace = [&](const wchar_t* original, const wchar_t* replacement) {
+        ReplaceStoryText(lines, original, replacement);
+    };
+
+    if (heroineIndex == 0 && roundIndex == 3 && !saw(1))
+        replace(L"미안. 또 묻혔어.", L"미안. 잉크 묻혔어.");
+
+    if (heroineIndex == 1)
+    {
+        if (roundIndex == 1 && !saw(0))
+        {
+            replace(L"박수 담당님, 손바닥은 무사해?", L"노래 연습생님, 연습은 무사히 끝났어?");
+            replace(L"그래서 요즘 학교 사진을 찍었구나.", L"떠나기 전에 남겨두고 싶은 건 있어?");
+            replace(L"매점 메뉴도. 새 학교 매점과 공정하게 비교해야 하니까.", L"학교 사진이랑 매점 메뉴. 새 학교 매점과 공정하게 비교해야 하니까.");
+            replace(L"크림빵 말고 비교할 게 있나?", L"빵 말고 비교할 게 있나?");
+            replace(L"박수 담당이라서. 업무 범위를 넓히는 중이야.", L"노래만 연습하라는 법은 없잖아. 듣는 것도 연습 중이야.");
+        }
+        if (roundIndex == 2)
+        {
+            if (!saw(1))
+            {
+                replace(L"하린의 휴대폰에서 짧은 음악이 흘러나왔다. 친구가 보낸 송별 영상 시안이었다.",
+                    L"하린은 금요일까지만 등교하고 이사 간다고 말했다. 곧 휴대폰에서 친구가 보낸 송별 영상이 재생됐다.");
+                replace(L"방금 내가 또 네 표정보다 먼저 말했네.", L"방금 내가 네 표정도 안 보고 말했네.");
+            }
+            if (!saw(0))
+            {
+                replace(L"지도에 빗소리도 남길 수 있으면 좋겠다.", L"학교 사진 옆에 빗소리도 남길 수 있으면 좋겠다.");
+                replace(L"제목은 ‘비 오는 학교와 배고픈 조사원’.", L"제목은 ‘비 오는 학교와 배고픈 친구’.");
+            }
+        }
+        if (roundIndex == 3 && !saw(1) && !saw(2))
+            replace(L"해야 할 일을 끝내고 교실로 돌아오니, 하린이 사물함을 비우고 있었다.",
+                L"교실로 돌아오니 하린이 사물함을 비우고 있었다. 금요일까지만 등교하고, 토요일에 이사 간다고 했다.");
+        if (roundIndex == 4 && !saw(1) && !saw(2) && !saw(3))
+        {
+            replace(L"이사 가기 전에 저기 우리 이름 남겨 보자.", L"금요일이 마지막 등교고 토요일에 이사 가. 그 전에 저기 우리 이름 남겨 보자.");
+            replace(L"처음 해보는 게임인데 최고 기록부터?", L"이사 전에 같이 남길 기록이네. 처음 해보는 게임인데 최고 기록부터?");
+        }
+    }
+
+    if (heroineIndex == 2)
+    {
+        if (roundIndex == 2 && !saw(1))
+        {
+            replace(L"오늘도 기록 중이야?", L"무슨 기록을 비교하고 있어?");
+            replace(L"하나는 오늘 해야 할 일, 다른 하나는 지난번에 적은 관찰 기록이었다.",
+                L"하나는 오늘 해야 할 일, 다른 하나는 이린이 혼자 적어둔 문집의 관찰 기록이었다.");
+            replace(L"검은 노트 사이에 끼워뒀던 쪽지는 하얬다. 일반 공책에 베낀 문장은 그대로였다.",
+                L"이린은 문집에서 글씨가 흐려진 쪽지와, 평범한 공책에 옮겨둔 문장을 펼쳤다.");
+            replace(L"네. 안에 둔 쪽만 사라졌어요.", L"네. 문집에 남긴 글씨만 달라졌어요. 왜인지는 아직 몰라요.");
+            replace(L"네가 겪은 일이랑 관계있는 거지?", L"내 노트도 이런 일을 일으킬까?");
+        }
+        if (roundIndex == 3)
+        {
+            if (!saw(1))
+                replace(L"순서표에는 빈칸이 많았다. 맨 아래에는 연필로 ‘쉼표’가 적혀 있었다.",
+                    L"순서표 맨 아래에는 ‘쉼표’가 적혀 있었다. 이린은 작년에 낸 글의 필명이라며, 그때 못 읽은 글을 오늘 읽겠다고 했다.");
+            if (!saw(0))
+                replace(L"또 기록적인 속도로 돌려준 사람이라고 적게?", L"책갈피를 빌려 간 사람이라고 적게?");
+            if (!saw(2))
+            {
+                replace(L"책갈피는 아직 여기 있어. 바깥에 둔 기록도 남아 있고.", L"네가 처음 줬던 책갈피, 아직 가지고 있어. 이번 약속도 밖에 적어두자.");
+                replace(L"이린은 약속 종이와 지워진 책갈피를 서로 다른 봉투에 넣었다.",
+                    L"이린은 약속 종이와 처음 빌려준 책갈피를 서로 다른 봉투에 넣었다.");
+                replace(L"과거를 확인하는 것과 다음에 만나는 것이 처음으로 다른 일이 되었다.",
+                    L"빌린 것을 돌려주는 일 말고도, 다음에 도서관에 올 이유가 생겼다.");
+                replace(L"새 책갈피도 만들까요? 그건 더 닳으면 쓰기 어렵겠어요.",
+                    L"새 책갈피도 만들까요? 이번에는 서로 그림을 그려주는 거예요.");
+            }
+        }
+    }
+    return lines;
+}
+
+std::vector<DialogueLineInfo> StoryData::GetContextualEndingStory(int endingType, int heroineIndex,
+    const std::array<int, 5>& completedChoices) const
+{
+    auto lines = GetEndingStory(endingType, heroineIndex);
+    if (lines.empty()) return lines;
+    auto saw = [&](int round) { return completedChoices[round] == heroineIndex; };
+    if (endingType == 0 && heroineIndex == 2)
+    {
+        if (!saw(0) && !saw(2))
+            ReplaceStoryText(lines, L"내가 기억하는 것들을 천천히 말했다. 따뜻한 우유, 접지 않는 모서리, 조용한 농담.",
+                L"처음 책갈피를 건네던 날을 떠올렸다. 모서리를 접지 말라던 말과, 내 이름을 부르던 목소리를 이린에게 들려주었다.");
+        if (!saw(3))
+        {
+            ReplaceStoryText(lines, L"응. 나는 약속을 보고 올게.", L"좋아. 날짜랑 번호도 지금 같이 적자. 나는 그 약속을 보고 올게.");
+            ReplaceStoryText(lines, L"손가락을 걸었다. 이린은 종이보다 내 손을 오래 바라봤다.",
+                L"날짜와 번호를 적은 종이를 한 장씩 나누고 손가락을 걸었다. 이린은 종이보다 내 손을 오래 바라봤다.");
+        }
+    }
+    if (endingType == 1 && heroineIndex == 1)
+    {
+        if (!saw(0)) ReplaceStoryText(lines, L"크림빵…… 좋아했지.", L"빵 하나를 평가할 때도 그렇게 할 말이 많았는데.");
+        if (!saw(2)) ReplaceStoryText(lines, L"웃지 않는 하린 곁에 머물 수 있다는 걸 알면서도, 이별 앞에서는 익숙한 위로 뒤로 숨었다.",
+            L"하린이 무섭다고 말할 틈도 주지 않고, 나는 익숙한 위로 뒤로 숨었다.");
+    }
+    return lines;
+}
+
+std::vector<DialogueLineInfo> StoryData::GetContextualPerformanceStory(int heroineIndex, bool after,
+    const std::array<int, 5>& completedChoices) const
+{
+    auto lines = GetPerformanceStory(heroineIndex, after);
+    if (heroineIndex == 1 && !after && completedChoices[1] != 1 && completedChoices[2] != 1
+        && completedChoices[3] != 1 && completedChoices[4] != 1)
+        ReplaceStoryText(lines, L"하린은 송별 인사의 주인공 대신, 자기가 고른 관객 자리에 앉았다.",
+            L"하린은 오늘이 전학 전 마지막 등교라고 알려주었다. 그래도 지금은 내 노래를 듣는 관객으로 있고 싶다며 자리를 골랐다.");
+    return lines;
+}
+
+std::wstring StoryData::GetEventTitle(int roundIndex, int heroineIndex) const
+{
+    if (roundIndex < 0 || roundIndex >= STORY_ROUND_COUNT || heroineIndex < 0 || heroineIndex >= HEROINE_COUNT) return L"";
+    static const wchar_t* titles[STORY_ROUND_COUNT][HEROINE_COUNT] = {
+        {L"빈칸의 쓸모", L"아무거나 말고", L"끝보다 앞의 이야기"},
+        {L"함께 확인할 것", L"웃음 사이의 소식", L"쉼표 다음 문장"},
+        {L"소나기를 나누는 법", L"우산 안의 진심", L"지워진 글의 빈칸"},
+        {L"완벽하지 않아도", L"남겨둘 길과 인사", L"토요일 열한 시"},
+        {L"맡겨 둔 한 줄", L"다음 판 예약", L"먼저 고른 장소"}
+    };
+    return titles[roundIndex][heroineIndex];
+}
+
+std::wstring StoryData::GetEventSummary(int roundIndex, int heroineIndex) const
+{
+    if (roundIndex < 0 || roundIndex >= STORY_ROUND_COUNT || heroineIndex < 0 || heroineIndex >= HEROINE_COUNT) return L"";
+    static const wchar_t* summaries[STORY_ROUND_COUNT][HEROINE_COUNT] = {
+        {L"사라진 봉투를 찾고 문집을 둘 자리를 함께 쟀다. 세아의 목록에 다른 의견을 묻는 일이 추가됐다.",
+         L"하린과 학교 지도를 만들고 잃어버린 열쇠를 찾았다. 익숙한 곳에도 함께 남길 표시는 많았다.",
+         L"이린과 잘못 꽂힌 책을 찾고 원고 반환 안내를 붙였다. 끝을 재촉하지 않고 옆에 앉는 법을 배웠다."},
+        {L"소문과 부족한 예산을 함께 확인했다. 세아는 혼자 부담하는 대신 도움을 구하기 시작했다.",
+         L"하린의 전학 소식을 들었다. 웃기게 대답하는 것보다 끝까지 들어주는 시간이 필요했다.",
+         L"이린이 자기 글의 첫 문장을 읽어줬다. 확인한 사실과 아직 모르는 것을 나누어 기록했다."},
+        {L"비에 젖은 자료를 옮기고 세아의 오래된 실수를 들었다. 혼자 책임지지 않아도 된다는 말을 나눴다.",
+         L"하린은 원하지 않는 송별 영상을 직접 거절했다. 비가 그친 뒤에도 우산 하나 아래 천천히 걸었다.",
+         L"책갈피의 글씨가 노트 곁에서 흐려졌다. 모르는 부분을 억지로 채우지 않고 서로 곁에 머물렀다."},
+        {L"세아와 발표를 연습하고 도움을 나눠 맡을 칸을 만들었다. 업무가 아닌 다음 이야기도 약속했다.",
+         L"하린의 인사 녹음을 듣고 학교 지도를 게시판에 남겼다. 떠난 뒤에도 서로의 소식을 묻기로 했다.",
+         L"이린의 낭독을 듣고 토요일 만남을 종이에 남겼다. 서로 그린 책갈피와 작은 손가락 약속을 나눴다."},
+        {L"세아와 오락실에서 역할을 나눴다. 결과 화면 옆에 두 사람의 손도 사진으로 남겼다.",
+         L"하린과 같은 팀으로 게임을 즐겼다. 송별 기록 대신 다음 판을 예약하는 사진을 남겼다.",
+         L"이린이 고른 오락실에서 숨겨둔 승부욕을 만났다. 다음에 다시 올 장소와 이름을 함께 적었다."}
+    };
+    return summaries[roundIndex][heroineIndex];
+}
+
+std::wstring StoryData::GetEventBackgroundKey(int roundIndex, int heroineIndex) const
+{
+    if (roundIndex < 0 || roundIndex >= STORY_ROUND_COUNT || heroineIndex < 0 || heroineIndex >= HEROINE_COUNT) return L"";
+    if (roundIndex == 4) return L"arcade";
+    if (roundIndex == 2) return L"cut_rain";
+    static const wchar_t* backgrounds[] = {L"hansea_room", L"yuharin_classroom", L"library_day"};
+    return backgrounds[heroineIndex];
 }
 
 const std::vector<DialogueLineInfo>& StoryData::GetIntroStory() const
