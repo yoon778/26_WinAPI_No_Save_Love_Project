@@ -18,7 +18,94 @@
 #undef private
 #include "../No_Save_Love/GameManager.cpp"
 #include "../No_Save_Love/GameManagerMenus.cpp"
+
+struct PaintOperation { bool clear; RECT bounds; HDC source; };
+std::vector<PaintOperation> paintOperations;
+bool recordPaint = false;
+HDC paintOutput = nullptr;
+
+HDC WINAPI RecordedBeginPaint(HWND window, LPPAINTSTRUCT paint)
+{
+    HDC dc = BeginPaint(window, paint);
+    if (recordPaint) paintOutput = dc;
+    return dc;
+}
+int WINAPI RecordedFillRect(HDC dc, const RECT* rect, HBRUSH brush)
+{
+    if (recordPaint && dc == paintOutput) paintOperations.push_back({true, *rect, nullptr});
+    return FillRect(dc, rect, brush);
+}
+BOOL WINAPI RecordedBitBlt(HDC dc, int x, int y, int width, int height,
+    HDC source, int sourceX, int sourceY, DWORD operation)
+{
+    if (recordPaint && dc == paintOutput) paintOperations.push_back({false, {x, y, x + width, y + height}, source});
+    return BitBlt(dc, x, y, width, height, source, sourceX, sourceY, operation);
+}
+BOOL WINAPI RecordedStretchBlt(HDC dc, int x, int y, int width, int height,
+    HDC source, int sourceX, int sourceY, int sourceWidth, int sourceHeight, DWORD operation)
+{
+    if (recordPaint && dc == paintOutput) paintOperations.push_back({false, {x, y, x + width, y + height}, source});
+    return StretchBlt(dc, x, y, width, height, source, sourceX, sourceY, sourceWidth, sourceHeight, operation);
+}
+#define BeginPaint RecordedBeginPaint
+#define FillRect RecordedFillRect
+#define BitBlt RecordedBitBlt
+#define StretchBlt RecordedStretchBlt
 #include "../No_Save_Love/main.cpp"
+#undef BeginPaint
+#undef FillRect
+#undef BitBlt
+#undef StretchBlt
+
+bool IsFlickerFreePaint(const std::vector<PaintOperation>& operations, RECT client, RECT viewport)
+{
+    // Check the intermediate GDI calls, not just the final (already repaired) pixels.
+    int copies = 0;
+    HRGN margins = CreateRectRgnIndirect(&client);
+    HRGN view = CreateRectRgnIndirect(&viewport);
+    CombineRgn(margins, margins, view, RGN_DIFF);
+    DeleteObject(view);
+    bool valid = true;
+    for (const auto& operation : operations)
+    {
+        if (operation.clear)
+        {
+            RECT overlap{};
+            if (IntersectRect(&overlap, &operation.bounds, &viewport)) valid = false;
+            HRGN cleared = CreateRectRgnIndirect(&operation.bounds);
+            CombineRgn(margins, margins, cleared, RGN_DIFF);
+            DeleteObject(cleared);
+        }
+        else
+        {
+            ++copies;
+            if (!EqualRect(&operation.bounds, &viewport) || operation.source != g_backBufferDC) valid = false;
+        }
+    }
+    RECT remaining{};
+    valid = valid && copies == 1 && GetRgnBox(margins, &remaining) == NULLREGION;
+    DeleteObject(margins);
+    return valid;
+}
+
+void CheckPaintSequence(HWND window, const char* mode)
+{
+    RECT client{};
+    GetClientRect(window, &client);
+    const RECT viewport = DisplayGeometry::Fit(client.right, client.bottom);
+    paintOperations.clear();
+    paintOutput = nullptr;
+    recordPaint = true;
+    InvalidateRect(window, nullptr, FALSE);
+    SendMessageW(window, WM_PAINT, 0, 0);
+    recordPaint = false;
+    assert(paintOutput && IsFlickerFreePaint(paintOperations, client, viewport));
+    // The old full-client black clear must fail even though the final blit is identical.
+    auto oldSequence = paintOperations;
+    oldSequence.insert(oldSequence.begin(), {true, client, nullptr});
+    assert(!IsFlickerFreePaint(oldSequence, client, viewport));
+    std::cout << "PASS WM_PAINT " << mode << ": one complete frame, only letterbox clears; old full-client clear rejected\n";
+}
 
 // Real production WndProc, sent only to this test's hidden window.
 POINT ClientPoint(HWND window, int logicalX, int logicalY)
@@ -84,6 +171,7 @@ int wmain(int argc, wchar_t** argv)
     KillTimer(window, 1);
     CompleteFade(window);
     assert(g_gameManager.now_game_mode == GameManager::game_mode_info::Title);
+    CheckPaintSequence(window, "5:4 letterbox");
 
     CheckSettings(window);
     RECT client{};
@@ -116,6 +204,7 @@ int wmain(int argc, wchar_t** argv)
     assert(!GameOptions::fullscreen);
     assert((GetWindowLongPtrW(window, GWL_STYLE) & WS_CAPTION) == WS_CAPTION);
     assert(GetPrivateProfileIntW(L"settings", L"fullscreen", -1, profile.c_str()) == 0);
+    CheckPaintSequence(window, "windowed");
     CheckSettings(window);
     SendMessageW(window, WM_KEYDOWN, VK_F11, 0);
     assert(GameOptions::fullscreen);
@@ -125,6 +214,7 @@ int wmain(int argc, wchar_t** argv)
     RECT windowBounds{};
     GetWindowRect(window, &windowBounds);
     assert(EqualRect(&windowBounds, &monitor.rcMonitor));
+    CheckPaintSequence(window, "fullscreen");
     SendMessageW(window, WM_KEYDOWN, VK_F11, 0);
     assert(!GameOptions::fullscreen && !IsWindowVisible(window));
     std::cout << "PASS WndProc: F11 switches window styles, fits the monitor and persists settings without showing the window\n";
@@ -134,10 +224,11 @@ int wmain(int argc, wchar_t** argv)
     GetWindowRect(window, &windowBounds);
     assert(EqualRect(&windowBounds, &suggested));
     CheckSettings(window);
+    SetWindowPos(window, nullptr, -1100, 80, 1400, 600, SWP_NOZORDER | SWP_NOACTIVATE);
+    CheckPaintSequence(window, "wide letterbox");
     SetWindowPos(window, nullptr, -1100, 80, 800, 1000, SWP_NOZORDER | SWP_NOACTIVATE);
     CheckSettings(window);
-    InvalidateRect(window, nullptr, FALSE);
-    SendMessageW(window, WM_PAINT, 0, 0);
+    CheckPaintSequence(window, "portrait letterbox");
     assert(g_backBufferDC && g_backBufferWidth == 1920 && g_backBufferHeight == 1080);
     std::cout << "PASS WndProc: DPI suggested rectangle and portrait resize keep click targets aligned; paint keeps a 1920x1080 logical buffer\n";
 

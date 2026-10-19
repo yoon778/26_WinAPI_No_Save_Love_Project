@@ -273,16 +273,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
-        // 배경 흰색으로 지우기
+        // 화면에 표시하기 전 백버퍼에서만 배경을 지운다.
         RECT logicalRect = { 0, 0, DisplayGeometry::Width, DisplayGeometry::Height };
         FillRect(g_backBufferDC, &logicalRect, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
-        // 백버퍼로 그리기 하기!!!
+        // 완성된 프레임을 백버퍼에 그린다.
         g_gameManager.Render(g_backBufferDC);
 
 
         const RECT viewport = DisplayGeometry::Fit(bufferWidth, bufferHeight);
-        FillRect(hDC, &rt, (HBRUSH)GetStockObject(BLACK_BRUSH));
+        // 게임 영역을 먼저 지우면 프레임 사이에 검은 화면이 보인다.
+        // 화면 비율 때문에 생긴 여백만 지우고 게임 영역은 한 번에 복사한다.
+        const RECT margins[] = {
+            { rt.left, rt.top, rt.right, viewport.top },
+            { rt.left, viewport.bottom, rt.right, rt.bottom },
+            { rt.left, viewport.top, viewport.left, viewport.bottom },
+            { viewport.right, viewport.top, rt.right, viewport.bottom }
+        };
+        for (const RECT& margin : margins)
+            if (!IsRectEmpty(&margin))
+                FillRect(hDC, &margin, (HBRUSH)GetStockObject(BLACK_BRUSH));
         if (viewport.right > viewport.left && viewport.bottom > viewport.top)
         {
             const int width = viewport.right - viewport.left;
